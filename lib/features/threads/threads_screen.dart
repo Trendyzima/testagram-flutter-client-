@@ -130,7 +130,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
       Expanded(child: RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: _loading && _items.isEmpty
-        ? const Center(child: CircularProgressIndicator())
+        ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
         : _error != null && _items.isEmpty
           ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: _load, child: const Text('Retry')))])
           : _items.isEmpty
