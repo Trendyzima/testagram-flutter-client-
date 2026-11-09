@@ -22,6 +22,8 @@ jobs:
           cache: true
       - name: Generate missing platform scaffolding
         run: flutter create --org com.xclone --project-name app --platforms=android,ios,web .
+      - name: Enforce backend-only dependency boundary
+        run: dart run tool/check_dependency_boundary.dart
       - name: Resolve dependencies
         run: flutter pub get
       - name: Analyze
