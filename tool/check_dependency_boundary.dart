@@ -18,7 +18,9 @@ void main() {
     if (!root.existsSync()) continue;
     for (final entity in root.listSync(recursive: true, followLinks: false)) {
       if (entity is! File) continue;
-      final extension = entity.path.substring(entity.path.lastIndexOf('.')).toLowerCase();
+      final dot = entity.path.lastIndexOf('.');
+      if (dot < 0) continue;
+      final extension = entity.path.substring(dot).toLowerCase();
       if (!sourceExtensions.contains(extension)) continue;
       try {
         final source = entity.readAsStringSync();
