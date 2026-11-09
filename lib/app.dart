@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'core/app_config.dart';
 import 'core/backend_api.dart';
 import 'features/auth/auth_screen.dart';
-import 'features/feed/feed_screen.dart';
+import 'app/main_shell.dart';
 
 class TestagramApp extends StatelessWidget {
   const TestagramApp({super.key, this.account});
@@ -106,7 +106,7 @@ class _AuthGateState extends State<AuthGate> {
     if (!_signedIn) {
       return AuthScreen(account: widget.account, onSignedIn: _onSignedIn);
     }
-    return FeedScreen(api: _api!, onSignOut: _signOut);
+    return MainShell(api: _api!, onSignOut: _signOut);
   }
 }
 
