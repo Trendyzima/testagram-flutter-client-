@@ -55,7 +55,7 @@ class _FeedScreenState extends State<FeedScreen> {
           autofocus: true,
           minLines: 3,
           maxLines: 7,
-          maxLength: 5000,
+          maxLength: 500,
           decoration: const InputDecoration(hintText: 'What is happening?'),
         ),
         actions: [
@@ -70,7 +70,6 @@ class _FeedScreenState extends State<FeedScreen> {
     try {
       await widget.api.createPost(
         content: content,
-        
       );
       await _load();
     } catch (error) {
