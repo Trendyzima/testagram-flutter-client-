@@ -53,8 +53,9 @@ class BackendApi {
           statusCode: response.statusCode);
     }
     if (response.statusCode < 200 || response.statusCode >= 300) {
+      final error = decoded is Map ? decoded['error'] : null;
       final message = decoded is Map
-          ? (decoded['message'] ?? decoded['error'])?.toString()
+          ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
           : null;
       throw BackendApiException(
         message?.isNotEmpty == true ? message! : 'Request failed. Please try again.',
