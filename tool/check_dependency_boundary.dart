@@ -22,13 +22,12 @@ void main() {
     }
   }
 
-  final pubspec = File('pubspec.yaml');
-  if (pubspec.existsSync()) {
-    final source = pubspec.readAsStringSync();
+  for (final path in ['pubspec.yaml', 'pubspec.lock']) {
+    final file = File(path);
+    if (!file.existsSync()) continue;
+    final source = file.readAsStringSync();
     for (final entry in forbidden.entries) {
-      if (entry.value.hasMatch(source)) {
-        failures.add('pubspec.yaml: found forbidden ${entry.key}');
-      }
+      if (entry.value.hasMatch(source)) failures.add(path + ': found forbidden ' + entry.key);
     }
   }
 
