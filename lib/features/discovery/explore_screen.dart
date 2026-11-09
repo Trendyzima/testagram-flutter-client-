@@ -13,6 +13,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final _query = TextEditingController();
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _people = [];
+  final Map<String, bool> _following = {};
+  final Set<String> _busyFollow = {};
   bool _loading = false;
   String? _error;
 
@@ -35,15 +37,48 @@ class _ExploreScreenState extends State<ExploreScreen> {
       final data = raw is Map ? raw : response;
       final postRows = data['posts'];
       final userRows = data['users'];
+      final people = userRows is List ? userRows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
+      final followStates = await Future.wait(people.map((person) async {
+        final id = (person['id'] ?? person['user_id'] ?? '').toString();
+        if (id.isEmpty) return <String, dynamic>{};
+        try {
+          final state = await widget.api.getFollowState(id);
+          final data = state['data'];
+          return {'id': id, 'following': data is Map && data['following'] == true};
+        } catch (_) { return {'id': id, 'following': false}; }
+      }));
       if (!mounted) return;
       setState(() {
+        _following.clear();
+        for (final state in followStates) {
+          if (state['id'] != null) _following[state['id'] as String] = state['following'] == true;
+        }
         _posts = postRows is List ? postRows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
-        _people = userRows is List ? userRows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
+        _people = people;
       });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _toggleFollow(String id) async {
+    if (id.isEmpty || _busyFollow.contains(id)) return;
+    setState(() => _busyFollow.add(id));
+    try {
+      if (_following[id] == true) {
+        await widget.api.unfollowUser(id);
+      } else {
+        await widget.api.followUser(id);
+      }
+      final response = await widget.api.getFollowState(id);
+      final data = response['data'];
+      if (mounted) setState(() => _following[id] = data is Map && data['following'] == true);
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _busyFollow.remove(id));
     }
   }
 
@@ -76,6 +111,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
                 title: Text((person['display_name'] ?? person['username'] ?? 'Testagram user').toString()),
                 subtitle: Text('@' + (person['username'] ?? '').toString()),
+                trailing: (person['id'] ?? person['user_id']) == null
+                    ? null
+                    : OutlinedButton(
+                        onPressed: _busyFollow.contains((person['id'] ?? person['user_id']).toString())
+                            ? null
+                            : () => _toggleFollow((person['id'] ?? person['user_id']).toString()),
+                        child: Text(_following[(person['id'] ?? person['user_id']).toString()] == true ? 'Following' : 'Follow'),
+                      ),
               ),
           ],
           if (_posts.isNotEmpty) ...[
