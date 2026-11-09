@@ -54,6 +54,13 @@ class BackendApi {
       _request('POST', baseUri.resolve('/api/social/posts/$postId/replies'),
           body: {'content': content});
 
+  Future<Map<String, dynamic>> search({required String query, String kind = 'all', int limit = 20}) =>
+      _request('GET', baseUri.resolve('/api/search').replace(queryParameters: {
+        'q': query,
+        'kind': kind,
+        'limit': '$limit',
+      }));
+
   Future<Map<String, dynamic>> listNotifications({int limit = 30}) =>
       _request('GET', baseUri.resolve('/api/social/notifications')
           .replace(queryParameters: {'limit': '$limit'}));
