@@ -38,7 +38,7 @@ Use your actual Appwrite endpoint and project ID. For local development, use an 
 
 ## Current implementation status
 
-The initial native foundation includes Appwrite email/password session login, Backend JWT transport, authenticated home-feed retrieval, post creation with an idempotency key, loading/error/empty states, and a dark-green Testagram visual foundation.
+The initial native foundation includes Appwrite email/password session login, Backend JWT transport, authenticated home-feed retrieval, post creation , loading/error/empty states, and a dark-green Testagram visual foundation.
 
 This is an initial working slice, **not full XClone feature parity or a production release**. Remaining work includes the complete native route/feature inventory, media upload lifecycle, social interactions, profile and graph flows, notifications, messaging, stories, video/live/TV, creator tools, commerce/wallet, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests. Each feature must be implemented against a verified Backend contract before being marked complete.
 
