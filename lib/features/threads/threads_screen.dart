@@ -10,8 +10,11 @@ class ThreadsScreen extends StatefulWidget {
 }
 
 class _ThreadsScreenState extends State<ThreadsScreen> {
+  final _scroll = ScrollController();
   List<Map<String, dynamic>> _items = [];
-  bool _loading = true, _sending = false;
+  bool _loading = false, _sending = false, _hasMore = true;
+  String? _cursor;
+  String _tab = 'for-you';
   String? _error;
 
   Map<String, dynamic> _data(Map<String, dynamic> payload) {
@@ -22,17 +25,37 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   @override
   void initState() {
     super.initState();
-    _load();
+    _scroll.addListener(_onScroll);
+    _load(reset: true);
   }
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onScroll() {
+    if (_scroll.hasClients && !_loading && _hasMore && _scroll.position.extentAfter < 500) _load();
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading || (!reset && !_hasMore)) return;
+    setState(() {
+      _loading = true; _error = null;
+      if (reset) { _cursor = null; _hasMore = true; }
+    });
     try {
-      final data = _data(await widget.api.getThreads(limit: 20));
+      final data = _data(await widget.api.getThreads(limit: 20, cursor: reset ? null : _cursor, tab: _tab));
       final raw = data['items'];
-      if (mounted) setState(() => _items = raw is List
-          ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
-          : []);
+      final rows = raw is List ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
+      if (mounted) setState(() {
+        if (reset) _items.clear();
+        final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
+        _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
+        _cursor = (data['next_cursor'] ?? '').toString();
+        _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -65,7 +88,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
     setState(() => _sending = true);
     try {
       await widget.api.createThread(body);
-      await _load();
+      await _load(reset: true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
@@ -78,7 +101,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
       if (kind == 'like') await widget.api.toggleThreadLike(id);
       if (kind == 'repost') await widget.api.toggleThreadRepost(id);
       if (kind == 'bookmark') await widget.api.toggleThreadBookmark(id);
-      await _load();
+      await _load(reset: true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     }
@@ -87,12 +110,25 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(title: const Text('Threads'), actions: [
-      IconButton(onPressed: _load, icon: const Icon(Icons.refresh)),
+      IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh)),
       IconButton(onPressed: _sending ? null : _compose, icon: const Icon(Icons.edit)),
     ]),
     floatingActionButton: FloatingActionButton(onPressed: _sending ? null : _compose, child: const Icon(Icons.add)),
-    body: RefreshIndicator(
-      onRefresh: _load,
+    body: Column(children: [
+      Padding(
+        padding: const EdgeInsets.all(12),
+        child: SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'for-you', label: Text('For you')),
+            ButtonSegment(value: 'following', label: Text('Following')),
+            ButtonSegment(value: 'saved', label: Text('Saved')),
+          ],
+          selected: {_tab},
+          onSelectionChanged: (value) { setState(() => _tab = value.first); _load(reset: true); },
+        ),
+      ),
+      Expanded(child: RefreshIndicator(
+      onRefresh: () => _load(reset: true),
       child: _loading && _items.isEmpty
         ? const Center(child: CircularProgressIndicator())
         : _error != null && _items.isEmpty
@@ -100,9 +136,15 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
           : _items.isEmpty
             ? ListView(children: const [SizedBox(height: 120), Center(child: Text('No public threads yet. Start one.'))])
             : ListView.separated(
-                itemCount: _items.length,
+                controller: _scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: _items.length + (_loading || _hasMore ? 1 : 0),
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
+                  if (index == _items.length) return Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Center(child: _loading ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: const Text('Load more'))),
+                  );
                   final item = _items[index];
                   final profile = item['profiles'];
                   final name = profile is Map ? (profile['display_name'] ?? profile['username'] ?? 'Testagram user').toString() : 'Testagram user';
@@ -128,6 +170,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                   );
                 },
               ),
-    ),
+    )),
+    ]),
   );
 }
