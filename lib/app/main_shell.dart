@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/backend_api.dart';
+import '../core/testagram_background.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/notifications/notifications_screen.dart';
@@ -26,7 +27,7 @@ class _MainShellState extends State<MainShell> {
       ThreadsScreen(api: widget.api),
     ];
     return Scaffold(
-      body: IndexedStack(index: _index, children: pages),
+      body: TestagramBackground(child: IndexedStack(index: _index, children: pages)),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _index,
         onDestinationSelected: (value) => setState(() => _index = value),
