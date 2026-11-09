@@ -88,6 +88,9 @@ class BackendApi {
   Future<Map<String, dynamic>> markNotificationRead(String notificationId) =>
       _request('POST', baseUri.resolve('/api/social/notifications/$notificationId/read'));
 
+  Future<Map<String, dynamic>> getFollowState(String targetUserId) =>
+      _request('GET', baseUri.resolve('/api/social/follows/$targetUserId'));
+
   Future<Map<String, dynamic>> followUser(String targetUserId) =>
       _request('POST', baseUri.resolve('/api/social/follows'),
           body: {'target_user_id': targetUserId});
