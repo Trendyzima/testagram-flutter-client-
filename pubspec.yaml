@@ -1,0 +1,22 @@
+name: testagram
+description: Native Flutter client for Testagram.
+publish_to: none
+version: 1.0.0+1
+environment:
+  sdk: '>=3.5.0 <4.0.0'
+dependencies:
+  flutter:
+    sdk: flutter
+  appwrite: ^13.0.0
+  http: ^1.2.2
+  cached_network_image: ^3.4.1
+  flutter_secure_storage: ^9.2.4
+  image_picker: ^1.1.2
+  share_plus: ^10.1.4
+  url_launcher: ^6.3.1
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+flutter:
+  uses-material-design: true
