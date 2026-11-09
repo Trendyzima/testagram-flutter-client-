@@ -4,6 +4,7 @@ import '../core/backend_api.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/threads/threads_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.api, required this.onSignOut});
@@ -22,6 +23,7 @@ class _MainShellState extends State<MainShell> {
       FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
       ExploreScreen(api: widget.api),
       NotificationsScreen(api: widget.api),
+      ThreadsScreen(api: widget.api),
     ];
     return Scaffold(
       body: IndexedStack(index: _index, children: pages),
@@ -32,6 +34,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home), label: 'Home'),
           NavigationDestination(icon: Icon(Icons.search), label: 'Explore'),
           NavigationDestination(icon: Icon(Icons.notifications_outlined), label: 'Alerts'),
+        NavigationDestination(icon: Icon(Icons.forum_outlined), label: 'Threads'),
         ],
       ),
     );
