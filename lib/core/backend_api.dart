@@ -11,9 +11,10 @@ class BackendApi {
   final http.Client _client;
 
   Future<Map<String, dynamic>> getHomeFeed({int limit = 20, String? cursor}) async {
-    final uri = baseUri.resolve('/v1/feed/home').replace(queryParameters: {
+    final uri = baseUri.resolve('/api/threads').replace(queryParameters: {
+      'tab': 'for-you',
       'limit': '$limit',
-      if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
     });
     final response = await _client
         .get(uri, headers: await _headers())
@@ -24,17 +25,15 @@ class BackendApi {
   Future<Map<String, dynamic>> createPost({
     required String content,
     String visibility = 'public',
-    required String idempotencyKey,
   }) async {
     final response = await _client
         .post(
-          baseUri.resolve('/v1/posts'),
+          baseUri.resolve('/api/threads'),
           headers: {
             ...await _headers(),
             'Content-Type': 'application/json',
-            'Idempotency-Key': idempotencyKey,
           },
-          body: jsonEncode({'content': content, 'visibility': visibility}),
+          body: jsonEncode({'body': content, 'visibility': visibility}),
         )
         .timeout(const Duration(seconds: 20));
     return _decodeObject(response);
