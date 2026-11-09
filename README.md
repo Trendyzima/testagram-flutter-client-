@@ -25,6 +25,7 @@ The canonical native Flutter application for Testagram. This repository is inten
 Install the stable Flutter SDK, then provide environment-specific public endpoints at build/run time:
 
 ```sh
+flutter create --org com.xclone --project-name app --platforms=android,ios,web .
 flutter pub get
 flutter analyze
 flutter test
@@ -37,6 +38,8 @@ flutter run \
 Use your actual Appwrite endpoint and project ID. For local development, use an HTTPS development endpoint or localhost HTTP. Do not commit credentials, signing keys, tokens, or environment-specific production configuration.
 
 ## Current implementation status
+
+The Android application ID is generated as `com.xclone.app` to preserve the existing XClone installation identity for a carefully staged upgrade. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
 
 The initial native foundation includes Appwrite email/password session login, Backend JWT transport, authenticated home-feed retrieval, post creation , loading/error/empty states, and a dark-green Testagram visual foundation.
 
