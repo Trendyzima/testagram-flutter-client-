@@ -104,6 +104,41 @@ void main() {
       api.close();
     });
 
+    test('paginates notifications using the Backend cursor', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'items': [], 'next_cursor': ''}}), 200);
+        }),
+      );
+      await api.listNotifications(limit: 30, cursor: 'opaque-cursor');
+      expect(captured.url.path, '/api/social/notifications');
+      expect(captured.url.queryParameters['limit'], '30');
+      expect(captured.url.queryParameters['cursor'], 'opaque-cursor');
+      api.close();
+    });
+
+    test('loads saved threads using the canonical thread tab and cursor', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'items': [], 'next_cursor': '', 'has_more': false}}), 200);
+        }),
+      );
+      await api.getThreads(tab: 'saved', limit: 20, cursor: 'thread-cursor');
+      expect(captured.url.path, '/api/threads');
+      expect(captured.url.queryParameters['tab'], 'saved');
+      expect(captured.url.queryParameters['cursor'], 'thread-cursor');
+      expect(captured.headers['authorization'], 'Bearer jwt');
+      api.close();
+    });
+
     test('surfaces structured Backend errors', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
