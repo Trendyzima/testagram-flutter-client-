@@ -43,7 +43,7 @@ The Android application ID is generated as `com.xclone.app` to preserve the exis
 
 The initial native foundation includes Appwrite email/password session login, Backend JWT transport, authenticated home-feed retrieval, post creation , loading/error/empty states, and a dark-green Testagram visual foundation.
 
-This is an initial working slice, **not full XClone feature parity or a production release**. Remaining work includes the complete native route/feature inventory, media upload lifecycle, social interactions, profile and graph flows, notifications, messaging, stories, video/live/TV, creator tools, commerce/wallet, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests. Each feature must be implemented against a verified Backend contract before being marked complete.
+This is an expanding migration slice, **not full XClone feature parity or a production release**. The Backend currently exposes no first-class `POST /api/posts` route for the legacy posts feed, so the main feed composer is intentionally disabled rather than writing to the separate threads table and falsely presenting that as a post. Remaining work includes the first-class posts create/media lifecycle, profiles and complete graph flows, messaging/E2EE/calls, stories, video/live/TV, creator tools, commerce/wallet/M-Pesa, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests. Each feature must be implemented against a verified Backend contract before being marked complete.
 
 ## Migration acceptance gates
 
@@ -55,3 +55,27 @@ This is an initial working slice, **not full XClone feature parity or a producti
 6. `flutter analyze`, `flutter test`, Android debug/release builds and real-device smoke tests pass.
 7. Existing XClone data, deep links, app identity/signing and user sessions are migrated safely before retiring the old client.
 8. XClone is not deleted or archived until the native client reaches verified feature parity and production cutover is approved.
+
+
+## Current native migration tranche
+
+The client now talks to verified first-class Backend routes:
+
+- `GET /api/feed/home` — authorized home timeline, Following filter and opaque cursor pagination.
+- `GET /api/social/posts/{id}/interaction-summary` — viewer-specific like/repost/bookmark state and counters.
+- `POST|DELETE /api/social/posts/{id}/reaction` — reaction lifecycle.
+- `POST|DELETE /api/social/posts/{id}/reposts` — repost lifecycle.
+- `POST|DELETE /api/social/posts/{id}/bookmarks` — bookmark lifecycle.
+- `GET|POST /api/social/posts/{id}/replies` — reply listing and creation.
+- `GET /api/search` — people and post discovery.
+- `GET|POST|DELETE /api/social/follows...` — follow state and follow/unfollow.
+- `GET /api/social/notifications` and `POST /api/social/notifications/{id}/read` — notifications.
+- `GET|POST /api/threads` and dedicated thread interaction endpoints — separate thread product surface.
+
+The Flutter CI runs `tool/check_dependency_boundary.dart`, which fails if Supabase, Upstash or Redis references are introduced into `lib/`, `test/`, or direct pubspec dependencies. Do not weaken or remove this check to make a build pass.
+
+## Explicitly not migrated yet
+
+- Main-feed post publishing: Backend does not currently register a first-class create-post endpoint. The Flutter composer reports this accurately and does not create a thread as a substitute.
+- Media upload: the Backend has upload-intent/upload/complete/attach routes, but the Flutter media pipeline has not yet been ported and tested end-to-end.
+- Profile read/update, direct messages, voice/video calls, wallet and M-Pesa, TV studio, creator/advertising, admin/moderation and federation: no feature is marked complete merely because a legacy route exists.
