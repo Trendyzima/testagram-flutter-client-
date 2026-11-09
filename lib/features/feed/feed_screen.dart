@@ -216,9 +216,9 @@ class _FeedScreenState extends State<FeedScreen> {
       Expanded(child: RefreshIndicator(
         onRefresh: () => _load(reset: true),
         child: _loading && _posts.isEmpty
-          ? const Center(child: CircularProgressIndicator())
+          ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
           : _error != null && _posts.isEmpty
-            ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
+            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry'))])
             : _posts.isEmpty
               ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.dynamic_feed_outlined, size: 48)), SizedBox(height: 12), Center(child: Text('No posts are available yet.'))])
               : ListView.separated(
