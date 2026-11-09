@@ -21,7 +21,7 @@ jobs:
           channel: stable
           cache: true
       - name: Generate missing platform scaffolding
-        run: flutter create --platforms=android,web .
+        run: flutter create --org com.xclone --project-name app --platforms=android,ios,web .
       - name: Resolve dependencies
         run: flutter pub get
       - name: Analyze
