@@ -30,7 +30,9 @@ class _FeedScreenState extends State<FeedScreen> {
     });
     try {
       final payload = await widget.api.getHomeFeed();
-      final raw = payload['posts'] ?? payload['items'] ?? payload['data'] ?? [];
+      final envelope = payload['data'];
+      final data = envelope is Map ? Map<String, dynamic>.from(envelope) : payload;
+      final raw = data['posts'] ?? data['items'] ?? [];
       final rows = raw is List
           ? raw.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
           : <Map<String, dynamic>>[];
