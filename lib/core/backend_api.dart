@@ -23,6 +23,26 @@ class BackendApi {
     return _request('GET', uri);
   }
 
+  Future<Map<String, dynamic>> getThreads({int limit = 20, String? cursor, String tab = 'for-you'}) =>
+      _request('GET', baseUri.resolve('/api/threads').replace(queryParameters: {
+        'tab': tab,
+        'limit': '$limit',
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+      }));
+
+  Future<Map<String, dynamic>> createThread(String body, {String visibility = 'public'}) =>
+      _request('POST', baseUri.resolve('/api/threads'),
+          body: {'body': body, 'visibility': visibility});
+
+  Future<Map<String, dynamic>> toggleThreadLike(String threadId) =>
+      _request('POST', baseUri.resolve('/api/threads/$threadId/likes/toggle'));
+
+  Future<Map<String, dynamic>> toggleThreadRepost(String threadId) =>
+      _request('POST', baseUri.resolve('/api/threads/$threadId/reposts/toggle'));
+
+  Future<Map<String, dynamic>> toggleThreadBookmark(String threadId) =>
+      _request('POST', baseUri.resolve('/api/threads/$threadId/bookmarks/toggle'));
+
   Future<Map<String, dynamic>> getPostInteractionSummary(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId/interaction-summary'));
 
