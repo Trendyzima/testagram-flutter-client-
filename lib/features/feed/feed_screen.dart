@@ -32,7 +32,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final payload = await widget.api.getHomeFeed();
       final envelope = payload['data'];
       final data = envelope is Map ? Map<String, dynamic>.from(envelope) : payload;
-      final raw = data['posts'] ?? data['items'] ?? [];
+      final raw = data['items'] ?? data['posts'] ?? [];
       final rows = raw is List
           ? raw.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
           : <Map<String, dynamic>>[];
@@ -70,7 +70,7 @@ class _FeedScreenState extends State<FeedScreen> {
     try {
       await widget.api.createPost(
         content: content,
-        idempotencyKey: 'flutter-${DateTime.now().microsecondsSinceEpoch}',
+        
       );
       await _load();
     } catch (error) {
@@ -126,7 +126,8 @@ class _PostCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final author = post['author'] is Map ? Map<String, dynamic>.from(post['author'] as Map) : <String, dynamic>{};
+    final profile = post['profiles'] ?? post['author'];
+    final author = profile is Map ? Map<String, dynamic>.from(profile) : <String, dynamic>{};
     final name = (author['display_name'] ?? author['name'] ?? author['handle'] ?? 'Testagram user').toString();
     final body = (post['body'] ?? post['content'] ?? '').toString();
     final created = (post['created_at'] ?? '').toString();
