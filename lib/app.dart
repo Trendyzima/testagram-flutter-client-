@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'core/app_config.dart';
 import 'core/backend_api.dart';
+import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'app/main_shell.dart';
 
@@ -11,30 +12,15 @@ class TestagramApp extends StatelessWidget {
 
   final Account? account;
 
-  static const _green = Color(0xFF18A957);
-  static const _ink = Color(0xFF080D0A);
-
   @override
   Widget build(BuildContext context) {
     final configured = AppConfig.isConfigured && account != null;
     return MaterialApp(
       title: 'Testagram',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        brightness: Brightness.dark,
-        scaffoldBackgroundColor: _ink,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: _green,
-          brightness: Brightness.dark,
-          surface: const Color(0xFF101713),
-        ),
-        appBarTheme: const AppBarTheme(
-          backgroundColor: _ink,
-          foregroundColor: Colors.white,
-          centerTitle: false,
-        ),
-        useMaterial3: true,
-      ),
+      theme: TestagramTheme.light(),
+      darkTheme: TestagramTheme.dark(),
+      themeMode: ThemeMode.system,
       home: configured
           ? AuthGate(account: account!)
           : const _ConfigurationRequired(),
