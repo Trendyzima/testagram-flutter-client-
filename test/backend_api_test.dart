@@ -71,6 +71,39 @@ void main() {
       api.close();
     });
 
+    test('searches people and posts through the Backend search route', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'users': [], 'posts': []}}), 200);
+        }),
+      );
+      await api.search(query: 'testagram', kind: 'all');
+      expect(captured.url.path, '/api/search');
+      expect(captured.url.queryParameters['q'], 'testagram');
+      expect(captured.url.queryParameters['kind'], 'all');
+      api.close();
+    });
+
+    test('creates threads through the dedicated threads endpoint', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'thread-1'}}), 201);
+        }),
+      );
+      await api.createThread('A separate thread');
+      expect(captured.url.path, '/api/threads');
+      expect(jsonDecode(captured.body), {'body': 'A separate thread', 'visibility': 'public'});
+      api.close();
+    });
+
     test('surfaces structured Backend errors', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
