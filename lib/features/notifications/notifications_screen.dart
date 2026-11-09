@@ -10,14 +10,23 @@ class NotificationsScreen extends StatefulWidget {
 }
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
-  List<Map<String, dynamic>> _items = [];
-  bool _loading = true;
-  String? _error;
+  final _scroll = ScrollController();
+  final List<Map<String, dynamic>> _items = [];
+  bool _loading = false, _hasMore = true;
+  String? _cursor, _error;
+  final Set<String> _marking = {};
 
   @override
   void initState() {
     super.initState();
-    _load();
+    _scroll.addListener(_onScroll);
+    _load(reset: true);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
   }
 
   Map<String, dynamic> _data(Map<String, dynamic> payload) {
@@ -25,14 +34,35 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return raw is Map ? Map<String, dynamic>.from(raw) : payload;
   }
 
-  Future<void> _load() async {
-    setState(() { _loading = true; _error = null; });
+  void _onScroll() {
+    if (_scroll.hasClients && !_loading && _hasMore && _scroll.position.extentAfter < 500) {
+      _load();
+    }
+  }
+
+  Future<void> _load({bool reset = false}) async {
+    if (_loading || (!reset && !_hasMore)) return;
+    setState(() {
+      _loading = true;
+      _error = null;
+      if (reset) { _cursor = null; _hasMore = true; }
+    });
     try {
-      final response = _data(await widget.api.listNotifications());
-      final raw = response['items'];
-      if (mounted) setState(() => _items = raw is List
+      final data = _data(await widget.api.listNotifications(
+        limit: 30, cursor: reset ? null : _cursor,
+      ));
+      final raw = data['items'];
+      final rows = raw is List
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
-          : []);
+          : <Map<String, dynamic>>[];
+      if (!mounted) return;
+      setState(() {
+        if (reset) _items.clear();
+        final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
+        _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
+        _cursor = (data['next_cursor'] ?? '').toString();
+        _hasMore = _cursor!.isNotEmpty;
+      });
     } catch (e) {
       if (mounted) setState(() => _error = e.toString());
     } finally {
@@ -42,12 +72,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   Future<void> _markRead(Map<String, dynamic> item) async {
     final id = (item['id'] ?? '').toString();
-    if (id.isEmpty || item['read_at'] != null) return;
+    if (id.isEmpty || item['read_at'] != null || _marking.contains(id)) return;
+    setState(() => _marking.add(id));
     try {
       await widget.api.markNotificationRead(id);
       if (mounted) setState(() => item['read_at'] = DateTime.now().toUtc().toIso8601String());
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _marking.remove(id));
     }
   }
 
@@ -55,20 +88,28 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
       title: const Text('Notifications'),
-      actions: [IconButton(onPressed: _load, icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
+      actions: [IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
     ),
     body: RefreshIndicator(
-      onRefresh: _load,
+      onRefresh: () => _load(reset: true),
       child: _loading && _items.isEmpty
         ? const Center(child: CircularProgressIndicator())
         : _error != null && _items.isEmpty
-          ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: _load, child: const Text('Retry')))])
+          ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
           : _items.isEmpty
             ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.notifications_none, size: 48)), SizedBox(height: 12), Center(child: Text('You are all caught up.'))])
             : ListView.separated(
-                itemCount: _items.length,
+                controller: _scroll,
+                physics: const AlwaysScrollableScrollPhysics(),
+                itemCount: _items.length + (_loading || _hasMore ? 1 : 0),
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
+                  if (index == _items.length) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(child: _loading ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: const Text('Load more'))),
+                    );
+                  }
                   final item = _items[index];
                   final actor = item['actor'];
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
@@ -79,9 +120,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       backgroundColor: unread ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Icon(unread ? Icons.notifications_active_outlined : Icons.notifications_none),
                     ),
-                    title: Text(actorName.toString() + ' ' + kind),
+                    title: Text('$actorName $kind'),
                     subtitle: Text((item['created_at'] ?? '').toString()),
-                    trailing: unread ? const Icon(Icons.circle, size: 9) : null,
+                    trailing: unread
+                      ? _marking.contains((item['id'] ?? '').toString())
+                        ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+                        : const Icon(Icons.circle, size: 9)
+                      : null,
                     onTap: () => _markRead(item),
                   );
                 },
