@@ -176,6 +176,34 @@ class BackendApi {
         'limit': '$limit',
       }));
 
+  Future<Map<String, dynamic>> listPolls({int limit = 20, int offset = 0}) =>
+      _request('GET', baseUri.resolve('/api/social/polls').replace(queryParameters: {
+        'limit': '$limit',
+        'offset': '$offset',
+      }));
+
+  Future<Map<String, dynamic>> getPoll(String pollId) =>
+      _request('GET', baseUri.resolve('/api/social/polls/$pollId'));
+
+  Future<Map<String, dynamic>> createPoll({
+    required String question,
+    String description = '',
+    required List<String> options,
+    DateTime? endsAt,
+    String mediaObjectKey = '',
+  }) =>
+      _request('POST', baseUri.resolve('/api/social/polls'), body: {
+        'question': question,
+        'description': description,
+        'options': options,
+        if (endsAt != null) 'ends_at': endsAt.toUtc().toIso8601String(),
+        if (mediaObjectKey.isNotEmpty) 'media_object_key': mediaObjectKey,
+      });
+
+  Future<Map<String, dynamic>> votePoll(String pollId, String optionId) =>
+      _request('POST', baseUri.resolve('/api/social/polls/$pollId/vote'),
+          body: {'option_id': optionId});
+
   Future<Map<String, dynamic>> listNotifications({int limit = 30, String? cursor}) =>
       _request('GET', baseUri.resolve('/api/social/notifications')
           .replace(queryParameters: {
