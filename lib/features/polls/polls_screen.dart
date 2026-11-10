@@ -204,7 +204,7 @@ class _PollsScreenState extends State<PollsScreen> {
   Widget _optionRow(Map<String, dynamic> poll, Map<String, dynamic> option,
       int total, bool voted, bool open) {
     final votes = (option['votes'] as num?)?.toInt() ?? 0;
-    final ratio = total == 0 ? 0.0 : (votes / total).clamp(0.0, 1.0);
+    final ratio = total == 0 ? 0.0 : (votes / total).clamp(0.0, 1.0).toDouble();
     final showResults = voted || !open;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
