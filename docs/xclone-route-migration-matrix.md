@@ -31,12 +31,12 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - `/discover/popular` — Not ported
 - `/discover/fediverse` — Not ported
 - `/threads` — Ported slice
-- `/post/:postId/replies` — Not ported
-- `/post/:postId/likes` — Not ported
-- `/post/:postId/reposts` — Not ported
-- `/post/:postId/quotes` — Not ported
+- `/post/:postId/replies` — Ported slice
+- `/post/:postId/likes` — Ported slice
+- `/post/:postId/reposts` — Ported slice
+- `/post/:postId/quotes` — Ported slice
 - `/post/:postId/quote-likes` — Not ported
-- `/post/:postId` — Not ported
+- `/post/:postId` — Ported slice
 - `/communities` — Not ported
 - `/c/:name` — Not ported
 - `/c/:name/posts` — Not ported
@@ -241,7 +241,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 | Domain | Source modules | Destination status |
 |---|---|---|
 | Authentication, recovery, legal acceptance, session lifecycle | `features/auth`, `core/auth` | Ported slice: Appwrite session/JWT foundation; source Supabase PKCE/session implementation excluded |
-| Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, reactions, reposts, bookmarks, replies; post publishing/quote parity remains open |
+| Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, native post detail, replies, reactions, reposts, bookmarks, and likes/reposts/quotes lists; post publishing and quote creation remain open |
 | Threads | `features/threads` | Ported slice: timeline, composer, interactions and image attachment |
 | Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slice: search and follow basics; all secondary discovery routes remain open |
 | Notifications | `features/notifications` | Ported slice: list and mark read; preferences, realtime and push remain open |
