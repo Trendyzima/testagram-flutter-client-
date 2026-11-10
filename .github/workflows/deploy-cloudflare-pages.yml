@@ -147,6 +147,72 @@ jobs:
               "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains")"
             jq -c '{success,errors,result:[.result[]? | {id,hostname,service,zone_name,zone_id,enabled}]}' <<<"$domains"
           done
+      - name: Release legacy Worker custom-domain ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4"
+          auth="Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN"
+          domains="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" \
+            "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains")"
+          if [[ "$(jq -r '.success // false' <<<"$domains")" != "true" ]]; then
+            echo "::error::The DNS token cannot manage Worker custom domains. Add Account > Workers Scripts > Edit to the CLOUDFLARE_API_TOKEN2 token, then update the GitHub secret if its value changes."
+            jq -c '{errors,messages}' <<<"$domains"
+            exit 1
+          fi
+
+          missing=""
+          for hostname in testagram.site www.testagram.site; do
+            ids="$(jq -r --arg hostname "$hostname" '.result[]? | select(.hostname == $hostname) | .id' <<<"$domains")"
+            if [[ -n "$ids" ]]; then
+              while IFS= read -r domain_id; do
+                [[ -z "$domain_id" ]] && continue
+                detached="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -X DELETE \
+                  -H "$auth" "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains/$domain_id")"
+                if [[ "$(jq -r '.success // false' <<<"$detached")" != "true" ]]; then
+                  echo "::error::Could not detach the legacy Worker custom domain $hostname."
+                  jq -c '{errors,messages}' <<<"$detached"
+                  exit 1
+                fi
+                echo "Detached legacy Worker custom domain $hostname"
+              done <<<"$ids"
+            else
+              missing+="$hostname "
+            fi
+          done
+
+          if [[ -n "$missing" ]]; then
+            temporary_worker="testagram-domain-release"
+            temporary_dir="$(mktemp -d)"
+            printf '%s\n' 'export default { fetch() { return new Response("Temporary domain release", { status: 503 }); } };' > "$temporary_dir/index.js"
+            CLOUDFLARE_API_TOKEN="$CLOUDFLARE_DNS_API_TOKEN" wrangler deploy "$temporary_dir/index.js" \
+              --name "$temporary_worker" --compatibility-date 2026-11-10
+            for hostname in $missing; do
+              attached="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -X PUT \
+                -H "$auth" -H "Content-Type: application/json" \
+                --data "$(jq -nc --arg hostname "$hostname" --arg service "$temporary_worker" \
+                  --arg zone_id "$CLOUDFLARE_ZONE_ID" '{hostname:$hostname,service:$service,zone_id:$zone_id,zone_name:"testagram.site",enabled:true,previews_enabled:false}')" \
+                "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains")"
+              if [[ "$(jq -r '.success // false' <<<"$attached")" != "true" ]]; then
+                echo "::error::Could not reclaim the orphaned Worker domain $hostname."
+                jq -c '{errors,messages}' <<<"$attached"
+                exit 1
+              fi
+              domain_id="$(jq -r '.result.id // empty' <<<"$attached")"
+              [[ -n "$domain_id" ]] || { echo "::error::Cloudflare did not return a domain ID for $hostname"; exit 1; }
+              detached="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -X DELETE \
+                -H "$auth" "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains/$domain_id")"
+              if [[ "$(jq -r '.success // false' <<<"$detached")" != "true" ]]; then
+                echo "::error::Could not detach reclaimed Worker domain $hostname."
+                jq -c '{errors,messages}' <<<"$detached"
+                exit 1
+              fi
+              echo "Reclaimed and detached orphaned Worker domain $hostname"
+            done
+            curl --retry 2 --retry-all-errors --retry-delay 2 -sS -X DELETE -H "$auth" \
+              "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$temporary_worker" | jq -c '{success,errors,messages}'
+            rm -rf "$temporary_dir"
+          fi
       - name: Route production DNS to Cloudflare Pages
         shell: bash
         run: |
