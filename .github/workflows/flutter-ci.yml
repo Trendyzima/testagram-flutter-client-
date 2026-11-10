@@ -49,7 +49,7 @@ jobs:
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
         run: |
-          flutter build web --release --no-wasm-dry-run \
+          flutter build web --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
