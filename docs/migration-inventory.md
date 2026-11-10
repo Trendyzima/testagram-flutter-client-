@@ -1,6 +1,6 @@
 # XClone to Flutter migration inventory
 
-The legacy XClone repository contains a Flutter migration foundation under `mobile/` (272 tracked paths at the inspected baseline). It is not yet a clean standalone client: its dependency graph and feature modules include legacy Supabase coupling, and its own migration README explicitly identifies substantial feature gaps.
+The legacy XClone repository contains a Flutter migration foundation under `mobile/` with 121 Dart files and 214 GoRouter route patterns at the inspected baseline. It is not a clean standalone client: its app bootstrap, auth, API gateway, screens, storage, realtime and media flows contain Supabase coupling. Use `docs/xclone-route-migration-matrix.md` for the route-by-route inventory and `docs/clean-source-port-policy.md` for the explicit source denylist and safe-port rules. Do not copy the source app wholesale.
 
 This repository is the destination. Port feature behavior, not legacy data-access implementations. Every migrated feature must call a typed Testagram Backend client; it must not import a Supabase SDK or query Appwrite databases directly.
 
@@ -8,7 +8,7 @@ This repository is the destination. Port feature behavior, not legacy data-acces
 
 - Identity, account recovery, legal acceptance, profile onboarding and session lifecycle
 - Home/following feeds, post details, replies, quote posts, reposts, bookmarks and scheduled posts
-- Media selection, uploads, reservations, completion, download authorization and deletion
+- Media selection, uploads, reservations, completion, download authorization and deletion (Threads image attach is a ported slice; main-feed media lifecycle remains open)
 - Profiles, followers/following, lists, blocks, mutes and account privacy
 - Search, discovery, hashtags, trends, topics, sports and news
 - Notifications, in-app realtime/polling and device push
