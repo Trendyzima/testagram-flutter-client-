@@ -151,7 +151,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                         source: ImageSource.gallery,
                         imageQuality: 90,
                       );
-                      if (picked == null) return;
+                      if (!mounted || !dialogContext.mounted || picked == null) return;
                       final extension = picked.name.toLowerCase().split('.').last;
                       const types = {
                         'jpg': 'image/jpeg',
@@ -169,6 +169,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                         return;
                       }
                       final bytes = await picked.readAsBytes();
+                      if (!mounted || !dialogContext.mounted) return;
                       if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(content: Text('Images must be smaller than 20 MiB.')),
