@@ -8,9 +8,9 @@ void main() {
   };
   // Assemble signatures so this guard does not match its own implementation.
   final forbidden = <String, RegExp>{
-    'backend SDK or URL dependency': RegExp('sup' + 'abase', caseSensitive: false),
-    'hosted cache dependency': RegExp('up' + 'stash', caseSensitive: false),
-    'external in-memory datastore dependency': RegExp('re' + 'dis', caseSensitive: false),
+    'backend SDK or URL dependency': RegExp(String.fromCharCodes([115, 117, 112, 97, 98, 97, 115, 101]), caseSensitive: false),
+    'hosted cache dependency': RegExp(String.fromCharCodes([117, 112, 115, 116, 97, 115, 104]), caseSensitive: false),
+    'external in-memory datastore dependency': RegExp(String.fromCharCodes([114, 101, 100, 105, 115]), caseSensitive: false),
   };
   final failures = <String>[];
 
