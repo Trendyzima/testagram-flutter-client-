@@ -15,7 +15,7 @@ Last updated: 2026-11-10
 | Post interaction lists | Likes, reposts and quotes (up to 100 per request) | `GET /api/social/posts/{id}/interactions/{kind}` |
 | Interaction counters/state | Per-post viewer state hydration | `GET /api/social/posts/{id}/interaction-summary` |
 | Explore/search | Search posts and people | `GET /api/search` |
-| Profile detail | Native profile header, avatar, bio, counts, protected-account state and follow/unfollow | `GET /api/social/profiles/{user_id}`, `GET|POST|DELETE /api/social/follows...` |
+| Profile detail | Native profile header, avatar, bio, counts, protected-account state, follow/unfollow and paginated followers/following lists | `GET /api/social/profiles/{user_id}`, `GET /api/social/profiles/{user_id}/connections`, `GET|POST|DELETE /api/social/follows...` |
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
 | Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
 | Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
@@ -33,7 +33,7 @@ The inspected XClone Flutter source contains 121 Dart files and 214 GoRouter rou
 
 - Main-feed post creation is not exposed as a first-class Backend route in the inspected router. The feed composer therefore reports that publishing is unavailable. It does not write to the separate threads table.
 - Main-feed media upload and the full legacy media lifecycle are not yet implemented. Threads has a separate tested image upload-intent/upload/complete/attach implementation; it still needs real-device and production storage verification.
-- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, followers/following lists, profile posts/media, E2EE messaging, call signaling, wallet, M-Pesa, creator, advertising and admin/moderation remain open.
+- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, profile posts/media, E2EE messaging, call signaling, wallet, M-Pesa, creator, advertising and admin/moderation remain open.
 - A route/screen is not considered migrated until it calls the correct owning repository, passes authorization and failure tests, and has device verification.
 
 ## Forbidden dependency boundary
