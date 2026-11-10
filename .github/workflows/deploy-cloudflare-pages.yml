@@ -123,6 +123,8 @@ jobs:
 
       - name: Point production DNS to Flutter Pages
         shell: bash
+        env:
+          CLOUDFLARE_ZONE_ID: 3f1334ddf9f27e9a3c8697eb1f409070
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4"
