@@ -8,7 +8,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - The source mobile client contains **121 Dart files** under `mobile/lib/`.
 - Its GoRouter configuration declares **214 route entries** (214 unique path patterns).
 - The destination is deliberately a clean Flutter application, not a copy of the XClone monorepo.
-- The destination currently has native authentication plus Home/Feed, Explore, Notifications and Threads surfaces. The source's remaining route families are not yet feature-parity migrated.
+- The destination currently has native authentication plus Home/Feed, Explore, Notifications, Threads and Polls surfaces. The source's remaining route families are not yet feature-parity migrated.
 - A route is not counted as migrated merely because a generic page, navigation link or migration notice exists.
 
 ## Route status
