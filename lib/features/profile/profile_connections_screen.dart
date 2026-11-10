@@ -67,13 +67,17 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
           .whereType<Map>()
           .map((item) => Map<String, dynamic>.from(item))
           .toList();
-      if (mounted) setState(() {
-        _items.addAll(page);
-        _cursor = (data['next_cursor'] ?? '').toString();
-        _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
-      });
+      if (mounted) {
+        setState(() {
+          _items.addAll(page);
+          _cursor = (data['next_cursor'] ?? '').toString();
+          _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
+        });
+      }
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() => _error = error.toString());
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
