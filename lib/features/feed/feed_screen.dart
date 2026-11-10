@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import '../posts/post_detail_screen.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key, required this.api, required this.onSignOut});
@@ -265,6 +266,11 @@ class _FeedScreenState extends State<FeedScreen> {
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
+                      onOpen: id.isEmpty ? null : () => Navigator.of(context).push(
+                        MaterialPageRoute<void>(
+                          builder: (_) => PostDetailScreen(api: widget.api, postId: id),
+                        ),
+                      ),
                       onLike: () => _action(post, 'like'),
                       onRepost: () => _action(post, 'repost'),
                       onBookmark: () => _action(post, 'bookmark'),
@@ -278,10 +284,11 @@ class _FeedScreenState extends State<FeedScreen> {
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post, required this.busy, required this.onLike, required this.onRepost, required this.onBookmark, required this.onReplies});
+  const _PostCard({required this.post, required this.busy, required this.onLike, required this.onRepost, required this.onBookmark, required this.onReplies, this.onOpen});
   final Map<String, dynamic> post;
   final bool busy;
   final VoidCallback onLike, onRepost, onBookmark, onReplies;
+  final VoidCallback? onOpen;
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +313,7 @@ class _PostCard extends StatelessWidget {
             if (created.isNotEmpty) Text('  ·  ${created.length > 10 ? created.substring(0, 10) : created}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
           ]),
           const SizedBox(height: 7),
-          Text(body, style: const TextStyle(height: 1.4)),
+          InkWell(onTap: onOpen, child: Text(body, style: const TextStyle(height: 1.4))),
           if (mediaUrl.startsWith('http')) ...[
             const SizedBox(height: 10),
             ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(mediaUrl, width: double.infinity, height: 230, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink())),
