@@ -93,7 +93,7 @@ class _PostInteractionsScreenState extends State<PostInteractionsScreen> {
                           physics: const AlwaysScrollableScrollPhysics(),
                           children: [
                             const SizedBox(height: 120),
-                            Center(child: Text('No ' + widget.kind + ' yet.')),
+                            Center(child: Text('No ${widget.kind} yet.')),
                           ],
                         )
                       : ListView.separated(
