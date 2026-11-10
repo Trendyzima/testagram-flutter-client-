@@ -174,10 +174,19 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                 itemCount: _items.length + (_loading || _hasMore ? 1 : 0),
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  if (index == _items.length) return Padding(
-                    padding: const EdgeInsets.all(16),
-                    child: Center(child: _loading ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: const Text('Load more'))),
-                  );
+                  if (index == _items.length) {
+                    return Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Center(
+                        child: _loading
+                            ? const CircularProgressIndicator()
+                            : TextButton(
+                                onPressed: _load,
+                                child: const Text('Load more'),
+                              ),
+                      ),
+                    );
+                  }
                   final item = _items[index];
                   final profile = item['profiles'];
                   final name = profile is Map
