@@ -218,7 +218,7 @@ class _FeedScreenState extends State<FeedScreen> {
         child: _loading && _posts.isEmpty
           ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
           : _error != null && _posts.isEmpty
-            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry'))])
+            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
             : _posts.isEmpty
               ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.dynamic_feed_outlined, size: 48)), SizedBox(height: 12), Center(child: Text('No posts are available yet.'))])
               : ListView.separated(
@@ -227,10 +227,12 @@ class _FeedScreenState extends State<FeedScreen> {
                   itemCount: _posts.length + (_loading || _hasMore ? 1 : 0),
                   separatorBuilder: (_, __) => const Divider(height: 1),
                   itemBuilder: (context, index) {
-                    if (index == _posts.length) return Padding(
+                    if (index == _posts.length) {
+                      return Padding(
                       padding: const EdgeInsets.all(20),
                       child: Center(child: _loading ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: const Text('Load more'))),
-                    );
+                      );
+                    }
                     final post = _posts[index];
                     final id = (post['id'] ?? '').toString();
                     return _PostCard(
@@ -274,7 +276,7 @@ class _PostCard extends StatelessWidget {
         Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Row(children: [
             Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
-            if (created.isNotEmpty) Text('  ·  ' + (created.length > 10 ? created.substring(0, 10) : created), style: const TextStyle(color: Colors.white54, fontSize: 12)),
+            if (created.isNotEmpty) Text('  ·  ${created.length > 10 ? created.substring(0, 10) : created}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
           ]),
           const SizedBox(height: 7),
           Text(body, style: const TextStyle(height: 1.4)),
