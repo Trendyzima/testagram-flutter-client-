@@ -142,9 +142,6 @@ jobs:
             while IFS= read -r record; do
               record_id="$(jq -r '.id' <<<"$record")"
               record_type="$(jq -r '.type' <<<"$record")"
-              if [[ "$record_type" == "CNAME" && "$(jq -r '.content' <<<"$record")" == "$target" ]]; then
-                continue
-              fi
               delete_result="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X DELETE \
                 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
                 "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records/$record_id")"
