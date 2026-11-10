@@ -35,14 +35,8 @@ class _WalletScreenState extends State<WalletScreen> {
     }
     try {
       final values = await Future.wait([
-        widget.api.callCapability(
-          'testagram.wallet.balance',
-          input: const {'currency': 'KES'},
-        ),
-        widget.api.callCapability(
-          'testagram.wallet.transactions.list',
-          input: const {'limit': 50},
-        ),
+        widget.api.getWalletBalance(currency: 'KES'),
+        widget.api.listWalletTransactions(limit: 50),
       ]);
       final items = values[1]['items'];
       if (!mounted) return;
@@ -128,10 +122,7 @@ class _WalletScreenState extends State<WalletScreen> {
       if (form == null || !mounted) return;
 
       setState(() => _sending = true);
-      final recipient = await widget.api.callCapability(
-        'testagram.wallet.recipient.resolve',
-        input: {'username': form['username']!},
-      );
+      final recipient = await widget.api.resolveWalletRecipient(form['username']!);
       final recipientId = (recipient['user_id'] ?? '').toString();
       final canonicalUsername = (recipient['username'] ?? form['username']!).toString();
       if (recipientId.isEmpty) {
@@ -166,14 +157,11 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       if (confirmed != true || !mounted) return;
 
-      await widget.api.callCapability(
-        'testagram.wallet.transfer',
-        input: {
-          'recipient_id': recipientId,
-          'amount': form['amount']!,
-          'note': form['note']!,
-          'idempotency_key': _newIdempotencyKey(),
-        },
+      await widget.api.transferWalletFunds(
+        recipientId: recipientId,
+        amount: form['amount']!,
+        note: form['note']!,
+        idempotencyKey: _newIdempotencyKey(),
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
