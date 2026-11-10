@@ -1,0 +1,90 @@
+name: Deploy Testagram Flutter Web
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: testagram-pages-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    environment: production
+    env:
+      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT }}
+      APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID }}
+      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Validate production configuration
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in APPWRITE_ENDPOINT APPWRITE_PROJECT_ID TESTAGRAM_API_URL CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Required GitHub production variable/secret is missing: $name"
+              exit 1
+            fi
+          done
+          for name in APPWRITE_ENDPOINT TESTAGRAM_API_URL; do
+            case "${!name}" in
+              https://*) ;;
+              *) echo "::error::$name must use HTTPS in production"; exit 1 ;;
+            esac
+          done
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Generate web platform files
+        run: flutter create --org com.xclone --project-name app --platforms=web .
+
+      - name: Resolve dependencies
+        run: flutter pub get
+
+      - name: Enforce dependency boundary
+        run: dart run tool/check_dependency_boundary.dart
+
+      - name: Analyze Dart source
+        run: flutter analyze
+
+      - name: Run tests
+        run: flutter test --reporter expanded
+
+      - name: Build production web bundle
+        run: |
+          flutter build web --release --base-href / \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Create Cloudflare Pages project if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          projects="$(wrangler pages project list)"
+          if ! grep -Fq "$CLOUDFLARE_PAGES_PROJECT" <<<"$projects"; then
+            wrangler pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch main
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main
