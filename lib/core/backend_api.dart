@@ -299,6 +299,22 @@ class BackendApi {
   Future<Map<String, dynamic>> unfollowUser(String targetUserId) =>
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
 
+  /// Calls a first-party Backend capability. Product data never bypasses
+  /// the Backend and the Appwrite JWT is attached by the shared request path.
+  Future<Map<String, dynamic>> callCapability(
+    String capability, {
+    Map<String, dynamic> input = const {},
+  }) {
+    if (capability.trim().isEmpty || capability.length > 128) {
+      throw ArgumentError.value(capability, 'capability', 'Invalid capability name');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/capability'),
+      body: {'capability': capability, 'input': input},
+    );
+  }
+
   Future<Map<String, dynamic>> _request(
     String method,
     Uri uri, {
