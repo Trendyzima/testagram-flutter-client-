@@ -12,7 +12,7 @@ class ThreadsScreen extends StatefulWidget {
 
 class _ThreadsScreenState extends State<ThreadsScreen> {
   final _scroll = ScrollController();
-  List<Map<String, dynamic>> _items = [];
+  final List<Map<String, dynamic>> _items = [];
   bool _loading = false, _sending = false, _hasMore = true;
   int _loadGeneration = 0;
   int _activeLoads = 0;
@@ -40,7 +40,9 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   }
 
   void _onScroll() {
-    if (_scroll.hasClients && !_loading && _hasMore && _scroll.position.extentAfter < 500) _load();
+    if (_scroll.hasClients && !_loading && _hasMore && _scroll.position.extentAfter < 500) {
+      _load();
+    }
   }
 
   Future<void> _load({bool reset = false}) async {
