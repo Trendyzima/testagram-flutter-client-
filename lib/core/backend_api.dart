@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -126,8 +127,14 @@ class BackendApi {
         default:
           throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
       }
+    } on TimeoutException {
+      throw const BackendApiException(
+        'The request timed out. Check your connection and try again.',
+      );
     } on http.ClientException {
-      throw const BackendApiException('Could not connect to Testagram. Check your connection.');
+      throw const BackendApiException(
+        'Could not connect to Testagram. Check your connection.',
+      );
     }
     return _decodeObject(response);
   }
