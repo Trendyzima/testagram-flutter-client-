@@ -22,29 +22,20 @@ class SettingsScreen extends StatelessWidget {
           Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Card(
-            child: Column(
-              children: [
-                _ThemeChoice(
-                  title: 'Use device settings',
-                  value: ThemeMode.system,
-                  groupValue: themeMode,
-                  onChanged: onThemeModeChanged,
-                ),
-                const Divider(height: 1),
-                _ThemeChoice(
-                  title: 'Light',
-                  value: ThemeMode.light,
-                  groupValue: themeMode,
-                  onChanged: onThemeModeChanged,
-                ),
-                const Divider(height: 1),
-                _ThemeChoice(
-                  title: 'Dark',
-                  value: ThemeMode.dark,
-                  groupValue: themeMode,
-                  onChanged: onThemeModeChanged,
-                ),
-              ],
+            child: RadioGroup<ThemeMode>(
+              groupValue: themeMode,
+              onChanged: (next) {
+                if (next != null) onThemeModeChanged(next);
+              },
+              child: const Column(
+                children: [
+                  _ThemeChoice(title: 'Use device settings', value: ThemeMode.system),
+                  Divider(height: 1),
+                  _ThemeChoice(title: 'Light', value: ThemeMode.light),
+                  Divider(height: 1),
+                  _ThemeChoice(title: 'Dark', value: ThemeMode.dark),
+                ],
+              ),
             ),
           ),
           const SizedBox(height: 24),
@@ -89,27 +80,16 @@ class SettingsScreen extends StatelessWidget {
 }
 
 class _ThemeChoice extends StatelessWidget {
-  const _ThemeChoice({
-    required this.title,
-    required this.value,
-    required this.groupValue,
-    required this.onChanged,
-  });
+  const _ThemeChoice({required this.title, required this.value});
 
   final String title;
   final ThemeMode value;
-  final ThemeMode groupValue;
-  final ValueChanged<ThemeMode> onChanged;
 
   @override
   Widget build(BuildContext context) {
     return RadioListTile<ThemeMode>(
       title: Text(title),
       value: value,
-      groupValue: groupValue,
-      onChanged: (next) {
-        if (next != null) onChanged(next);
-      },
     );
   }
 }
