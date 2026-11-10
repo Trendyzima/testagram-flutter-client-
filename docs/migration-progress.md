@@ -16,6 +16,7 @@ Last updated: 2026-11-10
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
 | Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
 | Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
+| Polls | List, create, vote, results and offset pagination | `GET|POST /api/social/polls`, `GET /api/social/polls/{poll_id}`, `POST /api/social/polls/{poll_id}/vote` |
 | Product styling | Testagram light/dark design tokens and branded background | Local Flutter presentation only |
 | Navigation | Native Home, Explore, Alerts and Threads destinations | Local Flutter presentation only |
 
