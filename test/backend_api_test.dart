@@ -493,3 +493,33 @@ void main() {
     });
   });
 }
+
+    test('calls native Backend capabilities with the Appwrite session', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(
+            jsonEncode({'user_id': 'account-1', 'username': 'recipient'}),
+            200,
+          );
+        }),
+      );
+
+      final response = await api.callCapability(
+        'testagram.wallet.recipient.resolve',
+        input: {'username': 'recipient'},
+      );
+
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/capability');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(jsonDecode(captured.body), {
+        'capability': 'testagram.wallet.recipient.resolve',
+        'input': {'username': 'recipient'},
+      });
+      expect(response['user_id'], 'account-1');
+      api.close();
+    });
