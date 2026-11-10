@@ -11,6 +11,8 @@ Last updated: 2026-11-10
 | Reposts | Repost / undo repost | `POST|DELETE /api/social/posts/{id}/reposts` |
 | Bookmarks | Save / remove | `POST|DELETE /api/social/posts/{id}/bookmarks` |
 | Replies | List and create | `GET|POST /api/social/posts/{id}/replies` |
+| Post detail | Privacy-filtered post read and interaction summary | `GET /api/social/posts/{id}`, `GET /api/social/posts/{id}/interaction-summary` |
+| Post interaction lists | Likes, reposts and quotes (up to 100 per request) | `GET /api/social/posts/{id}/interactions/{kind}` |
 | Interaction counters/state | Per-post viewer state hydration | `GET /api/social/posts/{id}/interaction-summary` |
 | Explore/search | Search posts and people | `GET /api/search` |
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
