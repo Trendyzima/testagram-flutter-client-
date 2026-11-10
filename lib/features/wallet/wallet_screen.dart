@@ -87,7 +87,7 @@ class _WalletScreenState extends State<WalletScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Amount',
-                    prefixText: (_wallet['currency'] ?? 'KES').toString() + ' ',
+                    prefixText: '${(_wallet['currency'] ?? 'KES')}' ,
                   ),
                 ),
                 TextField(
@@ -135,13 +135,7 @@ class _WalletScreenState extends State<WalletScreen> {
         builder: (dialogContext) => AlertDialog(
           title: const Text('Confirm transfer'),
           content: Text(
-            'Send ' +
-                (_wallet['currency'] ?? 'KES').toString() +
-                ' ' +
-                form['amount']! +
-                ' to @' +
-                canonicalUsername +
-                '?',
+            'Send ${_wallet['currency'] ?? 'KES'} ${form['amount']} to @$canonicalUsername?',
           ),
           actions: [
             TextButton(
@@ -165,7 +159,7 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Transfer to @' + canonicalUsername + ' completed.')),
+        SnackBar(content: Text('Transfer to @$canonicalUsername completed.')),
       );
       await _load(silent: true);
     } catch (error) {
@@ -219,7 +213,7 @@ class _WalletScreenState extends State<WalletScreen> {
                               style: Theme.of(context).textTheme.titleMedium),
                           const SizedBox(height: 8),
                           Text(
-                            currency + ' ' + balance,
+                            '$currency $balance',
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           const SizedBox(height: 16),
@@ -262,17 +256,13 @@ class _WalletScreenState extends State<WalletScreen> {
                       final localDate = createdAt?.toLocal();
                       final date = localDate == null
                           ? ''
-                          : localDate.year.toString().padLeft(4, '0') +
-                              '-' +
-                              localDate.month.toString().padLeft(2, '0') +
-                              '-' +
-                              localDate.day.toString().padLeft(2, '0');
+                          : '${localDate.year.toString().padLeft(4, '0')}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
                       return Card(
                         child: ListTile(
                           leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet)),
                           title: Text(kind.replaceAll('_', ' ')),
-                          subtitle: Text(date + ' • ' + status),
-                          trailing: Text(itemCurrency + ' ' + amountText),
+                          subtitle: Text('$date • $status'),
+                          trailing: Text('$itemCurrency $amountText'),
                         ),
                       );
                     }),
