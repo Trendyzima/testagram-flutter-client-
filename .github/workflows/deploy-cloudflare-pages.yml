@@ -122,6 +122,27 @@ jobs:
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
 
+      - name: Diagnose Cloudflare-managed production hostnames
+        shell: bash
+        run: |
+          set -u
+          api="https://api.cloudflare.com/client/v4"
+          for hostname in testagram.site www.testagram.site; do
+            echo "DNS records currently returned for $hostname:"
+            response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+              -H "Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN" \
+              "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records?name=$hostname&per_page=100")"
+            jq -c '{success,errors,result:[.result[]? | {id,type,name,content,proxied,comment,tags,meta}]}' <<<"$response"
+          done
+
+          for token_name in CLOUDFLARE_DNS_API_TOKEN CLOUDFLARE_API_TOKEN; do
+            token="${!token_name:-}"
+            [[ -z "$token" ]] && continue
+            echo "Checking whether $token_name can inspect Worker routes."
+            response="$(curl -sS -H "Authorization: Bearer $token" \
+              "$api/zones/$CLOUDFLARE_ZONE_ID/workers/routes")"
+            jq -c '{success,errors,result:[.result[]? | {id,pattern,script}]}' <<<"$response"
+          done
       - name: Route production DNS to Cloudflare Pages
         shell: bash
         run: |
