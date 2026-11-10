@@ -243,6 +243,32 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
+  /// Lists a profile's privacy-filtered followers or following accounts.
+  Future<Map<String, dynamic>> listProfileConnections(
+    String userId, {
+    required String kind,
+    int limit = 30,
+    String? cursor,
+  }) {
+    const supported = {'followers', 'following'};
+    if (!supported.contains(kind)) {
+      throw ArgumentError.value(kind, 'kind', 'Expected followers or following');
+    }
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 100');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/profiles/$userId/connections').replace(
+        queryParameters: {
+          'kind': kind,
+          'limit': '$limit',
+          if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+        },
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> getFollowState(String targetUserId) =>
       _request('GET', baseUri.resolve('/api/social/follows/$targetUserId'));
 
