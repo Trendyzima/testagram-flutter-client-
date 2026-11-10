@@ -88,7 +88,7 @@ class BackendApi {
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
         final response = await http.Response.fromStream(streamed);
         _decodeObject(response);
-        throw BackendApiException('Image upload failed with status ' + streamed.statusCode.toString() + '.',
+        throw BackendApiException('Image upload failed with status ${streamed.statusCode}.',
             statusCode: streamed.statusCode);
       }
     } on TimeoutException {
