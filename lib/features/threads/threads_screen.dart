@@ -1,5 +1,8 @@
 import 'package:cached_network_image/cached_network_image.dart';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
 
@@ -94,32 +97,165 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
 
   Future<void> _compose() async {
     final controller = TextEditingController();
-    final body = await showDialog<String>(
+    Uint8List? imageBytes;
+    String? imageName;
+    String? imageContentType;
+    final draft = await showDialog<_ThreadDraft>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Start a thread'),
-        content: TextField(
-          controller: controller,
-          autofocus: true,
-          minLines: 3,
-          maxLines: 7,
-          maxLength: 500,
-          decoration: const InputDecoration(hintText: 'What is happening?'),
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          title: const Text('Start a thread'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 3,
+                  maxLines: 7,
+                  maxLength: 500,
+                  decoration: const InputDecoration(hintText: 'What is happening?'),
+                ),
+                if (imageBytes != null) ...[
+                  const SizedBox(height: 8),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.memory(
+                      imageBytes!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  Row(children: [
+                    Expanded(child: Text(imageName ?? 'Attached image',
+                        maxLines: 1, overflow: TextOverflow.ellipsis)),
+                    IconButton(
+                      tooltip: 'Remove image',
+                      onPressed: () => setDialogState(() {
+                        imageBytes = null;
+                        imageName = null;
+                        imageContentType = null;
+                      }),
+                      icon: const Icon(Icons.close),
+                    ),
+                  ]),
+                ],
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: TextButton.icon(
+                    onPressed: () async {
+                      final picked = await ImagePicker().pickImage(
+                        source: ImageSource.gallery,
+                        imageQuality: 90,
+                      );
+                      if (picked == null) return;
+                      final extension = picked.name.toLowerCase().split('.').last;
+                      const types = {
+                        'jpg': 'image/jpeg',
+                        'jpeg': 'image/jpeg',
+                        'png': 'image/png',
+                        'webp': 'image/webp',
+                        'gif': 'image/gif',
+                        'avif': 'image/avif',
+                      };
+                      final contentType = types[extension];
+                      if (contentType == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
+                        );
+                        return;
+                      }
+                      final bytes = await picked.readAsBytes();
+                      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Images must be smaller than 20 MiB.')),
+                        );
+                        return;
+                      }
+                      setDialogState(() {
+                        imageBytes = bytes;
+                        imageName = picked.name;
+                        imageContentType = contentType;
+                      });
+                    },
+                    icon: const Icon(Icons.image_outlined),
+                    label: Text(imageBytes == null ? 'Add image' : 'Change image'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(
+                dialogContext,
+                _ThreadDraft(
+                  body: controller.text.trim(),
+                  imageBytes: imageBytes,
+                  imageName: imageName,
+                  imageContentType: imageContentType,
+                ),
+              ),
+              child: const Text('Publish'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Publish')),
-        ],
       ),
     );
     controller.dispose();
-    if (body == null || body.isEmpty || _sending) return;
+    if (draft == null || (draft.body.isEmpty && draft.imageBytes == null) || _sending) return;
+
     setState(() => _sending = true);
+    String? uploadedKey;
+    var threadCreated = false;
     try {
-      await widget.api.createThread(body);
+      if (draft.imageBytes != null) {
+        final asset = await widget.api.uploadPublicImage(
+          name: draft.imageName ?? 'thread-image',
+          contentType: draft.imageContentType ?? 'image/jpeg',
+          bytes: draft.imageBytes!,
+        );
+        uploadedKey = (asset['key'] ?? '').toString();
+        if (uploadedKey!.isEmpty) {
+          throw const BackendApiException('The server did not return the uploaded image key.');
+        }
+      }
+
+      final created = _data(await widget.api.createThread(draft.body));
+      threadCreated = true;
+      final threadId = (created['id'] ?? '').toString();
+      if (uploadedKey != null) {
+        if (threadId.isEmpty) {
+          throw const BackendApiException('The thread was created, but its ID was missing; image attachment was not confirmed.');
+        }
+        await widget.api.attachThreadMedia(threadId, uploadedKey);
+      }
       await _load(reset: true);
     } catch (e) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+      // If thread creation did not complete, the uploaded asset is definitely
+      // unattached and can be safely scheduled for deletion. Once creation
+      // succeeds, retain the asset if attachment confirmation is uncertain.
+      if (uploadedKey != null && !threadCreated) {
+        try {
+          await widget.api.deleteMedia(uploadedKey);
+        } catch (_) {
+          // Backend's media lifecycle worker will reconcile expired intents;
+          // a ready asset remains visible in the user's media library.
+        }
+      }
+      if (mounted) {
+        final message = threadCreated && uploadedKey != null
+            ? 'Thread published, but image attachment could not be confirmed: $e'
+            : e.toString();
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -138,6 +274,37 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
     } finally {
       if (mounted) setState(() => _busyActions.remove(id));
     }
+  }
+
+  List<Widget> _mediaWidgets(Map<String, dynamic> item) {
+    final raw = item['media_urls'];
+    if (raw is! List) return const [];
+    return raw.whereType<Map>().map((entry) {
+      final url = (entry['url'] ?? '').toString();
+      if (!url.startsWith('https://') && !url.startsWith('http://')) {
+        return const SizedBox.shrink();
+      }
+      return Padding(
+        padding: const EdgeInsets.only(top: 10),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(12),
+          child: CachedNetworkImage(
+            imageUrl: url,
+            width: double.infinity,
+            height: 240,
+            fit: BoxFit.cover,
+            placeholder: (_, __) => const SizedBox(
+              height: 180,
+              child: Center(child: CircularProgressIndicator()),
+            ),
+            errorWidget: (_, __, ___) => const SizedBox(
+              height: 100,
+              child: Center(child: Icon(Icons.broken_image_outlined)),
+            ),
+          ),
+        ),
+      );
+    }).toList();
   }
 
   @override
@@ -218,6 +385,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                       ]),
                       const SizedBox(height: 10),
                       Text((item['body'] ?? '').toString()),
+                      ..._mediaWidgets(item),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, children: [
                         TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'like'), icon: const Icon(Icons.favorite_border), label: Text((item['likes_count'] ?? 0).toString())),
@@ -231,4 +399,18 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
     )),
     ]),
   );
+}
+
+class _ThreadDraft {
+  const _ThreadDraft({
+    required this.body,
+    this.imageBytes,
+    this.imageName,
+    this.imageContentType,
+  });
+
+  final String body;
+  final Uint8List? imageBytes;
+  final String? imageName;
+  final String? imageContentType;
 }
