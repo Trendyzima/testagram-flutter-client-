@@ -79,6 +79,36 @@ void main() {
       api.close();
     });
 
+    test('lists profile followers with the authenticated cursor contract', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'items': [], 'next_cursor': 'next-page', 'has_more': true, 'kind': 'followers'},
+          }), 200);
+        }),
+      );
+      final response = await api.listProfileConnections(
+        '00000000-0000-4000-8000-000000000002',
+        kind: 'followers',
+        cursor: 'previous-page',
+      );
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002/connections');
+      expect(captured.url.queryParameters, {
+        'kind': 'followers',
+        'limit': '30',
+        'cursor': 'previous-page',
+      });
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect((response['data'] as Map)['has_more'], isTrue);
+      api.close();
+    });
+
     test('loads a profile through the authenticated Backend route', () async {
       late http.Request captured;
       final api = BackendApi(
