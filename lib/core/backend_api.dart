@@ -169,6 +169,27 @@ class BackendApi {
       _request('GET', baseUri.resolve('/api/social/posts/$postId/replies')
           .replace(queryParameters: {'limit': '$limit'}));
 
+  /// Lists users who liked, reposted or quoted a visible post.
+  /// The Backend validates visibility and caps the requested page at 100.
+  Future<Map<String, dynamic>> listPostInteractions(
+    String postId, {
+    required String kind,
+    int limit = 100,
+  }) {
+    const supported = {'likes', 'reposts', 'quotes'};
+    if (!supported.contains(kind)) {
+      throw ArgumentError.value(kind, 'kind', 'Unsupported post interaction kind');
+    }
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 100');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/posts/$postId/interactions/$kind')
+          .replace(queryParameters: {'limit': '$limit'}),
+    );
+  }
+
   Future<Map<String, dynamic>> createPostReply(String postId, String content) =>
       _request('POST', baseUri.resolve('/api/social/posts/$postId/replies'),
           body: {'content': content});
