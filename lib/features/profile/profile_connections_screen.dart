@@ -49,7 +49,9 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
   }
 
   Future<void> _load() async {
-    if (_loading || !_hasMore) return;
+    if (_loading || !_hasMore) {
+      return;
+    }
     setState(() { _loading = true; _error = null; });
     try {
       final response = await widget.api.listProfileConnections(
