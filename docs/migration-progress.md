@@ -15,16 +15,20 @@ Last updated: 2026-11-10
 | Explore/search | Search posts and people | `GET /api/search` |
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
 | Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
-| Threads | Timeline, compose, like, repost and bookmark | `GET|POST /api/threads` and thread interaction routes |
+| Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
 | Product styling | Testagram light/dark design tokens and branded background | Local Flutter presentation only |
 | Navigation | Native Home, Explore, Alerts and Threads destinations | Local Flutter presentation only |
 
 Every route above was checked against the Backend router and corresponding handler before the Flutter client was wired to it. Product data and authorization stay in the Backend; Flutter holds only presentation state.
 
+## Source migration scope
+
+The inspected XClone Flutter source contains 121 Dart files and 214 GoRouter route patterns. The full route list and per-route migration state are tracked in `docs/xclone-route-migration-matrix.md`. This destination is a clean native Flutter app; source React/Vite files, Supabase implementation, Upstash/Redis dependencies, database schemas/migrations, Edge Functions, generated platform files, machine state and legacy lockfiles are explicitly excluded by `docs/clean-source-port-policy.md`.
+
 ## Deliberate blockers (not silently substituted)
 
 - Main-feed post creation is not exposed as a first-class Backend route in the inspected router. The feed composer therefore reports that publishing is unavailable. It does not write to the separate threads table.
-- Media upload is not yet implemented in Flutter, despite Backend upload-intent, upload, complete and attach routes.
+- Main-feed media upload and the full legacy media lifecycle are not yet implemented. Threads has a separate tested image upload-intent/upload/complete/attach implementation; it still needs real-device and production storage verification.
 - No first-class Backend profile read/update, E2EE messaging, call signaling, wallet, M-Pesa, creator, advertising, admin/moderation or federation client routes were verified in this tranche. Those XClone features remain open.
 - A route/screen is not considered migrated until it calls the correct owning repository, passes authorization and failure tests, and has device verification.
 
