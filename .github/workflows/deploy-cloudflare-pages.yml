@@ -120,6 +120,60 @@ jobs:
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main
 
+      - name: Point production DNS to Flutter Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          api="https://api.cloudflare.com/client/v4"
+          target="${CLOUDFLARE_PAGES_PROJECT}.pages.dev"
+          for hostname in testagram.site www.testagram.site; do
+            records="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS --get \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --data-urlencode "name=$hostname" \
+              "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records")"
+            if [[ "$(jq -r '.success // false' <<<"$records")" != "true" ]]; then
+              echo "::error::Cannot read DNS records for $hostname. Confirm the token has Zone > DNS > Edit for testagram.site."
+              jq -c '{errors,messages}' <<<"$records"
+              exit 1
+            fi
+
+            # Remove only conflicting web-host records; leave mail and verification records untouched.
+            while IFS= read -r record; do
+              record_id="$(jq -r '.id' <<<"$record")"
+              record_type="$(jq -r '.type' <<<"$record")"
+              if [[ "$record_type" == "CNAME" && "$(jq -r '.content' <<<"$record")" == "$target" ]]; then
+                continue
+              fi
+              delete_result="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X DELETE \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records/$record_id")"
+              if [[ "$(jq -r '.success // false' <<<"$delete_result")" != "true" ]]; then
+                echo "::error::Could not remove conflicting $record_type record for $hostname."
+                jq -c '{errors,messages}' <<<"$delete_result"
+                exit 1
+              fi
+            done < <(jq -c '.result[] | select(.type == "A" or .type == "AAAA" or .type == "CNAME")' <<<"$records")
+
+            # Create the required CNAME if one pointing at Pages is not already present.
+            refreshed="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS --get \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+              --data-urlencode "name=$hostname" \
+              "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records")"
+            if ! jq -e --arg target "$target" '.result[]? | select(.type == "CNAME" and .content == $target and .proxied == true)' <<<"$refreshed" >/dev/null; then
+              create_result="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "$(jq -nc --arg name "$hostname" --arg target "$target" '{type:"CNAME",name:$name,content:$target,ttl:1,proxied:true}')" \
+                "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records")"
+              if [[ "$(jq -r '.success // false' <<<"$create_result")" != "true" ]]; then
+                echo "::error::Could not point $hostname to $target."
+                jq -c '{errors,messages}' <<<"$create_result"
+                exit 1
+              fi
+            fi
+            echo "$hostname now points to $target through Cloudflare DNS."
+          done
+
       - name: Attach testagram.site and www.testagram.site
         shell: bash
         run: |
