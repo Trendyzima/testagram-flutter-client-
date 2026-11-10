@@ -314,7 +314,7 @@ class BackendApi {
   /// Resolves a recipient username before the user confirms a transfer.
   Future<Map<String, dynamic>> resolveWalletRecipient(String username) {
     final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
-    if (normalized.length < 2 || normalized.length > 32) {
+    if (normalized.length < 2 || normalized.length > 30) {
       throw ArgumentError.value(username, 'username', 'Enter a valid recipient username');
     }
     return callCapability('testagram.wallet.recipient.resolve', input: {'username': normalized});
