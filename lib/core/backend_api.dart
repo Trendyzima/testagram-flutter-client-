@@ -243,6 +243,26 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
+  /// Loads a profile's privacy-filtered posts using chronological pagination.
+  Future<Map<String, dynamic>> getProfilePosts(
+    String userId, {
+    int limit = 20,
+    String? cursor,
+  }) {
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/profiles/$userId/posts').replace(
+        queryParameters: {
+          'limit': '$limit',
+          if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+        },
+      ),
+    );
+  }
+
   /// Lists a profile's privacy-filtered followers or following accounts.
   Future<Map<String, dynamic>> listProfileConnections(
     String userId, {
