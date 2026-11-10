@@ -7,30 +7,49 @@ import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'app/main_shell.dart';
 
-class TestagramApp extends StatelessWidget {
+class TestagramApp extends StatefulWidget {
   const TestagramApp({super.key, this.account});
 
   final Account? account;
 
   @override
+  State<TestagramApp> createState() => _TestagramAppState();
+}
+
+class _TestagramAppState extends State<TestagramApp> {
+  ThemeMode _themeMode = ThemeMode.system;
+
+  @override
   Widget build(BuildContext context) {
-    final configured = AppConfig.isConfigured && account != null;
+    final configured = AppConfig.isConfigured && widget.account != null;
     return MaterialApp(
       title: 'Testagram',
       debugShowCheckedModeBanner: false,
       theme: TestagramTheme.light(),
       darkTheme: TestagramTheme.dark(),
-      themeMode: ThemeMode.system,
+      themeMode: _themeMode,
       home: configured
-          ? AuthGate(account: account!)
+          ? AuthGate(
+              account: widget.account!,
+              themeMode: _themeMode,
+              onThemeModeChanged: (value) => setState(() => _themeMode = value),
+            )
           : const _ConfigurationRequired(),
     );
   }
 }
 
 class AuthGate extends StatefulWidget {
-  const AuthGate({super.key, required this.account});
+  const AuthGate({
+    super.key,
+    required this.account,
+    required this.themeMode,
+    required this.onThemeModeChanged,
+  });
+
   final Account account;
+  final ThemeMode themeMode;
+  final ValueChanged<ThemeMode> onThemeModeChanged;
 
   @override
   State<AuthGate> createState() => _AuthGateState();
@@ -92,7 +111,12 @@ class _AuthGateState extends State<AuthGate> {
     if (!_signedIn) {
       return AuthScreen(account: widget.account, onSignedIn: _onSignedIn);
     }
-    return MainShell(api: _api!, onSignOut: _signOut);
+    return MainShell(
+      api: _api!,
+      onSignOut: _signOut,
+      themeMode: widget.themeMode,
+      onThemeModeChanged: widget.onThemeModeChanged,
+    );
   }
 }
 
