@@ -34,7 +34,7 @@ The inspected XClone Flutter source contains 121 Dart files and 214 GoRouter rou
 
 - Main-feed post creation is not exposed as a first-class Backend route in the inspected router. The feed composer therefore reports that publishing is unavailable. It does not write to the separate threads table.
 - Main-feed media upload and the full legacy media lifecycle are not yet implemented. Threads has a separate tested image upload-intent/upload/complete/attach implementation; it still needs real-device and production storage verification.
-- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, E2EE messaging, call signaling, wallet, M-Pesa, creator, advertising and admin/moderation remain open.
+- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, E2EE messaging, call signaling, M-Pesa top-ups, wallet analytics/savings/scheduled transfers, creator, advertising and admin/moderation remain open. The basic wallet slice is implemented: balance, recent transactions, username resolution and confirmation-gated KES/USD transfers. Same-intent transfer retries reuse their idempotency key while the wallet screen remains alive; durable recovery after app process termination remains a release-hardening task.
 - A route/screen is not considered migrated until it calls the correct owning repository, passes authorization and failure tests, and has device verification.
 
 ## Forbidden dependency boundary
