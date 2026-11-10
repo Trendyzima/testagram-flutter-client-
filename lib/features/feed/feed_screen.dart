@@ -15,6 +15,8 @@ class _FeedScreenState extends State<FeedScreen> {
   final List<Map<String, dynamic>> _posts = [];
   final Set<String> _busy = {};
   bool _loading = false, _hasMore = true, _following = false;
+  int _loadGeneration = 0;
+  int _activeLoads = 0;
   String? _cursor, _error;
 
   @override
@@ -42,15 +44,25 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (_loading || (!reset && !_hasMore)) return;
+    if (!reset && (_loading || !_hasMore)) return;
+    final generation = reset ? ++_loadGeneration : _loadGeneration;
+    final requestedFollowing = _following;
+    final pageCursor = reset ? null : _cursor;
     setState(() {
+      _activeLoads++;
       _loading = true;
       _error = null;
-      if (reset) { _cursor = null; _hasMore = true; }
+      if (reset) {
+        _posts.clear();
+        _cursor = null;
+        _hasMore = true;
+      }
     });
     try {
       final payload = await widget.api.getHomeFeed(
-        limit: 20, cursor: reset ? null : _cursor, followingOnly: _following,
+        limit: 20,
+        cursor: pageCursor,
+        followingOnly: requestedFollowing,
       );
       final data = _data(payload);
       final raw = data['posts'];
@@ -60,8 +72,11 @@ class _FeedScreenState extends State<FeedScreen> {
       final summaries = await Future.wait(rows.map((post) async {
         final id = (post['id'] ?? '').toString();
         if (id.isEmpty) return <String, dynamic>{};
-        try { return _data(await widget.api.getPostInteractionSummary(id)); }
-        catch (_) { return <String, dynamic>{}; }
+        try {
+          return _data(await widget.api.getPostInteractionSummary(id));
+        } catch (_) {
+          return <String, dynamic>{};
+        }
       }));
       for (var i = 0; i < rows.length; i++) {
         final summary = summaries[i];
@@ -72,18 +87,30 @@ class _FeedScreenState extends State<FeedScreen> {
         rows[i]['replies_count'] = summary['replies'] ?? rows[i]['replies_count'];
         rows[i]['reposts_count'] = summary['reposts'] ?? rows[i]['reposts_count'];
       }
-      if (!mounted) return;
+      if (!mounted ||
+          generation != _loadGeneration ||
+          requestedFollowing != _following) {
+        return;
+      }
       setState(() {
-        if (reset) _posts.clear();
         final ids = _posts.map((p) => (p['id'] ?? '').toString()).toSet();
-        _posts.addAll(rows.where((p) => !ids.contains((p['id'] ?? '').toString())));
+        _posts.addAll(
+          rows.where((p) => !ids.contains((p['id'] ?? '').toString())),
+        );
         _cursor = (data['next_cursor'] ?? '').toString();
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _error = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _activeLoads--;
+          _loading = _activeLoads > 0;
+        });
+      }
     }
   }
 
