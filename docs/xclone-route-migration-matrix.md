@@ -174,7 +174,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - `/podcasts/analytics` — Not ported
 - `/podcasts/search` — Not ported
 - `/policy` — Not ported
-- `/polls` — Not ported
+- `/polls` — Ported slice
 - `/post-analytics` — Not ported
 - `/post-analytics/:postId` — Not ported
 - `/post-remote` — Not ported
