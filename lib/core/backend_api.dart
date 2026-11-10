@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:crypto/crypto.dart';
+
 import 'package:http/http.dart' as http;
 
 class BackendApi {
@@ -34,6 +36,98 @@ class BackendApi {
   Future<Map<String, dynamic>> createThread(String body, {String visibility = 'public'}) =>
       _request('POST', baseUri.resolve('/api/threads'),
           body: {'body': body, 'visibility': visibility});
+
+  /// Uploads a public image through the Backend's bounded, authenticated
+  /// media gateway and verifies it before returning the ready asset.
+  Future<Map<String, dynamic>> uploadPublicImage({
+    required String name,
+    required String contentType,
+    required List<int> bytes,
+  }) async {
+    const allowedTypes = {
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/gif',
+      'image/avif',
+    };
+    if (!allowedTypes.contains(contentType.toLowerCase())) {
+      throw const BackendApiException('Choose a JPEG, PNG, WebP, GIF or AVIF image.');
+    }
+    if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+      throw const BackendApiException('Images must be between 1 byte and 20 MiB.');
+    }
+
+    final intent = await _request(
+      'POST',
+      baseUri.resolve('/api/media/upload-intent'),
+      body: {
+        'name': name,
+        'content_type': contentType.toLowerCase(),
+        'visibility': 'public',
+        'size_bytes': bytes.length,
+      },
+    );
+    final rawData = intent['data'];
+    if (rawData is! Map) {
+      throw const BackendApiException('The server did not return a valid upload intent.');
+    }
+    final data = Map<String, dynamic>.from(rawData);
+    final key = (data['key'] ?? '').toString();
+    final uploadUrl = (data['url'] ?? '').toString();
+    if (key.isEmpty || uploadUrl.isEmpty) {
+      throw const BackendApiException('The server returned an incomplete upload intent.');
+    }
+
+    final request = http.Request('PUT', baseUri.resolve(uploadUrl))
+      ..headers.addAll(await _headers())
+      ..headers['Content-Type'] = contentType.toLowerCase()
+      ..bodyBytes = bytes;
+    try {
+      final streamed = await _client.send(request).timeout(const Duration(seconds: 90));
+      if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
+        final response = await http.Response.fromStream(streamed);
+        _decodeObject(response);
+        throw BackendApiException('Image upload failed with status ' + streamed.statusCode.toString() + '.',
+            statusCode: streamed.statusCode);
+      }
+    } on TimeoutException {
+      throw const BackendApiException(
+        'Image upload timed out. Check your connection and try again.',
+      );
+    } on http.ClientException {
+      throw const BackendApiException(
+        'Could not upload the image. Check your connection.',
+      );
+    }
+
+    final checksum = sha256.convert(bytes).toString();
+    final completed = await _request(
+      'POST',
+      baseUri.resolve('/api/media/complete'),
+      body: {
+        'key': key,
+        'visibility': 'public',
+        'content_type': contentType.toLowerCase(),
+        'checksum_sha256': checksum,
+      },
+    );
+    final asset = completed['data'];
+    if (asset is! Map) {
+      throw const BackendApiException('The server did not confirm the uploaded image.');
+    }
+    return Map<String, dynamic>.from(asset);
+  }
+
+  Future<Map<String, dynamic>> attachThreadMedia(String threadId, String key) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/threads/$threadId/media'),
+        body: {'key': key},
+      );
+
+  Future<Map<String, dynamic>> deleteMedia(String key) =>
+      _request('POST', baseUri.resolve('/api/media/delete'), body: {'key': key});
 
   Future<Map<String, dynamic>> toggleThreadLike(String threadId) =>
       _request('POST', baseUri.resolve('/api/threads/$threadId/likes/toggle'));
