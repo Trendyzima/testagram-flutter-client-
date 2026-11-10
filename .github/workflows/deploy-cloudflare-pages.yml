@@ -58,7 +58,7 @@ jobs:
           set -euo pipefail
           auth_header="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
           verify="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
-            -H "$auth_header" "https://api.cloudflare.com/client/v4/user/tokens/verify")"
+            -H "$auth_header" "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify")"
           if [[ "$(jq -r '.success // false' <<<"$verify")" != "true" || "$(jq -r '.result.status // "unknown"' <<<"$verify")" != "active" ]]; then
             echo "::error::The token stored in GitHub is not an active Cloudflare API token. Check for a stale, revoked, expired, malformed, or wrong token value."
             jq -c '{success, result: {status: .result.status}, errors: [.errors[]? | {code, message}]}' <<<"$verify"
