@@ -56,12 +56,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          auth_header="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          verify="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -H "$auth_header" "https://api.cloudflare.com/client/v4/user/tokens/verify")"
+          if [[ "$(jq -r '.success // false' <<<"$verify")" != "true" || "$(jq -r '.result.status // "unknown"' <<<"$verify")" != "active" ]]; then
+            echo "::error::The token stored in GitHub is not an active Cloudflare API token. Check for a stale, revoked, expired, malformed, or wrong token value."
+            jq -c '{success, result: {status: .result.status}, errors: [.errors[]? | {code, message}]}' <<<"$verify"
+            exit 1
+          fi
+          echo "Cloudflare token itself is active."
+
           endpoint="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
           response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "$auth_header" \
             -H "Content-Type: application/json" "$endpoint")"
           if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
-            echo "::error::Cloudflare rejected the token for Pages API access. Create a token with Account > Cloudflare Pages > Edit, scoped to the account that owns testagram.site, then replace CLOUDFLARE_API_TOKEN in GitHub."
+            echo "::error::Cloudflare recognizes the token, but it cannot access Pages for the configured account. Check that CLOUDFLARE_ACCOUNT_ID belongs to the same Cloudflare account selected in the token's Account Resources and that the token has Account > Cloudflare Pages > Edit."
             jq -c '{errors: [.errors[]? | {code, message}], messages}' <<<"$response"
             exit 1
           fi
