@@ -1,6 +1,6 @@
-import 'package:cached_network_image/cached_network_image.dart';
 import 'dart:typed_data';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
@@ -222,10 +222,11 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
           contentType: draft.imageContentType ?? 'image/jpeg',
           bytes: draft.imageBytes!,
         );
-        uploadedKey = (asset['key'] ?? '').toString();
-        if (uploadedKey!.isEmpty) {
+        final key = (asset['key'] ?? '').toString();
+        if (key.isEmpty) {
           throw const BackendApiException('The server did not return the uploaded image key.');
         }
+        uploadedKey = key;
       }
 
       final created = _data(await widget.api.createThread(draft.body));
