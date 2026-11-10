@@ -239,6 +239,10 @@ class BackendApi {
   Future<Map<String, dynamic>> markNotificationRead(String notificationId) =>
       _request('POST', baseUri.resolve('/api/social/notifications/$notificationId/read'));
 
+  /// Reads an active profile through the authenticated Backend boundary.
+  Future<Map<String, dynamic>> getProfile(String userId) =>
+      _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
+
   Future<Map<String, dynamic>> getFollowState(String targetUserId) =>
       _request('GET', baseUri.resolve('/api/social/follows/$targetUserId'));
 
