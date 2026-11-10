@@ -120,58 +120,7 @@ jobs:
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
 
-      # Use the dedicated DNS token only for the two website hostnames.
-      # Existing A/AAAA conflicts are reported, never deleted automatically.
-      - name: Configure website DNS records
-        shell: bash
-        env:
-          CLOUDFLARE_DNS_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN2 }}
-          CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
-        run: |
-          set -euo pipefail
-          for name in CLOUDFLARE_DNS_API_TOKEN CLOUDFLARE_ZONE_ID; do
-            if [[ -z "${!name:-}" ]]; then
-              echo "::error::Missing GitHub secret: $name (DNS token must be stored as CLOUDFLARE_API_TOKEN2)."
-              exit 1
-            fi
-          done
-          api="https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records"
-          token_header="Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN"
-          for domain in testagram.site www.testagram.site; do
-            records="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \\
-              -H "$token_header" "$api?name=$domain")"
-            if [[ "$(jq -r '.success // false' <<<"$records")" != "true" ]]; then
-              echo "::error::Cannot read DNS records for $domain. Check CLOUDFLARE_ZONE_ID and CLOUDFLARE_API_TOKEN2 permissions."
-              jq -c '{errors,messages}' <<<"$records"
-              exit 1
-            fi
-            conflicts="$(jq -c '[.result[] | select(.type == "A" or .type == "AAAA")] | map({type,name,content})' <<<"$records")"
-            if [[ "$conflicts" != "[]" ]]; then
-              echo "::error::A/AAAA records already exist for $domain. They were not deleted or overwritten; review these records before changing the hostname."
-              echo "$conflicts"
-              exit 1
-            fi
-            cname="$(jq -c '[.result[] | select(.type == "CNAME")] | first // empty' <<<"$records")"
-            payload="$(jq -nc --arg name "$domain" --arg target "$CLOUDFLARE_PAGES_PROJECT.pages.dev" '{type:"CNAME",name:$name,content:$target,ttl:1,proxied:true}')"
-            if [[ -n "$cname" ]]; then
-              record_id="$(jq -r '.id' <<<"$cname")"
-              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X PUT \\
-                -H "$token_header" -H "Content-Type: application/json" \\
-                --data "$payload" "$api/$record_id")"
-            else
-              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \\
-                -H "$token_header" -H "Content-Type: application/json" \\
-                --data "$payload" "$api")"
-            fi
-            if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
-              echo "::error::Could not configure the CNAME record for $domain."
-              jq -c '{errors,messages}' <<<"$response"
-              exit 1
-            fi
-            echo "Configured $domain -> $CLOUDFLARE_PAGES_PROJECT.pages.dev"
-          done
-
-
+      # Pages creates/validates DNS for zones managed in this Cloudflare account.
       - name: Attach and verify production domains
         shell: bash
         run: |
