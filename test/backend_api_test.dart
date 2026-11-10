@@ -141,6 +141,90 @@ void main() {
     });
 
 
+    test('uploads an image through the bounded gateway and verifies its checksum', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path == '/api/media/upload-intent') {
+            return http.Response(jsonEncode({
+              'ok': true,
+              'data': {'key': 'media/key-1', 'url': '/api/media/upload?key=media%2Fkey-1'},
+            }), 201);
+          }
+          if (request.method == 'PUT') return http.Response('', 204);
+          if (request.url.path == '/api/media/complete') {
+            return http.Response(jsonEncode({
+              'ok': true,
+              'data': {'key': 'media/key-1', 'public_url': 'https://cdn.testagram.site/key-1'},
+            }), 201);
+          }
+          return http.Response('unexpected request', 500);
+        }),
+      );
+
+      final asset = await api.uploadPublicImage(
+        name: 'photo.png',
+        contentType: 'image/png',
+        bytes: [1, 2, 3],
+      );
+
+      expect(asset['key'], 'media/key-1');
+      expect(requests.map((request) => request.method), ['POST', 'PUT', 'POST']);
+      expect(requests[0].url.path, '/api/media/upload-intent');
+      expect(jsonDecode(requests[0].body), {
+        'name': 'photo.png',
+        'content_type': 'image/png',
+        'visibility': 'public',
+        'size_bytes': 3,
+      });
+      expect(requests[1].url.path, '/api/media/upload');
+      expect(requests[1].headers['authorization'], 'Bearer jwt');
+      expect(requests[1].headers['content-type'], 'image/png');
+      expect(requests[1].bodyBytes, [1, 2, 3]);
+      expect(jsonDecode(requests[2].body), {
+        'key': 'media/key-1',
+        'visibility': 'public',
+        'content_type': 'image/png',
+        'checksum_sha256': '039058c6f2c0cb492c533b0a4d14ef77cc0f78abccced5287d84a1a2011cfb81',
+      });
+      api.close();
+    });
+
+    test('attaches only a ready media key through the thread media endpoint', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'attached': true}}), 200);
+        }),
+      );
+
+      await api.attachThreadMedia('thread-1', 'media/key-1');
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/threads/thread-1/media');
+      expect(jsonDecode(captured.body), {'key': 'media/key-1'});
+      api.close();
+    });
+
+    test('rejects unsupported image types before creating an upload intent', () async {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+
+      await expectLater(
+        api.uploadPublicImage(name: 'bad.svg', contentType: 'image/svg+xml', bytes: [1]),
+        throwsA(isA<BackendApiException>()),
+      );
+      api.close();
+    });
+
     test('normalizes backend request timeouts into a readable API error', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
