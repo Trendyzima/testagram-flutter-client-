@@ -8,6 +8,62 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('wallet methods use the authenticated native capability contract', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({'ok': true, 'data': {'status': 'ok'}}), 200);
+        }),
+      );
+
+      await api.getWalletBalance(currency: 'KES');
+      await api.listWalletTransactions(limit: 25);
+      await api.resolveWalletRecipient('@recipient_1');
+      await api.transferWalletFunds(
+        recipientId: '00000000-0000-4000-8000-000000000002',
+        amount: '125.50',
+        note: 'Thanks',
+        idempotencyKey: 'wallet-transfer-key-001',
+      );
+
+      expect(requests, hasLength(4));
+      expect(requests.every((request) => request.method == 'POST'), isTrue);
+      expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
+      expect(requests.every((request) =>
+          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+      final payloads = requests.map((request) => jsonDecode(request.body) as Map).toList();
+      expect(payloads[0], {'capability': 'testagram.wallet.balance', 'input': {'currency': 'KES'}});
+      expect(payloads[1], {'capability': 'testagram.wallet.transactions.list', 'input': {'limit': 25}});
+      expect(payloads[2], {'capability': 'testagram.wallet.recipient.resolve', 'input': {'username': 'recipient_1'}});
+      expect(payloads[3], {
+        'capability': 'testagram.wallet.transfer',
+        'input': {
+          'recipient_id': '00000000-0000-4000-8000-000000000002',
+          'amount': '125.50',
+          'note': 'Thanks',
+          'idempotency_key': 'wallet-transfer-key-001',
+        },
+      });
+      api.close();
+    });
+
+    test('wallet API validates limits, recipient and idempotency locally', () async {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(() => api.listWalletTransactions(limit: 101), throwsArgumentError);
+      expect(() => api.resolveWalletRecipient('@'), throwsArgumentError);
+      expect(() => api.transferWalletFunds(
+        recipientId: 'recipient', amount: '10', idempotencyKey: 'short',
+      ), throwsArgumentError);
+      api.close();
+    });
+
     test('loads the canonical post feed using an Appwrite JWT', () async {
       late http.Request captured;
       final api = BackendApi(
