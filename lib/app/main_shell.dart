@@ -7,6 +7,7 @@ import '../features/feed/feed_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/polls/polls_screen.dart';
 import '../features/threads/threads_screen.dart';
+import '../features/wallet/wallet_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({super.key, required this.api, required this.onSignOut});
@@ -27,6 +28,7 @@ class _MainShellState extends State<MainShell> {
       NotificationsScreen(api: widget.api),
       ThreadsScreen(api: widget.api),
       PollsScreen(api: widget.api),
+      WalletScreen(api: widget.api),
     ];
     return Scaffold(
       body: TestagramBackground(child: IndexedStack(index: _index, children: pages)),
@@ -43,6 +45,7 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.notifications_outlined), label: 'Alerts'),
           NavigationDestination(icon: Icon(Icons.forum_outlined), label: 'Threads'),
           NavigationDestination(icon: Icon(Icons.poll_outlined), label: 'Polls'),
+          NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Wallet'),
         ],
       ),
     );
