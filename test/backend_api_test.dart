@@ -36,6 +36,49 @@ void main() {
       api.close();
     });
 
+    test('lists post interactions through the authenticated Backend route', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'items': [], 'has_more': false},
+          }), 200);
+        }),
+      );
+
+      await api.listPostInteractions(
+        '00000000-0000-4000-8000-000000000001',
+        kind: 'likes',
+      );
+      expect(captured.method, 'GET');
+      expect(captured.url.path,
+          '/api/social/posts/00000000-0000-4000-8000-000000000001/interactions/likes');
+      expect(captured.url.queryParameters['limit'], '100');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      api.close();
+    });
+
+    test('rejects unsupported interaction kinds and page limits locally', () async {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(
+        () => api.listPostInteractions('post-id', kind: 'quote-likes'),
+        throwsArgumentError,
+      );
+      expect(
+        () => api.listPostInteractions('post-id', kind: 'likes', limit: 101),
+        throwsArgumentError,
+      );
+      api.close();
+    });
+
     test('loads a privacy-filtered post detail using the Appwrite JWT', () async {
       late http.Request captured;
       final api = BackendApi(
