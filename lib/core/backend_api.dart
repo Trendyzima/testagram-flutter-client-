@@ -138,6 +138,10 @@ class BackendApi {
   Future<Map<String, dynamic>> toggleThreadBookmark(String threadId) =>
       _request('POST', baseUri.resolve('/api/threads/$threadId/bookmarks/toggle'));
 
+  /// Loads a single post through the Backend's privacy-filtered read route.
+  Future<Map<String, dynamic>> getPost(String postId) =>
+      _request('GET', baseUri.resolve('/api/social/posts/$postId'));
+
   Future<Map<String, dynamic>> getPostInteractionSummary(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId/interaction-summary'));
 
