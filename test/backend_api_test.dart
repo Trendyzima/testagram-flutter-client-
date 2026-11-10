@@ -491,9 +491,6 @@ void main() {
       );
       api.close();
     });
-  });
-}
-
     test('calls native Backend capabilities with the Appwrite session', () async {
       late http.Request captured;
       final api = BackendApi(
@@ -523,3 +520,5 @@ void main() {
       expect(response['user_id'], 'account-1');
       api.close();
     });
+  });
+}
