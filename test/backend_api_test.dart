@@ -79,6 +79,34 @@ void main() {
       api.close();
     });
 
+    test('loads a profile through the authenticated Backend route', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'id': '00000000-0000-4000-8000-000000000002',
+              'username': 'test_user',
+              'avatar_url': 'https://media.testagram.site/avatar.png',
+              'is_following': false,
+              'can_view_posts': false,
+            },
+          }), 200);
+        }),
+      );
+
+      final response = await api.getProfile('00000000-0000-4000-8000-000000000002');
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect((response['data'] as Map)['can_view_posts'], isFalse);
+      api.close();
+    });
+
     test('loads a privacy-filtered post detail using the Appwrite JWT', () async {
       late http.Request captured;
       final api = BackendApi(
