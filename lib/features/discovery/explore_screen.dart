@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import '../profile/profile_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key, required this.api});
@@ -117,6 +118,16 @@ class _ExploreScreenState extends State<ExploreScreen> {
             const _SectionTitle('People'),
             for (final person in _people)
               ListTile(
+                onTap: (person['id'] ?? person['user_id']) == null
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => ProfileScreen(
+                              api: widget.api,
+                              userId: (person['id'] ?? person['user_id']).toString(),
+                            ),
+                          ),
+                        ),
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
                 title: Text((person['display_name'] ?? person['username'] ?? 'Testagram user').toString()),
                 subtitle: Text('@${(person['username'] ?? '').toString()}'),
