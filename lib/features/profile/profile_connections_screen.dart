@@ -43,7 +43,9 @@ class _ProfileConnectionsScreenState extends State<ProfileConnectionsScreen> {
   }
 
   void _onScroll() {
-    if (_scroll.position.extentAfter < 300 && !_loading && _hasMore) _load();
+    if (_scroll.position.extentAfter < 300 && !_loading && _hasMore) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
