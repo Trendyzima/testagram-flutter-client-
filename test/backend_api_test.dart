@@ -79,6 +79,35 @@ void main() {
       api.close();
     });
 
+    test('loads privacy-filtered profile posts through the authenticated API', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{'id': 'post-1', 'content': 'Profile post'}],
+              'next_cursor': 'next-post',
+              'has_more': true,
+            },
+          }), 200);
+        }),
+      );
+      final response = await api.getProfilePosts(
+        '00000000-0000-4000-8000-000000000002',
+        cursor: 'previous-post',
+      );
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002/posts');
+      expect(captured.url.queryParameters, {'limit': '20', 'before': 'previous-post'});
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect((response['data'] as Map)['posts'], hasLength(1));
+      api.close();
+    });
+
     test('lists profile followers with the authenticated cursor contract', () async {
       late http.Request captured;
       final api = BackendApi(
