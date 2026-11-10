@@ -27,7 +27,7 @@ jobs:
       CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Validate production configuration
         shell: bash
@@ -100,7 +100,7 @@ jobs:
 
       - name: Build production web bundle
         run: |
-          flutter build web --release --base-href / \
+          flutter build web --release --no-wasm-dry-run --base-href / \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
@@ -118,7 +118,7 @@ jobs:
           fi
 
       - name: Deploy to Cloudflare Pages
-        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main
+        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
 
       # DNS records are deliberately not edited by this workflow. The Pages
       # custom-domain API owns domain association and Cloudflare validates the
@@ -126,26 +126,81 @@ jobs:
       # requiring a separate Zone DNS token that may not belong to the Pages
       # account. Keep mail and verification records untouched.
 
-      - name: Attach testagram.site and www.testagram.site
+      - name: Attach and verify production domains
         shell: bash
         run: |
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
+
           for domain in testagram.site www.testagram.site; do
             current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
-            if [[ "$(jq -r '.success // false' <<<"$current")" == "true" ]]; then
-              echo "$domain is already attached to this Pages project."
-              continue
+
+            if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
+              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "$(jq -nc --arg name "$domain" '{name:$name}')" "$base")"
+              if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
+                echo "::error::Could not attach $domain to Pages."
+                jq -c '{errors,messages}' <<<"$response"
+                exit 1
+              fi
             fi
-            response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-              -H "Content-Type: application/json" \
-              --data "$(jq -nc --arg name "$domain" '{name:$name}')" "$base")"
-            if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
-              echo "::error::Could not attach $domain to Pages. Cloudflare response:"
-              jq -c '{errors,messages}' <<<"$response"
+
+            active=false
+            for attempt in $(seq 1 18); do
+              current="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
+              if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
+                echo "::error::Could not read Pages domain status for $domain."
+                jq -c '{errors,messages}' <<<"$current"
+                exit 1
+              fi
+
+              status="$(jq -r '.result.status // "unknown"' <<<"$current")"
+              validation="$(jq -r '.result.validation_data.status // "unknown"' <<<"$current")"
+              verification="$(jq -r '.result.verification_data.status // "unknown"' <<<"$current")"
+              echo "$domain: status=$status validation=$validation verification=$verification"
+
+              if [[ "$status" == "active" && "$validation" == "active" && "$verification" == "active" ]]; then
+                active=true
+                break
+              fi
+              if [[ "$status" == "error" || "$status" == "blocked" || "$status" == "deactivated" || \
+                    "$validation" == "error" || "$validation" == "deactivated" || \
+                    "$verification" == "error" || "$verification" == "blocked" || "$verification" == "deactivated" ]]; then
+                echo "::error::Cloudflare rejected validation for $domain."
+                jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
+                exit 1
+              fi
+              sleep 10
+            done
+
+            if [[ "$active" != "true" ]]; then
+              echo "::error::Timed out waiting for $domain to become active. Check its DNS records and Cloudflare Pages domain validation."
+              jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
               exit 1
             fi
-            echo "$domain attached; Cloudflare validation status: $(jq -r '.result.status // "unknown"' <<<"$response")"
+          done
+
+      - name: Smoke-test production hostnames
+        shell: bash
+        run: |
+          set -euo pipefail
+          for hostname in testagram.site www.testagram.site; do
+            page="$(mktemp)"
+            if ! curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
+              --max-time 30 "https://$hostname/" -o "$page"; then
+              echo "::error::https://$hostname did not return a successful response."
+              rm -f "$page"
+              exit 1
+            fi
+            if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
+              echo "::error::https://$hostname responded, but the page does not look like the deployed Flutter web app."
+              rm -f "$page"
+              exit 1
+            fi
+            rm -f "$page"
+            echo "Verified Flutter web response from https://$hostname/"
           done
