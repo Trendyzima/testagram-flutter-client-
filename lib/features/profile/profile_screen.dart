@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import 'profile_connections_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.api, required this.userId});
@@ -25,10 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _load() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-    });
+    if (mounted) setState(() { _loading = true; _error = null; });
     try {
       final response = await widget.api.getProfile(widget.userId);
       final raw = response['data'];
@@ -64,6 +62,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  void _openConnections(String kind) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ProfileConnectionsScreen(api: widget.api, userId: widget.userId, kind: kind),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     final profile = _profile;
@@ -79,18 +83,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
       body: _loading && profile == null
           ? const Center(child: CircularProgressIndicator())
           : _error != null && profile == null
-              ? Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(_error!, textAlign: TextAlign.center),
-                        TextButton(onPressed: _load, child: const Text('Retry')),
-                      ],
-                    ),
-                  ),
-                )
+              ? Center(child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    TextButton(onPressed: _load, child: const Text('Retry')),
+                  ]),
+                ))
               : profile == null
                   ? const Center(child: Text('Profile unavailable.'))
                   : RefreshIndicator(
@@ -99,61 +98,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(20),
                         children: [
-                          Center(
-                            child: CircleAvatar(
-                              radius: 42,
-                              backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
-                              child: avatar.startsWith('http')
-                                  ? null
-                                  : Text(
-                                      displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
-                                      style: const TextStyle(fontSize: 28),
-                                    ),
+                          Center(child: CircleAvatar(
+                            radius: 42,
+                            backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
+                            child: avatar.startsWith('http') ? null : Text(
+                              displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
+                              style: const TextStyle(fontSize: 28),
                             ),
-                          ),
+                          )),
                           const SizedBox(height: 14),
-                          Center(
-                            child: Text(
-                              displayName.isEmpty ? 'Testagram user' : displayName,
-                              style: Theme.of(context).textTheme.headlineSmall,
-                            ),
-                          ),
-                          if (username.isNotEmpty)
-                            Center(child: Text('@$username')),
+                          Center(child: Text(
+                            displayName.isEmpty ? 'Testagram user' : displayName,
+                            style: Theme.of(context).textTheme.headlineSmall,
+                          )),
+                          if (username.isNotEmpty) Center(child: Text('@$username')),
                           const SizedBox(height: 12),
                           if ((profile['bio'] ?? '').toString().isNotEmpty)
-                            Text((profile['bio']).toString(), textAlign: TextAlign.center),
+                            Text(profile['bio'].toString(), textAlign: TextAlign.center),
                           if ((profile['website'] ?? '').toString().isNotEmpty)
-                            Center(child: Text((profile['website']).toString())),
+                            Center(child: Text(profile['website'].toString())),
                           const SizedBox(height: 20),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              _Count(label: 'Followers', value: profile['followers_count']),
-                              const SizedBox(width: 28),
-                              _Count(label: 'Following', value: profile['following_count']),
-                            ],
-                          ),
+                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            _Count(
+                              label: 'Followers',
+                              value: profile['followers_count'],
+                              onTap: () => _openConnections('followers'),
+                            ),
+                            const SizedBox(width: 28),
+                            _Count(
+                              label: 'Following',
+                              value: profile['following_count'],
+                              onTap: () => _openConnections('following'),
+                            ),
+                          ]),
                           if (!isSelf) ...[
                             const SizedBox(height: 18),
-                            Center(
-                              child: FilledButton(
-                                onPressed: _busy ? null : _toggleFollow,
-                                child: _busy
-                                    ? const SizedBox(
-                                        width: 16,
-                                        height: 16,
-                                        child: CircularProgressIndicator(strokeWidth: 2),
-                                      )
-                                    : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
-                              ),
-                            ),
+                            Center(child: FilledButton(
+                              onPressed: _busy ? null : _toggleFollow,
+                              child: _busy
+                                  ? const SizedBox(width: 16,height: 16,child: CircularProgressIndicator(strokeWidth: 2))
+                                  : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
+                            )),
                           ],
                           const SizedBox(height: 20),
                           if (profile['protected_account'] == true && profile['can_view_posts'] != true)
                             const Center(child: Text('This account is private. Follow to see their posts.'))
                           else
-                            const Center(child: Text('Profile posts are being loaded in the next migration slice.')),
+                            const Center(child: Text('Profile posts are the next migration slice.')),
                         ],
                       ),
                     ),
@@ -162,15 +153,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
 }
 
 class _Count extends StatelessWidget {
-  const _Count({required this.label, required this.value});
+  const _Count({required this.label, required this.value, required this.onTap});
   final String label;
   final dynamic value;
+  final VoidCallback onTap;
 
   @override
-  Widget build(BuildContext context) => Column(
-        children: [
-          Text((value ?? 0).toString(), style: Theme.of(context).textTheme.titleLarge),
-          Text(label),
-        ],
-      );
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(8),
+    child: Padding(
+      padding: const EdgeInsets.all(8),
+      child: Column(children: [
+        Text((value ?? 0).toString(), style: Theme.of(context).textTheme.titleLarge),
+        Text(label),
+      ]),
+    ),
+  );
 }
