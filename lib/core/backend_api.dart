@@ -299,6 +299,47 @@ class BackendApi {
   Future<Map<String, dynamic>> unfollowUser(String targetUserId) =>
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
 
+  /// Reads the authenticated user's wallet from the native Backend ledger.
+  Future<Map<String, dynamic>> getWalletBalance({String currency = 'KES'}) =>
+      callCapability('testagram.wallet.balance', input: {'currency': currency});
+
+  /// Lists the authenticated user's wallet transactions (Backend maximum: 100).
+  Future<Map<String, dynamic>> listWalletTransactions({int limit = 50}) {
+    if (limit < 1 || limit > 100) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 100');
+    }
+    return callCapability('testagram.wallet.transactions.list', input: {'limit': limit});
+  }
+
+  /// Resolves a recipient username before the user confirms a transfer.
+  Future<Map<String, dynamic>> resolveWalletRecipient(String username) {
+    final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
+    if (normalized.length < 2 || normalized.length > 32) {
+      throw ArgumentError.value(username, 'username', 'Enter a valid recipient username');
+    }
+    return callCapability('testagram.wallet.recipient.resolve', input: {'username': normalized});
+  }
+
+  /// Transfers funds using a client-generated idempotency key.
+  Future<Map<String, dynamic>> transferWalletFunds({
+    required String recipientId,
+    required String amount,
+    String note = '',
+    required String idempotencyKey,
+  }) {
+    if (recipientId.trim().isEmpty || amount.trim().isEmpty ||
+        idempotencyKey.trim().length < 8 || idempotencyKey.trim().length > 128 ||
+        note.length > 280) {
+      throw ArgumentError('Recipient, amount, note or idempotency key is invalid');
+    }
+    return callCapability('testagram.wallet.transfer', input: {
+      'recipient_id': recipientId.trim(),
+      'amount': amount.trim(),
+      'note': note,
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Appwrite JWT is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
