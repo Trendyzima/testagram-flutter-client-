@@ -142,6 +142,10 @@ jobs:
             response="$(curl -sS -H "Authorization: Bearer $token" \
               "$api/zones/$CLOUDFLARE_ZONE_ID/workers/routes")"
             jq -c '{success,errors,result:[.result[]? | {id,pattern,script}]}' <<<"$response"
+            echo "Checking Worker custom-domain ownership with $token_name."
+            domains="$(curl -sS -H "Authorization: Bearer $token" \
+              "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains")"
+            jq -c '{success,errors,result:[.result[]? | {id,hostname,service,zone_name,zone_id,enabled}]}' <<<"$domains"
           done
       - name: Route production DNS to Cloudflare Pages
         shell: bash
