@@ -18,6 +18,10 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+      APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID }}
+      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
     steps:
       - uses: actions/checkout@v4
       - uses: subosito/flutter-action@v2
@@ -34,7 +38,32 @@ jobs:
         run: flutter analyze
       - name: Unit and widget tests
         run: flutter test --reporter expanded
+      - name: Report optional Appwrite configuration
+        if: env.APPWRITE_PROJECT_ID == ''
+        run: echo "::warning::APPWRITE_PROJECT_ID is not set; the app will show its configuration-required screen until it is added."
       - name: Build Android debug APK
-        run: flutter build apk --debug
+        run: |
+          flutter build apk --debug \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
-        run: flutter build web --release
+        run: |
+          flutter build web --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Upload Android debug APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: testagram-android-debug
+          path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Flutter web bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: testagram-web-build
+          path: build/web
+          if-no-files-found: error
+          retention-days: 14
