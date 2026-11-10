@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import 'post_interactions_screen.dart';
 
 class PostDetailScreen extends StatefulWidget {
   const PostDetailScreen({super.key, required this.api, required this.postId});
@@ -131,6 +132,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  void _openInteractions(String kind) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => PostInteractionsScreen(
+          api: widget.api,
+          postId: widget.postId,
+          kind: kind,
+        ),
+      ),
+    );
+  }
+
   Future<void> _sendReply() async {
     final content = _replyController.text.trim();
     if (content.isEmpty || _sending) return;
@@ -242,6 +255,17 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                                 'bookmark',
                                 _interaction['is_bookmarked'] == true,
                               ),
+                            ],
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12),
+                          child: Wrap(
+                            spacing: 8,
+                            children: [
+                              TextButton(onPressed: () => _openInteractions('likes'), child: const Text('View likes')),
+                              TextButton(onPressed: () => _openInteractions('reposts'), child: const Text('View reposts')),
+                              TextButton(onPressed: () => _openInteractions('quotes'), child: const Text('View quotes')),
                             ],
                           ),
                         ),
