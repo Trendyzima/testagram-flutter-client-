@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../posts/post_detail_screen.dart';
+
 import '../../core/backend_api.dart';
 import 'profile_connections_screen.dart';
 
@@ -18,6 +20,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loading = true;
   bool _busy = false;
   String? _error;
+  final List<Map<String, dynamic>> _posts = [];
+  String? _postsCursor;
+  bool _postsHasMore = false;
+  bool _loadingPosts = false;
+  String? _postsError;
 
   @override
   void initState() {
@@ -33,11 +40,57 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (raw is! Map) {
         throw const BackendApiException('The server returned an invalid profile.');
       }
-      if (mounted) setState(() => _profile = Map<String, dynamic>.from(raw));
+      if (mounted) {
+        setState(() {
+          _profile = Map<String, dynamic>.from(raw);
+          _posts.clear();
+          _postsCursor = null;
+          _postsHasMore = false;
+          _postsError = null;
+        });
+        if (raw['can_view_posts'] == true) {
+          await _loadPosts(reset: true);
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadPosts({bool reset = false}) async {
+    if (_loadingPosts || (!reset && !_postsHasMore)) return;
+    setState(() {
+      _loadingPosts = true;
+      _postsError = null;
+      if (reset) {
+        _posts.clear();
+        _postsCursor = null;
+      }
+    });
+    try {
+      final response = await widget.api.getProfilePosts(
+        widget.userId,
+        cursor: _postsCursor,
+      );
+      final data = response['data'];
+      if (data is! Map || data['posts'] is! List) {
+        throw const BackendApiException('The server returned an invalid profile posts page.');
+      }
+      final page = (data['posts'] as List)
+          .whereType<Map>()
+          .map((post) => Map<String, dynamic>.from(post))
+          .toList();
+      if (mounted) setState(() {
+        _posts.addAll(page);
+        _postsCursor = (data['next_cursor'] ?? '').toString();
+        _postsHasMore = data['has_more'] == true && _postsCursor!.isNotEmpty;
+      });
+    } catch (error) {
+      if (mounted) setState(() => _postsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingPosts = false);
     }
   }
 
@@ -143,8 +196,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           const SizedBox(height: 20),
                           if (profile['protected_account'] == true && profile['can_view_posts'] != true)
                             const Center(child: Text('This account is private. Follow to see their posts.'))
-                          else
-                            const Center(child: Text('Profile posts are the next migration slice.')),
+                          else ...[
+                            const SizedBox(height: 12),
+                            Text('Posts', style: Theme.of(context).textTheme.titleLarge),
+                            if (_postsError != null)
+                              TextButton(onPressed: _loadPosts, child: Text('Could not load posts. Retry')),
+                            for (final post in _posts)
+                              Card(
+                                child: ListTile(
+                                  title: Text((post['content'] ?? '').toString(), maxLines: 5, overflow: TextOverflow.ellipsis),
+                                  subtitle: Text('${post['likes_count'] ?? 0} likes · ${post['replies_count'] ?? 0} replies'),
+                                  onTap: (post['id'] ?? '').toString().isEmpty ? null : () {
+                                    Navigator.of(context).push(MaterialPageRoute<void>(
+                                      builder: (_) => PostDetailScreen(
+                                        api: widget.api,
+                                        postId: post['id'].toString(),
+                                      ),
+                                    ));
+                                  },
+                                ),
+                              ),
+                            if (_loadingPosts)
+                              const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
+                            if (_postsHasMore && !_loadingPosts)
+                              Center(child: TextButton(onPressed: _loadPosts, child: const Text('Load more posts'))),
+                            if (_posts.isEmpty && !_loadingPosts && _postsError == null)
+                              const Center(child: Text('No posts yet.')),
+                          ],
                         ],
                       ),
                     ),
