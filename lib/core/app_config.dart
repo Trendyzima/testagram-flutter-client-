@@ -5,7 +5,10 @@ class AppConfig {
     'APPWRITE_ENDPOINT',
     defaultValue: 'https://cloud.appwrite.io/v1',
   );
-  static const appwriteProjectId = String.fromEnvironment('APPWRITE_PROJECT_ID');
+  static const appwriteProjectId = String.fromEnvironment(
+    'APPWRITE_PROJECT_ID',
+    defaultValue: '6af01d97002875d6d7bd',
+  );
   static const backendApiUrl = String.fromEnvironment(
     'TESTAGRAM_API_URL',
     defaultValue: 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech',
