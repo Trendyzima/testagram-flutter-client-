@@ -6,10 +6,11 @@ void main() {
     '.dart', '.yaml', '.yml', '.gradle', '.kts', '.kt', '.java',
     '.swift', '.xml', '.plist', '.properties', '.json', '.sh',
   };
+  // Assemble signatures so this guard does not match its own implementation.
   final forbidden = <String, RegExp>{
-    'Supabase SDK, URL, key or REST dependency': RegExp(r'supabase', caseSensitive: false),
-    'Upstash dependency': RegExp(r'upstash', caseSensitive: false),
-    'Redis dependency': RegExp(r'redis', caseSensitive: false),
+    'backend SDK or URL dependency': RegExp('sup' + 'abase', caseSensitive: false),
+    'hosted cache dependency': RegExp('up' + 'stash', caseSensitive: false),
+    'external in-memory datastore dependency': RegExp('re' + 'dis', caseSensitive: false),
   };
   final failures = <String>[];
 
@@ -50,5 +51,5 @@ void main() {
     exitCode = 1;
     return;
   }
-  stdout.writeln('Dependency boundary clean: no Supabase, Upstash or Redis references in Flutter source, platform configuration, tooling or direct dependencies.');
+  stdout.writeln('Dependency boundary clean: no prohibited backend/cache/datastore references in Flutter source, platform configuration, tooling or direct dependencies.');
 }
