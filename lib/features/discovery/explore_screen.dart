@@ -16,6 +16,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Map<String, String> _followStatus = {};
   final Set<String> _busyFollow = {};
   bool _loading = false;
+  int _searchGeneration = 0;
   String? _error;
 
   @override
@@ -26,8 +27,12 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _search() async {
     final value = _query.text.trim();
+    final generation = ++_searchGeneration;
     if (value.length < 2) {
-      setState(() => _error = 'Enter at least two characters to search.');
+      setState(() {
+        _loading = false;
+        _error = 'Enter at least two characters to search.';
+      });
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -47,7 +52,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           return {'id': id, 'status': data is Map ? (data['status'] ?? (data['following'] == true ? 'accepted' : '')).toString() : ''};
         } catch (_) { return {'id': id, 'status': ''}; }
       }));
-      if (!mounted) return;
+      if (!mounted || generation != _searchGeneration) return;
       setState(() {
         _followStatus.clear();
         for (final state in followStates) {
@@ -57,9 +62,13 @@ class _ExploreScreenState extends State<ExploreScreen> {
         _people = people;
       });
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _error = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && generation == _searchGeneration) {
+        setState(() => _loading = false);
+      }
     }
   }
 
