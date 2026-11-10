@@ -3,6 +3,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import 'transfer_idempotency.dart';
 
 class WalletScreen extends StatefulWidget {
   const WalletScreen({super.key, required this.api});
@@ -19,6 +20,7 @@ class _WalletScreenState extends State<WalletScreen> {
   String? _error;
   Map<String, dynamic> _wallet = const {};
   List<Map<String, dynamic>> _transactions = const [];
+  final WalletTransferAttempt _transferAttempt = WalletTransferAttempt();
 
   @override
   void initState() {
@@ -151,12 +153,24 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       if (confirmed != true || !mounted) return;
 
+      final currency = (_wallet['currency'] ?? 'KES').toString();
+      final fingerprint = walletTransferFingerprint(
+        recipientId: recipientId,
+        amount: form['amount']!,
+        currency: currency,
+        note: form['note']!,
+      );
+      final idempotencyKey = _transferAttempt.keyFor(
+        fingerprint: fingerprint,
+        generateKey: _newIdempotencyKey,
+      );
       await widget.api.transferWalletFunds(
         recipientId: recipientId,
         amount: form['amount']!,
         note: form['note']!,
-        idempotencyKey: _newIdempotencyKey(),
+        idempotencyKey: idempotencyKey,
       );
+      _transferAttempt.complete(fingerprint);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Transfer to @$canonicalUsername completed.')),
