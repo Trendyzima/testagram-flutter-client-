@@ -36,6 +36,33 @@ void main() {
       api.close();
     });
 
+    test('loads a privacy-filtered post detail using the Appwrite JWT', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'id': '00000000-0000-4000-8000-000000000001',
+              'content': 'A privacy-filtered post',
+              'likes_count': 3,
+            },
+          }), 200);
+        }),
+      );
+
+      final response = await api.getPost('00000000-0000-4000-8000-000000000001');
+      expect(captured.method, 'GET');
+      expect(captured.url.path,
+          '/api/social/posts/00000000-0000-4000-8000-000000000001');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect((response['data'] as Map)['content'], 'A privacy-filtered post');
+      api.close();
+    });
+
     test('sends reactions only through the authenticated social API', () async {
       late http.Request captured;
       final api = BackendApi(
