@@ -13,6 +13,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   final _scroll = ScrollController();
   final List<Map<String, dynamic>> _items = [];
   bool _loading = false, _hasMore = true;
+  int _loadGeneration = 0;
+  int _activeLoads = 0;
   String? _cursor, _error;
   final Set<String> _marking = {};
 
@@ -41,32 +43,47 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (_loading || (!reset && !_hasMore)) return;
+    if (!reset && (_loading || !_hasMore)) return;
+    final generation = reset ? ++_loadGeneration : _loadGeneration;
+    final pageCursor = reset ? null : _cursor;
     setState(() {
+      _activeLoads++;
       _loading = true;
       _error = null;
-      if (reset) { _cursor = null; _hasMore = true; }
+      if (reset) {
+        _items.clear();
+        _cursor = null;
+        _hasMore = true;
+      }
     });
     try {
       final data = _data(await widget.api.listNotifications(
-        limit: 30, cursor: reset ? null : _cursor,
+        limit: 30,
+        cursor: pageCursor,
       ));
       final raw = data['items'];
       final rows = raw is List
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
           : <Map<String, dynamic>>[];
-      if (!mounted) return;
-      setState(() {
-        if (reset) _items.clear();
-        final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
-        _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
-        _cursor = (data['next_cursor'] ?? '').toString();
-        _hasMore = _cursor!.isNotEmpty;
-      });
+      if (mounted && generation == _loadGeneration) {
+        setState(() {
+          final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
+          _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
+          _cursor = (data['next_cursor'] ?? '').toString();
+          _hasMore = _cursor!.isNotEmpty;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && generation == _loadGeneration) {
+        setState(() => _error = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _activeLoads--;
+          _loading = _activeLoads > 0;
+        });
+      }
     }
   }
 
