@@ -13,6 +13,8 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   final _scroll = ScrollController();
   List<Map<String, dynamic>> _items = [];
   bool _loading = false, _sending = false, _hasMore = true;
+  int _loadGeneration = 0;
+  int _activeLoads = 0;
   String? _cursor;
   String _tab = 'for-you';
   String? _error;
@@ -40,26 +42,49 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (_loading || (!reset && !_hasMore)) return;
+    if (!reset && (_loading || !_hasMore)) return;
+    final generation = reset ? ++_loadGeneration : _loadGeneration;
+    final requestedTab = _tab;
+    final pageCursor = reset ? null : _cursor;
     setState(() {
-      _loading = true; _error = null;
-      if (reset) { _cursor = null; _hasMore = true; }
+      _activeLoads++;
+      _loading = true;
+      _error = null;
+      if (reset) {
+        _items.clear();
+        _cursor = null;
+        _hasMore = true;
+      }
     });
     try {
-      final data = _data(await widget.api.getThreads(limit: 20, cursor: reset ? null : _cursor, tab: _tab));
+      final data = _data(await widget.api.getThreads(
+        limit: 20,
+        cursor: pageCursor,
+        tab: requestedTab,
+      ));
       final raw = data['items'];
-      final rows = raw is List ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : <Map<String, dynamic>>[];
-      if (mounted) setState(() {
-        if (reset) _items.clear();
-        final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
-        _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
-        _cursor = (data['next_cursor'] ?? '').toString();
-        _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
-      });
+      final rows = raw is List
+          ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+          : <Map<String, dynamic>>[];
+      if (mounted && generation == _loadGeneration && requestedTab == _tab) {
+        setState(() {
+          final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
+          _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
+          _cursor = (data['next_cursor'] ?? '').toString();
+          _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
+        });
+      }
     } catch (e) {
-      if (mounted) setState(() => _error = e.toString());
+      if (mounted && generation == _loadGeneration && requestedTab == _tab) {
+        setState(() => _error = e.toString());
+      }
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted) {
+        setState(() {
+          _activeLoads--;
+          _loading = _activeLoads > 0;
+        });
+      }
     }
   }
 
