@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -136,6 +137,27 @@ void main() {
       expect(captured.url.queryParameters['tab'], 'saved');
       expect(captured.url.queryParameters['cursor'], 'thread-cursor');
       expect(captured.headers['authorization'], 'Bearer jwt');
+      api.close();
+    });
+
+
+    test('normalizes backend request timeouts into a readable API error', () async {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async {
+          throw TimeoutException('test timeout');
+        }),
+      );
+
+      await expectLater(
+        api.getHomeFeed(),
+        throwsA(isA<BackendApiException>().having(
+          (error) => error.message,
+          'message',
+          'The request timed out. Check your connection and try again.',
+        )),
+      );
       api.close();
     });
 
