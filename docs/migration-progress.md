@@ -18,7 +18,7 @@ Last updated: 2026-11-10
 | Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
 | Polls | List, create, vote, results and offset pagination | `GET|POST /api/social/polls`, `GET /api/social/polls/{poll_id}`, `POST /api/social/polls/{poll_id}/vote` |
 | Product styling | Testagram light/dark design tokens and branded background | Local Flutter presentation only |
-| Navigation | Native Home, Explore, Alerts and Threads destinations | Local Flutter presentation only |
+| Navigation | Native Home, Explore, Alerts, Threads and Polls destinations | Local Flutter presentation only |
 
 Every route above was checked against the Backend router and corresponding handler before the Flutter client was wired to it. Product data and authorization stay in the Backend; Flutter holds only presentation state.
 
