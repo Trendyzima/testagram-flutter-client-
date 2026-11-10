@@ -105,6 +105,78 @@ void main() {
       api.close();
     });
 
+    test('lists public polls using bounded offset pagination', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'items': [], 'next_offset': 20, 'has_more': true},
+          }), 200);
+        }),
+      );
+
+      await api.listPolls(limit: 20, offset: 20);
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/social/polls');
+      expect(captured.url.queryParameters, {'limit': '20', 'offset': '20'});
+      expect(captured.headers['authorization'], 'Bearer jwt');
+      api.close();
+    });
+
+    test('creates polls using the validated Backend payload', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'poll-1'}}), 201);
+        }),
+      );
+
+      await api.createPoll(
+        question: 'Which feature next?',
+        description: 'Choose one',
+        options: ['Messages', 'Communities'],
+      );
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/social/polls');
+      expect(jsonDecode(captured.body), {
+        'question': 'Which feature next?',
+        'description': 'Choose one',
+        'options': ['Messages', 'Communities'],
+      });
+      api.close();
+    });
+
+    test('votes on a poll using the selected option UUID', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'voted': true}}), 200);
+        }),
+      );
+
+      await api.votePoll(
+        '00000000-0000-4000-8000-000000000001',
+        '00000000-0000-4000-8000-000000000002',
+      );
+      expect(captured.method, 'POST');
+      expect(captured.url.path,
+          '/api/social/polls/00000000-0000-4000-8000-000000000001/vote');
+      expect(jsonDecode(captured.body), {
+        'option_id': '00000000-0000-4000-8000-000000000002',
+      });
+      api.close();
+    });
+
     test('paginates notifications using the Backend cursor', () async {
       late http.Request captured;
       final api = BackendApi(
