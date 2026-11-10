@@ -52,6 +52,21 @@ jobs:
           done
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
+      - name: Verify Cloudflare Pages API access
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
+          response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" "$endpoint")"
+          if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
+            echo "::error::Cloudflare rejected the token for Pages API access. Create a token with Account > Cloudflare Pages > Edit, scoped to the account that owns testagram.site, then replace CLOUDFLARE_API_TOKEN in GitHub."
+            jq -c '{errors: [.errors[]? | {code, message}], messages}' <<<"$response"
+            exit 1
+          fi
+          echo "Cloudflare Pages API access verified."
+
       - name: Install Flutter
         uses: subosito/flutter-action@v2
         with:
