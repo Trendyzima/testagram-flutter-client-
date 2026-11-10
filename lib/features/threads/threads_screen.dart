@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
@@ -15,6 +16,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   bool _loading = false, _sending = false, _hasMore = true;
   int _loadGeneration = 0;
   int _activeLoads = 0;
+  final Set<String> _busyActions = {};
   String? _cursor;
   String _tab = 'for-you';
   String? _error;
@@ -122,13 +124,17 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
   }
 
   Future<void> _toggle(String id, String kind) async {
+    if (id.isEmpty || _busyActions.contains(id)) return;
+    setState(() => _busyActions.add(id));
     try {
       if (kind == 'like') await widget.api.toggleThreadLike(id);
       if (kind == 'repost') await widget.api.toggleThreadRepost(id);
       if (kind == 'bookmark') await widget.api.toggleThreadBookmark(id);
-      await _load(reset: true);
+      if (mounted) await _load(reset: true);
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
+    } finally {
+      if (mounted) setState(() => _busyActions.remove(id));
     }
   }
 
@@ -172,24 +178,40 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                   );
                   final item = _items[index];
                   final profile = item['profiles'];
-                  final name = profile is Map ? (profile['display_name'] ?? profile['username'] ?? 'Testagram user').toString() : 'Testagram user';
+                  final name = profile is Map
+                      ? (profile['display_name'] ?? profile['username'] ?? 'Testagram user').toString()
+                      : 'Testagram user';
+                  final username = profile is Map ? (profile['username'] ?? '').toString() : '';
+                  final avatarUrl = profile is Map ? (profile['avatar_url'] ?? '').toString() : '';
                   final id = (item['id'] ?? '').toString();
+                  final actionBusy = _busyActions.contains(id);
                   return Padding(
                     padding: const EdgeInsets.all(16),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                       Row(children: [
-                        const CircleAvatar(child: Icon(Icons.person_outline)),
+                        CircleAvatar(
+                          backgroundImage: avatarUrl.isEmpty ? null : CachedNetworkImageProvider(avatarUrl),
+                          child: avatarUrl.isEmpty ? const Icon(Icons.person_outline) : null,
+                        ),
                         const SizedBox(width: 10),
-                        Expanded(child: Text(name, style: const TextStyle(fontWeight: FontWeight.bold))),
-                        Text((item['created_at'] ?? '').toString().split('T').first, style: Theme.of(context).textTheme.bodySmall),
+                        Expanded(child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(name, style: const TextStyle(fontWeight: FontWeight.bold)),
+                            if (username.isNotEmpty)
+                              Text('@$username', style: Theme.of(context).textTheme.bodySmall),
+                          ],
+                        )),
+                        Text((item['created_at'] ?? '').toString().split('T').first,
+                            style: Theme.of(context).textTheme.bodySmall),
                       ]),
                       const SizedBox(height: 10),
                       Text((item['body'] ?? '').toString()),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, children: [
-                        TextButton.icon(onPressed: () => _toggle(id, 'like'), icon: const Icon(Icons.favorite_border), label: Text((item['likes_count'] ?? 0).toString())),
-                        TextButton.icon(onPressed: () => _toggle(id, 'repost'), icon: const Icon(Icons.repeat), label: Text((item['reposts_count'] ?? 0).toString())),
-                        TextButton.icon(onPressed: () => _toggle(id, 'bookmark'), icon: const Icon(Icons.bookmark_border), label: const Text('Save')),
+                        TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'like'), icon: const Icon(Icons.favorite_border), label: Text((item['likes_count'] ?? 0).toString())),
+                        TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'repost'), icon: const Icon(Icons.repeat), label: Text((item['reposts_count'] ?? 0).toString())),
+                        TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'bookmark'), icon: const Icon(Icons.bookmark_border), label: const Text('Save')),
                       ]),
                     ]),
                   );
