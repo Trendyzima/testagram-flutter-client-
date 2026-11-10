@@ -20,6 +20,7 @@ Last updated: 2026-11-10
 | Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
 | Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
 | Polls | List, create, vote, results and offset pagination | `GET|POST /api/social/polls`, `GET /api/social/polls/{poll_id}`, `POST /api/social/polls/{poll_id}/vote` |
+| Wallet | Native balance, recent transaction history, username-based recipient resolution and confirmation-gated KES/USD transfers | `POST /api/capability` with `testagram.wallet.balance`, `testagram.wallet.transactions.list`, `testagram.wallet.recipient.resolve`, `testagram.wallet.transfer` |
 | Product styling | Testagram light/dark design tokens and branded background | Local Flutter presentation only |
 | Navigation | Native Home, Explore, Alerts, Threads and Polls destinations | Local Flutter presentation only |
 
