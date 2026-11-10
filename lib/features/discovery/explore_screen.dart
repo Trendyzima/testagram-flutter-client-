@@ -119,7 +119,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
               ListTile(
                 leading: const CircleAvatar(child: Icon(Icons.person_outline)),
                 title: Text((person['display_name'] ?? person['username'] ?? 'Testagram user').toString()),
-                subtitle: Text('@' + (person['username'] ?? '').toString()),
+                subtitle: Text('@${(person['username'] ?? '').toString()}'),
                 trailing: (person['id'] ?? person['user_id']) == null
                     ? null
                     : OutlinedButton(
