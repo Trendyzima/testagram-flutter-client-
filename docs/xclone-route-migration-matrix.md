@@ -245,7 +245,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 | Threads | `features/threads` | Ported slice: timeline, composer, interactions and image attachment |
 | Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slice: search and follow basics; all secondary discovery routes remain open |
 | Notifications | `features/notifications` | Ported slice: list and mark read; preferences, realtime and push remain open |
-| Profiles, followers, profile sections, privacy, lists, blocks, mutes | `features/profile`, `features/social`, `features/settings` | Ported slices: authenticated privacy-aware profile header, follow state/action, paginated followers and following lists; profile posts and settings remain open |
+| Profiles, followers, profile sections, privacy, lists, blocks, mutes | `features/profile`, `features/social`, `features/settings` | Ported slices: authenticated privacy-aware profile header, follow state/action, paginated followers and following lists, privacy-filtered profile posts with post-detail navigation; profile editing and settings remain open |
 | Direct messages, platform inbox, team chat, calls | `features/messages` | Blocked on verified messaging/E2EE/call contracts |
 | TV, IPTV, video, shorts, studio, live spaces | `features/tv`, `features/videos`, `features/spaces` | Not ported; do not copy source playback/catalog services without contract and rights review |
 | Communities, challenges, polls, events | `features/communities`, `features/challenges`, `features/social` | Not ported |
