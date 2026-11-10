@@ -60,7 +60,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
-    if (_loadingPosts || (!reset && !_postsHasMore)) return;
+    if (_loadingPosts || (!reset && !_postsHasMore)) {
+      return;
+    }
     setState(() {
       _loadingPosts = true;
       _postsError = null;
@@ -82,11 +84,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .whereType<Map>()
           .map((post) => Map<String, dynamic>.from(post))
           .toList();
-      if (mounted) setState(() {
-        _posts.addAll(page);
-        _postsCursor = (data['next_cursor'] ?? '').toString();
-        _postsHasMore = data['has_more'] == true && _postsCursor!.isNotEmpty;
-      });
+      if (mounted) {
+        setState(() {
+          _posts.addAll(page);
+          _postsCursor = (data['next_cursor'] ?? '').toString();
+          _postsHasMore = data['has_more'] == true && _postsCursor!.isNotEmpty;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() => _postsError = error.toString());
     } finally {
@@ -200,7 +204,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: 12),
                             Text('Posts', style: Theme.of(context).textTheme.titleLarge),
                             if (_postsError != null)
-                              TextButton(onPressed: _loadPosts, child: Text('Could not load posts. Retry')),
+                              TextButton(onPressed: _loadPosts, child: const Text('Could not load posts. Retry')),
                             for (final post in _posts)
                               Card(
                                 child: ListTile(
