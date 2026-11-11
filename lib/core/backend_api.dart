@@ -27,7 +27,7 @@ class BackendApi {
     return _request('GET', uri);
   }
 
-  /// Creates a moderated, idempotent post through the canonical fresh API.
+  /// Creates a moderated, idempotent post through the native social API.
   /// The server rechecks Appwrite identity, visibility and moderation; the
   /// generated key makes a retry safe if the response is lost in transit.
   Future<Map<String, dynamic>> createPost({
