@@ -65,6 +65,46 @@ void main() {
     });
   });
 
+  group('tvCanRequestSponsoredAd', () {
+    test('requires started playback, no previous request and current generation', () {
+      expect(
+        tvCanRequestSponsoredAd(
+          hasPlaybackStarted: true,
+          alreadyRequested: false,
+          isCurrentGeneration: true,
+        ),
+        isTrue,
+      );
+    });
+
+    test('rejects ads before playback, duplicate requests and stale generations', () {
+      expect(
+        tvCanRequestSponsoredAd(
+          hasPlaybackStarted: false,
+          alreadyRequested: false,
+          isCurrentGeneration: true,
+        ),
+        isFalse,
+      );
+      expect(
+        tvCanRequestSponsoredAd(
+          hasPlaybackStarted: true,
+          alreadyRequested: true,
+          isCurrentGeneration: true,
+        ),
+        isFalse,
+      );
+      expect(
+        tvCanRequestSponsoredAd(
+          hasPlaybackStarted: true,
+          alreadyRequested: false,
+          isCurrentGeneration: false,
+        ),
+        isFalse,
+      );
+    });
+  });
+
   group('tvExternalYoutubeWatchUrl', () {
     test('returns a canonical YouTube URL for a valid video id', () {
       expect(
