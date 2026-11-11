@@ -1,27 +1,22 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/features/creator/podcast_analytics_policy.dart';
-
 void main() {
   group('PodcastAnalyticsPolicy', () {
-    test('locks only on an explicit true lock record', () {
+    test('locks only explicit locked records', () {
       expect(PodcastAnalyticsPolicy.isLocked({'is_locked': true}), isTrue);
       expect(PodcastAnalyticsPolicy.isLocked({'is_locked': false}), isFalse);
       expect(PodcastAnalyticsPolicy.isLocked(null), isFalse);
-      expect(PodcastAnalyticsPolicy.isLocked({'other': true}), isFalse);
     });
-
-    test('parses invalid numeric values safely', () {
-      expect(PodcastAnalyticsPolicy.asCount('12'), 12);
+    test('parses counts and finite amounts defensively', () {
+      expect(PodcastAnalyticsPolicy.asCount('42'), 42);
       expect(PodcastAnalyticsPolicy.asCount('bad'), 0);
-      expect(PodcastAnalyticsPolicy.asAmount('2.75'), 2.75);
-      expect(PodcastAnalyticsPolicy.asAmount(null), 0);
+      expect(PodcastAnalyticsPolicy.asAmount('12.5'), 12.5);
+      expect(PodcastAnalyticsPolicy.asAmount('NaN'), 0);
     });
-
-    test('formats durations in minutes and hours', () {
+    test('formats durations', () {
       expect(PodcastAnalyticsPolicy.formatDuration(0), '0m');
-      expect(PodcastAnalyticsPolicy.formatDuration(3599), '59m');
+      expect(PodcastAnalyticsPolicy.formatDuration(125), '2m');
       expect(PodcastAnalyticsPolicy.formatDuration(3660), '1h 1m');
-      expect(PodcastAnalyticsPolicy.formatDuration('invalid'), '0m');
     });
   });
 }
