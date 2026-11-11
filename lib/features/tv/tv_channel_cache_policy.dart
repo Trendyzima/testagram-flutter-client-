@@ -16,7 +16,7 @@ class TvChannelCachePolicy {
 
   static bool _safeHttpsUrl(Object? raw) {
     if (raw == null) return false;
-    if (raw is! String || raw.trim().isEmpty) return false;
+    if (raw is! String || raw.trim().isEmpty || raw.length > 2048) return false;
     final uri = Uri.tryParse(raw.trim());
     if (uri == null ||
         uri.scheme.toLowerCase() != 'https' ||
@@ -42,12 +42,14 @@ class TvChannelCachePolicy {
       final name = channel['name'];
       final playbackType = channel['playback_type'];
       final availability = channel['availability'];
+      final description = channel['description'];
       if (id is! String ||
           id.trim().isEmpty ||
           id.length > 256 ||
           name is! String ||
           name.trim().isEmpty ||
           name.length > 160 ||
+          (description is String && description.length > 2000) ||
           !const {'hls', 'dash', 'mp4', 'external'}.contains(playbackType) ||
           !const {'available', 'degraded', 'offline', 'scheduled', 'unknown'}
               .contains(availability)) {
@@ -60,12 +62,7 @@ class TvChannelCachePolicy {
       output.add(<String, dynamic>{
         'id': id,
         'name': name,
-        'description': channel['description'] is String
-            ? (channel['description'] as String).substring(
-                0,
-                (channel['description'] as String).length.clamp(0, 2000),
-              )
-            : '',
+        'description': description is String ? description : '',
         'logo_url': _safeHttpsUrl(logo) ? logo : null,
         'country_code': channel['country_code'] is String &&
                 RegExp(r'^[A-Z]{2}$').hasMatch(channel['country_code'] as String)
