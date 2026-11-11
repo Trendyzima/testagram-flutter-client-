@@ -13,6 +13,11 @@ void main() {
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     await Directory('/tmp/testagram-widget-tests').create(recursive: true);
+  });
+
+  setUp(() {
+    // Plugin mocks must be registered for each test: the widget test binding
+    // resets the default binary messenger between test cases.
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
       pathProviderChannel,
@@ -20,9 +25,13 @@ void main() {
           ? '/tmp/testagram-widget-tests'
           : null,
     );
+    final client = Client()
+      ..setEndpoint('https://cloud.appwrite.io/v1')
+      ..setProject('testagram-widget-test');
+    account = Account(client);
   });
 
-  tearDownAll(() {
+  tearDown(() {
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(pathProviderChannel, null);
   });
@@ -32,13 +41,6 @@ void main() {
     await tester.tap(finder);
     await tester.pumpAndSettle();
   }
-
-  setUp(() {
-    final client = Client()
-      ..setEndpoint('https://cloud.appwrite.io/v1')
-      ..setProject('testagram-widget-test');
-    account = Account(client);
-  });
 
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
@@ -53,16 +55,16 @@ void main() {
     expect(find.text('Sign up'), findsOneWidget);
     expect(find.text('Reset password'), findsOneWidget);
 
-    await tester.tap(find.text('Sign up'));
+    await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
     expect(find.text('Create your account'), findsOneWidget);
 
-    await tester.tap(find.text('Reset password'));
+    await tapVisible(tester, find.text('Reset password'));
     await tester.pumpAndSettle();
     expect(find.text('Reset your password'), findsOneWidget);
     expect(find.text('Send reset link'), findsOneWidget);
 
-    await tester.tap(find.widgetWithText(ChoiceChip, 'Sign in'));
+    await tapVisible(tester, find.widgetWithText(ChoiceChip, 'Sign in'));
     await tester.pumpAndSettle();
     expect(find.text('Welcome back'), findsOneWidget);
   });
@@ -73,7 +75,7 @@ void main() {
       home: AuthScreen(account: account, onSignedIn: () {}),
     ));
 
-    await tester.tap(find.text('Create a new account'));
+    await tapVisible(tester, find.text('Create a new account'));
     await tester.pumpAndSettle();
 
     expect(find.text('Create your account'), findsOneWidget);
@@ -141,7 +143,7 @@ void main() {
       home: AuthScreen(account: account, onSignedIn: () {}),
     ));
 
-    await tester.tap(find.text('Forgot password?'));
+    await tapVisible(tester, find.text('Forgot password?'));
     await tester.pumpAndSettle();
     expect(find.text('Reset your password'), findsOneWidget);
     expect(find.text('Send reset link'), findsOneWidget);
