@@ -11,7 +11,7 @@ void main() {
     test('reject notes must be non-empty and no longer than 500 chars', () {
       expect(AdReviewPolicy.canReject('  '), isFalse);
       expect(AdReviewPolicy.canReject('Please update the creative'), isTrue);
-      expect(AdReviewPolicy.canReject('x' * 501), isFalse);
+      expect(AdReviewPolicy.canReject(List.filled(501, 'x').join()), isFalse);
     });
     test('formats budget micros defensively', () {
       expect(AdReviewPolicy.formatBudget(2500000, 'KES'), 'KES 2.50');
