@@ -85,7 +85,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signUp() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     await _run(() async {
       final email = _email.text.trim().toLowerCase();
       await widget.account.create(userId: ID.unique(), email: email,
@@ -108,7 +110,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _resend() async => _run(() async {
     await widget.account.createVerification(url: '${AppConfig.siteUrl}/?mode=verification');
-    if (mounted) { setState(() => _notice = 'A new verification email has been sent.'); }
+    if (mounted) {
+      setState(() => _notice = 'A new verification email has been sent.');
+    }
   });
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
@@ -122,22 +126,26 @@ class _AuthScreenState extends State<AuthScreen> {
   });
 
   Future<void> _forgot() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     await _run(() async {
       await widget.account.createRecovery(
         email: _email.text.trim().toLowerCase(),
         url: '${AppConfig.siteUrl}/?mode=recovery');
       if (mounted) {
         setState(() {
-        _page = _Page.signIn;
-        _notice = 'If the account exists, a password reset link has been sent.';
+          _page = _Page.signIn;
+          _notice = 'If the account exists, a password reset link has been sent.';
         });
       }
     });
   }
 
   Future<void> _reset() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     if (_recoveryUser == null || _recoverySecret == null) {
       setState(() {
         _error = 'Recovery link is incomplete. Request a new reset email.';
@@ -147,11 +155,13 @@ class _AuthScreenState extends State<AuthScreen> {
     await _run(() async {
       await widget.account.updateRecovery(
         userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _page = _Page.signIn; _password.clear(); _confirm.clear();
         _recoveryUser = null; _recoverySecret = null;
         _notice = 'Password changed. Sign in with your new password.';
-      });
+        });
+      }
     });
   }
 
