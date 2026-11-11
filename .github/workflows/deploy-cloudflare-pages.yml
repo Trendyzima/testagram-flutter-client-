@@ -152,11 +152,11 @@ jobs:
         run: |
           set -euo pipefail
           api="https://api.cloudflare.com/client/v4"
-          auth="Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN"
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
           domains="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" \
             "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/domains")"
           if [[ "$(jq -r '.success // false' <<<"$domains")" != "true" ]]; then
-            echo "::error::The DNS token cannot manage Worker custom domains. Add Account > Workers Scripts > Edit to the CLOUDFLARE_API_TOKEN2 token, then update the GitHub secret if its value changes."
+            echo "::error::The project token cannot manage Worker custom domains. Check its Account > Workers Scripts > Edit permission and account scope."
             jq -c '{errors,messages}' <<<"$domains"
             exit 1
           fi
@@ -185,7 +185,7 @@ jobs:
             temporary_worker="testagram-domain-release"
             temporary_dir="$(mktemp -d)"
             printf '%s\n' 'export default { fetch() { return new Response("Temporary domain release", { status: 503 }); } };' > "$temporary_dir/index.js"
-            CLOUDFLARE_API_TOKEN="$CLOUDFLARE_DNS_API_TOKEN" wrangler deploy "$temporary_dir/index.js" \
+            CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" wrangler deploy "$temporary_dir/index.js" \
               --name "$temporary_worker" --compatibility-date 2026-11-10
             for hostname in $missing; do
               attached="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -X PUT \
