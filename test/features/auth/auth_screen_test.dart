@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
@@ -8,8 +10,9 @@ void main() {
   late Account account;
   const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
 
-  setUpAll(() {
+  setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
+    await Directory('/tmp/testagram-widget-tests').create(recursive: true);
     TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
         .setMockMethodCallHandler(
       pathProviderChannel,
