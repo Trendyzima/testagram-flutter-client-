@@ -83,8 +83,13 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _usernameValid(String? value) {
     final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
-    if (username.length < 3 || username.length > 30) return 'Username must be 3–30 characters.';
-    return RegExp(r'^[a-zA-Z0-9_]+
+    if (username.length < 3 || username.length > 30) {
+      return 'Username must be 3–30 characters.';
+    }
+    return RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)
+        ? null
+        : 'Use letters, numbers and underscores only.';
+  }
 
   String _friendly(Object e) {
     if (e is AppwriteException) {
@@ -255,12 +260,6 @@ class _AuthScreenState extends State<AuthScreen> {
           const Icon(Icons.hub_rounded, color: Color(0xFF18A957), size: 58),
           const SizedBox(height: 20), Text(title, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8), Text(subtitle), const SizedBox(height: 28),
-          if (_page == _Page.signUp) ...[
-            TextFormField(controller: _name, textCapitalization: TextCapitalization.words,
-              decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
-              validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
-            const SizedBox(height: 14),
-          ],
           if (_page == _Page.signUp) ...[
             TextFormField(controller: _name, textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
