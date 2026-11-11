@@ -18,7 +18,7 @@ class WalletReadModel {
   );
   static double _asAmount(Object? value) {
     if (value is num && value.isFinite) return value.toDouble();
-    if (value is String) return double.tryParse(value) ?? 0;
+    if (value is String) { final parsed = double.tryParse(value); return parsed != null && parsed.isFinite ? parsed : 0; }
     return 0;
   }
   static String _safeCurrency(Object? value) {
