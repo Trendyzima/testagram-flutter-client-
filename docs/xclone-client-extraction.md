@@ -36,6 +36,7 @@ The current migration batch includes:
 - `lib/features/wallet/wallet_read_model.dart`: read-only wallet and transaction parsing; no payment or wallet mutation code.
 - `lib/features/ads/ad_review_policy.dart`: ad-review control presentation rules; server authorization remains authoritative.
 - `lib/features/creator/podcast_analytics_policy.dart`: defensive creator analytics display parsing.
+- `lib/features/tv/tv_playback_policy.dart`: playback-surface, sponsored-ad eligibility, lifecycle pause/resume and validated YouTube URL policies.
 
 Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated.
 

@@ -23,6 +23,8 @@ Last updated: 2026-11-10
 | Wallet | Native balance, recent transaction history, username-based recipient resolution and confirmation-gated KES/USD transfers | `POST /api/capability` with `testagram.wallet.balance`, `testagram.wallet.transactions.list`, `testagram.wallet.recipient.resolve`, `testagram.wallet.transfer` |
 | Product styling | Testagram light/dark design tokens and branded background | Local Flutter presentation only |
 | Navigation | Native Home, Explore, Alerts, Threads and Polls destinations | Local Flutter presentation only |
+| TV playback UX policy | Playback-surface detection, ad-request gating, lifecycle pause/resume and validated YouTube URL construction | Pure client policy only; no stream provider or playback screen migrated |
+| Podcast analytics display policy | Defensive numeric parsing, lock-state display and duration formatting | Pure client presentation policy only; creator analytics API/screen remains open |
 
 Every route above was checked against the Backend router and corresponding handler before the Flutter client was wired to it. Product data and authorization stay in the Backend; Flutter holds only presentation state.
 
