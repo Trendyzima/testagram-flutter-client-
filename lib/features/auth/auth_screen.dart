@@ -74,7 +74,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signIn() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     await _run(() async {
       await widget.account.createEmailPasswordSession(
         email: _email.text.trim().toLowerCase(), password: _password.text);
@@ -111,7 +113,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
     await widget.account.updateVerification(userId: userId, secret: secret);
-    if (mounted) { setState(() { _page = _Page.signIn; _notice = 'Email verified. Sign in to continue.'; }); }
+    if (mounted) {
+      setState(() {
+        _page = _Page.signIn;
+        _notice = 'Email verified. Sign in to continue.';
+      });
+    }
   });
 
   Future<void> _forgot() async {
@@ -120,17 +127,21 @@ class _AuthScreenState extends State<AuthScreen> {
       await widget.account.createRecovery(
         email: _email.text.trim().toLowerCase(),
         url: '${AppConfig.siteUrl}/?mode=recovery');
-      if (mounted) setState(() {
+      if (mounted) {
+        setState(() {
         _page = _Page.signIn;
         _notice = 'If the account exists, a password reset link has been sent.';
-      });
+        });
+      }
     });
   }
 
   Future<void> _reset() async {
     if (!_form.currentState!.validate()) return;
     if (_recoveryUser == null || _recoverySecret == null) {
-      setState(() => _error = 'Recovery link is incomplete. Request a new reset email.');
+      setState(() {
+        _error = 'Recovery link is incomplete. Request a new reset email.';
+      });
       return;
     }
     await _run(() async {
