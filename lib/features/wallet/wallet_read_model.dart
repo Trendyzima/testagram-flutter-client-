@@ -55,5 +55,5 @@ String formatWalletAmount(double amount, String currency) {
   final fixed = amount.abs().toStringAsFixed(2);
   final parts = fixed.split('.');
   final grouped = parts.first.replaceAllMapped(RegExp(r'\B(?=(\d{3})+(?!\d))'), (_) => ',');
-  return safeCurrency + ' ' + grouped + '.' + parts.last;
+  return '$safeCurrency $grouped.${parts.last}';
 }
