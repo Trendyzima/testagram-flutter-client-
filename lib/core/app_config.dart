@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 class AppConfig {
   const AppConfig._();
 
@@ -42,11 +44,35 @@ class AppConfig {
 
   static Uri get backendOrigin => Uri.parse(backendApiUrl);
 
+  /// Uses the active Pages preview origin for browser email callbacks, while
+  /// native clients always use the configured canonical HTTPS site.
+  static String get authCallbackOrigin =>
+      authCallbackOriginFor(Uri.base, isWeb: kIsWeb);
+
+  static String authCallbackOriginFor(Uri currentUri, {required bool isWeb}) {
+    if (!isWeb ||
+        currentUri.scheme != 'https' ||
+        currentUri.host.isEmpty ||
+        currentUri.userInfo.isNotEmpty ||
+        currentUri.hasQuery ||
+        currentUri.hasFragment) {
+      return siteUrl;
+    }
+    final host = currentUri.host.toLowerCase();
+    final isCanonicalHost =
+        host == 'testagram.site' || host == 'www.testagram.site';
+    final isPagesPreview =
+        host.endsWith('.testagram-flutter-web.pages.dev');
+    return isCanonicalHost || isPagesPreview ? currentUri.origin : siteUrl;
+  }
+
   static bool _isHttpsUrl(String value) {
     final uri = Uri.tryParse(value);
     return uri != null &&
         uri.scheme == 'https' &&
         uri.host.isNotEmpty &&
-        uri.userInfo.isEmpty;
+        uri.userInfo.isEmpty &&
+        !uri.hasQuery &&
+        !uri.hasFragment;
   }
 }
