@@ -142,4 +142,7 @@ class TvChannelCachePolicy {
     }
   }
 }
-\nString _boundedText(String value, int maxLength) =>\n    value.length > maxLength ? value.substring(0, maxLength) : value;\n
+
+
+String _boundedText(String value, int maxLength) =>
+    value.length > maxLength ? value.substring(0, maxLength) : value;
