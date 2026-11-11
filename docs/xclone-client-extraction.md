@@ -40,6 +40,8 @@ The current migration batch includes:
 
 Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated.
 
+The owned Testagram launcher/brand image from `mobile/assets/branding/testagram-icon.webp` is also copied to `assets/branding/testagram-icon.webp` for the standalone client. It is declared as a Flutter asset; platform launcher generation remains a separate release task.
+
 ## First extracted component
 
 `lib/features/discovery/sports_hub_policy.dart` is a pure payload-normalization and safe-link policy extracted from the source Flutter app. Its tests are migrated with it. This is a reusable utility only: it does not add a Sports Hub screen, provider integration, route or claim of feature parity. The full Sports Hub feature remains blocked until a supported backend/provider contract and UI are implemented.

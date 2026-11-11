@@ -19,6 +19,8 @@ dev_dependencies:
   flutter_lints: ^5.0.0
 flutter:
   uses-material-design: true
+  assets:
+    - assets/branding/testagram-icon.webp
 
 # Appwrite 13 constrains flutter_web_auth_2 to 3.x, whose Android plugin still
 # references the removed v1 Registrar. The 5.x API remains compatible with
