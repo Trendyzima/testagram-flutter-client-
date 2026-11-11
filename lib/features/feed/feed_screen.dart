@@ -241,7 +241,7 @@ class _FeedScreenState extends State<FeedScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: visibility,
+                  initialValue: visibility,
                   decoration: const InputDecoration(labelText: 'Who can see this?', border: OutlineInputBorder()),
                   items: const [
                     DropdownMenuItem(value: 'public', child: Text('Public')),
@@ -296,9 +296,11 @@ class _FeedScreenState extends State<FeedScreen> {
     controller.dispose();
     if (published == true && mounted) {
       await _load(reset: true);
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Your post was published.')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your post was published.')),
+        );
+      }
     }
   }
 
