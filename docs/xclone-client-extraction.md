@@ -26,6 +26,19 @@ The source repository is `Trendyzima/XClone-9b4dz1-9b4dz1-8936-20260809tr`; its 
 5. Never invent an API route or report a feature as complete just because a route or placeholder screen exists.
 6. Run `dart run tool/check_dependency_boundary.dart`, `flutter analyze` and `flutter test` before merging.
 
+## Extracted reusable client components
+
+The current migration batch includes:
+- `lib/features/discovery/sports_hub_policy.dart`: sports payload normalization and safe article URLs.
+- `lib/core/media/media_upload_policy.dart`: client-side file extension, size and MIME validation.
+- `lib/core/widgets/testagram_background.dart`: decorative Flutter background widget.
+- `lib/features/migration_batch_policy.dart`: interest, UTC daily-claim, price and duration display policies.
+- `lib/features/wallet/wallet_read_model.dart`: read-only wallet and transaction parsing; no payment or wallet mutation code.
+- `lib/features/ads/ad_review_policy.dart`: ad-review control presentation rules; server authorization remains authoritative.
+- `lib/features/creator/podcast_analytics_policy.dart`: defensive creator analytics display parsing.
+
+Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated.
+
 ## First extracted component
 
 `lib/features/discovery/sports_hub_policy.dart` is a pure payload-normalization and safe-link policy extracted from the source Flutter app. Its tests are migrated with it. This is a reusable utility only: it does not add a Sports Hub screen, provider integration, route or claim of feature parity. The full Sports Hub feature remains blocked until a supported backend/provider contract and UI are implemented.
