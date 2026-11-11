@@ -4,9 +4,9 @@ import 'package:testagram/features/moderation/moderation_workflow_policy.dart';
 void main() {
   test('appeal reason bounds use trimmed text', () {
     expect(ModerationWorkflowPolicy.validAppealReason(' too short '), isFalse);
-    expect(ModerationWorkflowPolicy.validAppealReason('x' * 20), isTrue);
-    expect(ModerationWorkflowPolicy.validAppealReason('x' * 800), isTrue);
-    expect(ModerationWorkflowPolicy.validAppealReason('x' * 801), isFalse);
+    expect(ModerationWorkflowPolicy.validAppealReason(List.filled(20, 'x').join()), isTrue);
+    expect(ModerationWorkflowPolicy.validAppealReason(List.filled(800, 'x').join()), isTrue);
+    expect(ModerationWorkflowPolicy.validAppealReason(List.filled(801, 'x').join()), isFalse);
   });
 
   test('appeal submission rejects unauthenticated, duplicate and busy states', () {
@@ -59,7 +59,7 @@ void main() {
   });
 
   test('audit note has a bounded maximum length', () {
-    expect(ModerationWorkflowPolicy.validAuditNote('x' * 1000), isTrue);
-    expect(ModerationWorkflowPolicy.validAuditNote('x' * 1001), isFalse);
+    expect(ModerationWorkflowPolicy.validAuditNote(List.filled(1000, 'x').join()), isTrue);
+    expect(ModerationWorkflowPolicy.validAuditNote(List.filled(1001, 'x').join()), isFalse);
   });
 }
