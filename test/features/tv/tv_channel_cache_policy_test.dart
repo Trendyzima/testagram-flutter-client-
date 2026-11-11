@@ -86,7 +86,7 @@ void main() {
 
   test('rejects oversized UTF-8 payloads', () {
     final huge = channel();
-    huge['description'] = '💡' * 300000;
+    huge['description'] = List.filled(300000, '💡').join();
     expect(TvChannelCachePolicy.encode([huge], now: now), isNull);
   });
 
