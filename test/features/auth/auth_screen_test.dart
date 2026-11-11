@@ -64,6 +64,11 @@ void main() {
     await tester.enterText(fields.at(3), 'ValidPass123');
     await tester.enterText(fields.at(4), 'ValidPass123');
 
+    await tester.tap(find.text('Create account'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('You must confirm that you are 18 or older'),
+        findsOneWidget);
+
     await tester.tap(find.text('I confirm that I am 18 years old or above.'));
     await tester.tap(find.text(
         'I accept the Terms and Conditions and Privacy Notice.'));
@@ -73,6 +78,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.textContaining('no account has been created'), findsOneWidget);
+  });
+
+  testWidgets('legal documents can be read before consent', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(account: account, onSignedIn: () {}),
+    ));
+    await tester.tap(find.text('Create a new account'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Read Terms and Conditions'));
+    await tester.pumpAndSettle();
+    expect(find.text('Terms and Conditions'), findsOneWidget);
+    expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
+        findsOneWidget);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Read Privacy Notice'));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('TESTAGRAM PRIVACY NOTICE'), findsOneWidget);
   });
 
   testWidgets('forgot-password page is reachable from sign in',
