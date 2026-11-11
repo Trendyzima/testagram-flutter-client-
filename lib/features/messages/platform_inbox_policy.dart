@@ -3,16 +3,21 @@ class PlatformInboxPolicy {
   const PlatformInboxPolicy._();
 
   static const pageSize = 30;
-  static const filters = <String>{'all', 'unread', 'trending', 'payment', 'news', 'update', 'tip'};
+  static const filters = <String>{'all', 'unread', 'like', 'reply', 'follow', 'mention', 'repost', 'payment', 'news', 'update', 'tip', 'trending'};
 
   static bool matchesFilter(Map<String, dynamic> message, String filter) {
     if (filter == 'all') return true;
-    if (filter == 'unread') return message['read'] != true;
-    return message['type'] == filter;
+    final unread = message.containsKey('read_at')
+        ? message['read_at'] == null || message['read_at'] == ''
+        : message['read'] != true;
+    if (filter == 'unread') return unread;
+    return (message['kind'] ?? message['type']) == filter;
   }
 
   static int unreadCount(Iterable<Map<String, dynamic>> messages) =>
-      messages.where((message) => message['read'] != true).length;
+      messages.where((message) => message.containsKey('read_at')
+          ? message['read_at'] == null || message['read_at'] == ''
+          : message['read'] != true).length;
 
   /// Only same-origin relative paths are navigable from an inbox CTA.
   /// Reject absolute URLs, protocol-relative URLs, backslashes and control chars.
