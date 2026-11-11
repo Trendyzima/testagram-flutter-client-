@@ -40,12 +40,13 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Enter your display name.'), findsOneWidget);
-    expect(find.text('Enter a valid email address.'), findsOneWidget);
+    expect(find.text('Enter your email address.'), findsOneWidget);
 
-    await tester.enterText(find.widgetWithText(TextFormField, 'Display name'), 'Test User');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'test_user');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Email'), 'test@example.com');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Password'), 'ValidPass123');
+    final fields = find.byType(TextFormField);
+    await tester.enterText(fields.at(0), 'Test User');
+    await tester.enterText(fields.at(1), 'test_user');
+    await tester.enterText(fields.at(2), 'test@example.com');
+    await tester.enterText(fields.at(3), 'ValidPass123');
 
     final checkboxes = find.byType(CheckboxListTile);
     expect(checkboxes, findsNWidgets(2));
