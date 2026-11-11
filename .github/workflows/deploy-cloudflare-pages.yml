@@ -157,7 +157,7 @@ jobs:
           if [[ "$(jq -r '.success // false' <<<"$probe")" != "true" ]]; then
             ray_id="$(awk 'tolower($1)=="cf-ray:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
             audit_id="$(awk 'tolower($1)=="cf-auditlog-id:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
-            echo "::error::DNS-record endpoint probe failed although token verification and zone lookup passed. HTTP=$http_status CF-Ray=${ray_id:-unavailable} Audit-ID=${audit_id:-unavailable}. The DNS permission/resource policy is not authorizing this endpoint; verify the exact token JSON policy has Zone > DNS > Edit scoped to testagram.site. DNS Edit already includes list access; do not add unrelated Workers permissions."
+            echo "::error::DNS-record endpoint probe failed although token verification and zone lookup passed. HTTP=$http_status CF-Ray=${ray_id:-unavailable} Audit-ID=${audit_id:-unavailable}. The DNS permission/resource policy is not authorizing this endpoint; verify the exact token policy is Zone > DNS > Write scoped to testagram.site. Cloudflare's current DNS-record API accepts Zone DNS Read or Zone DNS Write; this workflow needs Write because it will update apex/www records. Do not substitute DNS Firewall permissions or unrelated Workers permissions."
             jq -c --arg http_status "$http_status" --arg zone_id "$CLOUDFLARE_ZONE_ID" '{http_status:$http_status,zone_id:$zone_id,errors,messages}' <<<"$probe"
             rm -f "$headers_file" "$body_file"
             exit 1
