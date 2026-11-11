@@ -116,6 +116,7 @@ for (let offset = 0; offset < channels.length; offset += batchSize) {
     if (!/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/.test(id)) {
       throw new Error(`Catalogue record at index ${offset} has an invalid channel ID`);
     }
+    if (!safePublicStreamUrl(url)) throw new Error(`Catalogue channel ${id} has an invalid or non-public HTTP(S) URL`);
     const result = await probe(url);
     return {
       channel_id: id,
