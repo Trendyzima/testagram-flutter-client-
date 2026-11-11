@@ -146,15 +146,42 @@ jobs:
           fi
           echo "DNS credential can access the configured zone."
 
+          # Probe the DNS records endpoint without filters first. Zone access alone
+          # does not prove that the token's DNS permission is being applied.
+          headers_file="$(mktemp)"
+          body_file="$(mktemp)"
+          http_status="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -D "$headers_file" -o "$body_file" -w '%{http_code}' \
+            -H "$auth" "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records?per_page=1")"
+          probe="$(cat "$body_file")"
+          if [[ "$(jq -r '.success // false' <<<"$probe")" != "true" ]]; then
+            ray_id="$(awk 'tolower($1)=="cf-ray:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
+            audit_id="$(awk 'tolower($1)=="cf-auditlog-id:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
+            echo "::error::DNS-record endpoint probe failed although token verification and zone lookup passed. HTTP=$http_status CF-Ray=${ray_id:-unavailable} Audit-ID=${audit_id:-unavailable}. The DNS permission/resource policy is not authorizing this endpoint; verify the exact token JSON policy has Zone > DNS > Edit scoped to testagram.site. DNS Edit already includes list access; do not add unrelated Workers permissions."
+            jq -c --arg http_status "$http_status" --arg zone_id "$CLOUDFLARE_ZONE_ID" '{http_status:$http_status,zone_id:$zone_id,errors,messages}' <<<"$probe"
+            rm -f "$headers_file" "$body_file"
+            exit 1
+          fi
+          echo "DNS-record endpoint probe passed."
+
           for hostname in testagram.site www.testagram.site; do
-            records="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" \
-              "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records?name=$hostname&per_page=100")"
+            headers_file="$(mktemp)"
+            body_file="$(mktemp)"
+            http_status="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+              -D "$headers_file" -o "$body_file" -w '%{http_code}' \
+              -G -H "$auth" --data-urlencode "name=$hostname" --data-urlencode "per_page=100" \
+              "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records")"
+            records="$(cat "$body_file")"
             if [[ "$(jq -r '.success // false' <<<"$records")" != "true" ]]; then
-              echo "::error::Cloudflare rejected DNS-record listing for $hostname (HTTP status and request ID are not yet captured). The DNS token passed token verification and zone access. Compare the token ID printed above with the ID in Cloudflaire api 2 > JSON Payload. IMPORTANT: this job targets the GitHub production environment; a production-environment CLOUDFLARE_API_TOKEN2 secret overrides a repository-level secret. Check Settings > Environments > production > Environment secrets if the IDs differ."
-              jq -c --arg hostname "$hostname" --arg zone_id "$CLOUDFLARE_ZONE_ID" '{hostname:$hostname,zone_id:$zone_id,errors,messages}' <<<"$records"
+              ray_id="$(awk 'tolower($1)=="cf-ray:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
+              audit_id="$(awk 'tolower($1)=="cf-auditlog-id:" {gsub("\\r","",$2); print $2}' "$headers_file" | tail -n1)"
+              echo "::error::Cloudflare rejected DNS-record listing for $hostname. HTTP=$http_status CF-Ray=${ray_id:-unavailable} Audit-ID=${audit_id:-unavailable}. The unfiltered DNS endpoint probe passed, so investigate the hostname filter/request rather than broadening token permissions."
+              jq -c --arg hostname "$hostname" --arg zone_id "$CLOUDFLARE_ZONE_ID" --arg http_status "$http_status" '{hostname:$hostname,zone_id:$zone_id,http_status:$http_status,errors,messages}' <<<"$records"
+              rm -f "$headers_file" "$body_file"
               exit 1
             fi
             jq -c --arg hostname "$hostname" '{hostname:$hostname,records:[.result[]? | {id,type,name,content,proxied}]}' <<<"$records"
+            rm -f "$headers_file" "$body_file"
           done
 
       - name: Associate production hostnames with Pages
