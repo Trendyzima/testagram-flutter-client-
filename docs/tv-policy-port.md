@@ -1,4 +1,4 @@
-# TV policy port from archived XClone
+# Reviewed Flutter policy ports from archived XClone
 
 Source inspected: `Trendyzima/XClone-9b4dz1-9b4dz1-8936-20260809tr/mobile` on its archived `main` snapshot.
 
@@ -10,3 +10,11 @@ This port brings across two deterministic Flutter policy modules and their tests
 The files are intentionally decoupled from legacy storage, Supabase, Redis, routing and player dependencies. They do not implement the TV catalogue UI, channel API, playback engine, ad-serving integration or authorization. Those require verified Testagram Backend/Data Centre/CDN contracts and platform-specific integration tests.
 
 No XClone runtime code, credentials, native platform configuration, package manifest or deployment workflow was copied.
+
+## Additional reviewed policy ports
+
+- Platform inbox filters/unread count and safe internal CTA routing. The destination hardens the source path guard against encoded traversal, encoded separators and control characters.
+- Team Chat display/input policy. Its role booleans are explicitly presentation hints, never server authorization.
+- Moderation appeal/report form guards for bounded reasons, duplicate/busy states and allowed decision values. The Backend must re-check every condition atomically.
+
+These modules are intentionally not wired to screens until their owning Backend routes, DTOs, permissions and failure states are verified. No UI route is marked migrated by the presence of a policy file.
