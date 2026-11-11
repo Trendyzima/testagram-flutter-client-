@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'dart:typed_data';
 
 /// Safe offline cache for normalized public catalogue metadata only.
 ///
@@ -105,7 +104,7 @@ class TvChannelCachePolicy {
       'savedAt': (now ?? DateTime.now()).toUtc().millisecondsSinceEpoch,
       'channels': safe,
     });
-    if (Uint8List.fromList(utf8.encode(encoded)).length > maxEncodedBytes) {
+    if (utf8.encode(encoded).length > maxEncodedBytes) {
       return null;
     }
     return encoded;
@@ -143,3 +142,4 @@ class TvChannelCachePolicy {
     }
   }
 }
+\nString _boundedText(String value, int maxLength) =>\n    value.length > maxLength ? value.substring(0, maxLength) : value;\n
