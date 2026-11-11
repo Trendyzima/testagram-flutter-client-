@@ -97,7 +97,6 @@ Future<void> main() async {
         userId: userId,
         secret: secret,
         password: newPassword,
-        passwordAgain: newPassword,
       );
       await account.createEmailPasswordSession(
         email: email,
