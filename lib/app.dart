@@ -5,6 +5,7 @@ import 'core/app_config.dart';
 import 'core/backend_api.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/auth/auth_entry.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
@@ -58,19 +59,33 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
+  bool _forceAuthFlow = false;
+  bool _requiresVerification = false;
+  String? _verificationEmail;
   BackendApi? _api;
 
   @override
   void initState() {
     super.initState();
+    _forceAuthFlow = AuthEntry.fromUri(Uri.base).isExplicit;
     _restore();
   }
 
   Future<void> _restore() async {
+    if (_forceAuthFlow) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
-      await widget.account.get();
-      _signedIn = true;
-      _api = _createApi();
+      final user = await widget.account.get();
+      if (!user.emailVerification) {
+        _requiresVerification = true;
+        _verificationEmail = user.email;
+        _signedIn = false;
+      } else {
+        _signedIn = true;
+        _api = _createApi();
+      }
     } catch (_) {
       _signedIn = false;
     }
@@ -84,6 +99,8 @@ class _AuthGateState extends State<AuthGate> {
 
   void _onSignedIn() {
     setState(() {
+      _requiresVerification = false;
+      _verificationEmail = null;
       _signedIn = true;
       _api = _createApi();
     });
@@ -109,7 +126,12 @@ class _AuthGateState extends State<AuthGate> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!_signedIn) {
-      return AuthScreen(account: widget.account, onSignedIn: _onSignedIn);
+      return AuthScreen(
+        account: widget.account,
+        onSignedIn: _onSignedIn,
+        requireVerification: _requiresVerification,
+        initialEmail: _verificationEmail,
+      );
     }
     return MainShell(
       api: _api!,
