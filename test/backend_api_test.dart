@@ -576,5 +576,59 @@ void main() {
       expect(response['user_id'], 'account-1');
       api.close();
     });
+
+    test('publishes a moderated post through the Appwrite-authenticated fresh API', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'id': 'p_123', 'body': 'Hello Testagram'},
+            'error': null,
+          }), 201);
+        }),
+      );
+
+      final result = await api.createPost(
+        content: '  Hello Testagram  ',
+        visibility: 'followers',
+        sensitive: true,
+        idempotencyKey: 'post-retry-key-0001',
+      );
+
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/v1/posts');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['idempotency-key'], 'post-retry-key-0001');
+      expect(jsonDecode(captured.body), {
+        'content': 'Hello Testagram',
+        'visibility': 'followers',
+        'sensitive': true,
+      });
+      expect((result['data'] as Map)['id'], 'p_123');
+      api.close();
+    });
+
+    test('generates a safe idempotency key and rejects invalid post input', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'post-1'}}), 201);
+        }),
+      );
+
+      await api.createPost(content: 'A valid post');
+      expect(captured.headers['idempotency-key'], matches(RegExp(r'^[a-f0-9]{48}$')));
+      expect(() => api.createPost(content: '   '), throwsArgumentError);
+      expect(() => api.createPost(content: 'Hello', visibility: 'unlisted'), throwsArgumentError);
+      expect(() => api.createPost(content: 'Hello', idempotencyKey: 'bad key'), throwsArgumentError);
+      api.close();
+    });
   });
 }
