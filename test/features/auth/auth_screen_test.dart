@@ -20,9 +20,24 @@ void main() {
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Sign in'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('Create a new account'), findsOneWidget);
+    expect(find.text('Sign up'), findsOneWidget);
+    expect(find.text('Reset password'), findsOneWidget);
+
+    await tester.tap(find.text('Sign up'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create your account'), findsOneWidget);
+
+    await tester.tap(find.text('Reset password'));
+    await tester.pumpAndSettle();
+    expect(find.text('Reset your password'), findsOneWidget);
+    expect(find.text('Send reset link'), findsOneWidget);
+
+    await tester.tap(find.widgetWithText(ChoiceChip, 'Sign in'));
+    await tester.pumpAndSettle();
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 
   testWidgets('account creation requires profile fields, age and legal consent',

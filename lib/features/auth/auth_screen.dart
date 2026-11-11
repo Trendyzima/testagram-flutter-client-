@@ -76,6 +76,28 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
+  Widget _modeNavigation() {
+    final modes = <(_Page, String)>[
+      (_Page.signIn, 'Sign in'),
+      (_Page.signUp, 'Sign up'),
+      (_Page.forgot, 'Reset password'),
+    ];
+    return Wrap(
+      alignment: WrapAlignment.center,
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        for (final mode in modes)
+          ChoiceChip(
+            label: Text(mode.$2),
+            selected: _page == mode.$1,
+            onSelected: _busy ? null : (_) => _go(mode.$1),
+            showCheckmark: false,
+          ),
+      ],
+    );
+  }
+
   String? _emailValid(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) {
@@ -263,7 +285,8 @@ class _AuthScreenState extends State<AuthScreen> {
         constraints: const BoxConstraints(maxWidth: 440),
         child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Icon(Icons.hub_rounded, color: Color(0xFF18A957), size: 58),
-          const SizedBox(height: 20), Text(title, style: Theme.of(context).textTheme.headlineMedium),
+          _modeNavigation(),
+          const SizedBox(height: 22), Text(title, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8), Text(subtitle), const SizedBox(height: 28),
           if (_page == _Page.signUp) ...[
             TextFormField(controller: _name, textCapitalization: TextCapitalization.words,
