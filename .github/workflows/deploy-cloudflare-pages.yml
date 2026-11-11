@@ -23,7 +23,7 @@ jobs:
       APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID }}
       TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
-      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN2 }}
       CLOUDFLARE_DNS_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN2 }}
       CLOUDFLARE_ZONE_ID: ${{ secrets.CLOUDFLARE_ZONE_ID }}
       CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
