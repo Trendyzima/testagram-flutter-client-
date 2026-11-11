@@ -595,18 +595,16 @@ void main() {
       final result = await api.createPost(
         content: '  Hello Testagram  ',
         visibility: 'followers',
-        sensitive: true,
         idempotencyKey: 'post-retry-key-0001',
       );
 
       expect(captured.method, 'POST');
-      expect(captured.url.path, '/v1/posts');
+      expect(captured.url.path, '/api/social/posts');
       expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
       expect(captured.headers['idempotency-key'], 'post-retry-key-0001');
       expect(jsonDecode(captured.body), {
         'content': 'Hello Testagram',
         'visibility': 'followers',
-        'sensitive': true,
       });
       expect((result['data'] as Map)['id'], 'p_123');
       api.close();
