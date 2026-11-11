@@ -58,19 +58,37 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
+  bool _forceAuthFlow = false;
+  bool _requiresVerification = false;
+  String? _verificationEmail;
   BackendApi? _api;
 
   @override
   void initState() {
     super.initState();
+    final mode = Uri.base.queryParameters['mode'];
+    _forceAuthFlow = const {
+      'signin', 'sign-in', 'signup', 'sign-up', 'forgot', 'reset',
+      'recovery', 'verification',
+    }.contains(mode);
     _restore();
   }
 
   Future<void> _restore() async {
+    if (_forceAuthFlow) {
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
     try {
-      await widget.account.get();
-      _signedIn = true;
-      _api = _createApi();
+      final user = await widget.account.get();
+      if (!user.emailVerification) {
+        _requiresVerification = true;
+        _verificationEmail = user.email;
+        _signedIn = false;
+      } else {
+        _signedIn = true;
+        _api = _createApi();
+      }
     } catch (_) {
       _signedIn = false;
     }
@@ -84,6 +102,8 @@ class _AuthGateState extends State<AuthGate> {
 
   void _onSignedIn() {
     setState(() {
+      _requiresVerification = false;
+      _verificationEmail = null;
       _signedIn = true;
       _api = _createApi();
     });
@@ -109,7 +129,12 @@ class _AuthGateState extends State<AuthGate> {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
     if (!_signedIn) {
-      return AuthScreen(account: widget.account, onSignedIn: _onSignedIn);
+      return AuthScreen(
+        account: widget.account,
+        onSignedIn: _onSignedIn,
+        requireVerification: _requiresVerification,
+        initialEmail: _verificationEmail,
+      );
     }
     return MainShell(
       api: _api!,
