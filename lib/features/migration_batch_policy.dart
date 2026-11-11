@@ -12,13 +12,13 @@ class MigrationBatchPolicy {
   static String formatMinorPrice(dynamic value, {String currency = 'KES'}) {
     final minor = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
     final safeMinor = minor < 0 ? 0 : minor;
-    return currency + ' ' + (safeMinor / 100).toStringAsFixed(2);
+    return '$currency ${(safeMinor / 100).toStringAsFixed(2)}';
   }
   static String formatDuration(dynamic value) {
     final seconds = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
     if (seconds < 1) return 'Duration unavailable';
-    if (seconds >= 3600) return (seconds ~/ 3600).toString() + 'h ' + ((seconds % 3600) ~/ 60).toString() + 'm';
-    return (seconds ~/ 60).toString() + 'm';
+    if (seconds >= 3600) return '${seconds ~/ 3600}h ${(seconds % 3600) ~/ 60}m';
+    return '${seconds ~/ 60}m';
   }
   static bool isValidPremiumApprovalUrl(Uri? uri) => uri != null && uri.scheme == 'https' && uri.host.isNotEmpty;
 }
