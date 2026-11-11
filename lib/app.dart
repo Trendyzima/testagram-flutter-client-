@@ -5,6 +5,7 @@ import 'core/app_config.dart';
 import 'core/backend_api.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/auth/auth_entry.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
@@ -66,11 +67,7 @@ class _AuthGateState extends State<AuthGate> {
   @override
   void initState() {
     super.initState();
-    final mode = Uri.base.queryParameters['mode'];
-    _forceAuthFlow = const {
-      'signin', 'sign-in', 'signup', 'sign-up', 'forgot', 'reset',
-      'recovery', 'verification',
-    }.contains(mode);
+    _forceAuthFlow = AuthEntry.fromUri(Uri.base).isExplicit;
     _restore();
   }
 
