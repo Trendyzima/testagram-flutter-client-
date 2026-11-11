@@ -1,39 +1,20 @@
-import 'dart:io';
-
 import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 
+class _FakeAccount implements Account {
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
 void main() {
   late Account account;
-  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
-
-  setUpAll(() async {
-    TestWidgetsFlutterBinding.ensureInitialized();
-    await Directory('/tmp/testagram-widget-tests').create(recursive: true);
-  });
 
   setUp(() {
-    // Plugin mocks must be registered for each test: the widget test binding
-    // resets the default binary messenger between test cases.
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(
-      pathProviderChannel,
-      (call) async => call.method == 'getApplicationDocumentsDirectory'
-          ? '/tmp/testagram-widget-tests'
-          : null,
-    );
-    final client = Client()
-      ..setEndpoint('https://cloud.appwrite.io/v1')
-      ..setProject('testagram-widget-test');
-    account = Account(client);
-  });
-
-  tearDown(() {
-    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
-        .setMockMethodCallHandler(pathProviderChannel, null);
+    // These screen tests exercise local navigation and fail-closed registration;
+    // no Appwrite network or platform implementation should be constructed.
+    account = _FakeAccount();
   });
 
   Future<void> tapVisible(WidgetTester tester, Finder finder) async {
