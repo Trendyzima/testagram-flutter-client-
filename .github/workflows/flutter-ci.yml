@@ -72,6 +72,15 @@ jobs:
           path: build/app/outputs/flutter-apk/app-debug.apk
           if-no-files-found: error
           retention-days: 14
+      - name: Upload Android release-mode QA artifacts (not production signed)
+        uses: actions/upload-artifact@v6
+        with:
+          name: testagram-android-release-qa
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+          if-no-files-found: error
+          retention-days: 14
       - name: Upload Flutter web bundle
         uses: actions/upload-artifact@v6
         with:
