@@ -150,7 +150,7 @@ jobs:
             records="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" \
               "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records?name=$hostname&per_page=100")"
             if [[ "$(jq -r '.success // false' <<<"$records")" != "true" ]]; then
-              echo "::error::Cloudflare rejected DNS-record listing for $hostname. The DNS token passed token verification and zone access; compare the token ID printed above with the ID for the Cloudflaire api 2 token in Cloudflare."
+              echo "::error::Cloudflare rejected DNS-record listing for $hostname (HTTP status and request ID are not yet captured). The DNS token passed token verification and zone access. Compare the token ID printed above with the ID in Cloudflaire api 2 > JSON Payload. IMPORTANT: this job targets the GitHub production environment; a production-environment CLOUDFLARE_API_TOKEN2 secret overrides a repository-level secret. Check Settings > Environments > production > Environment secrets if the IDs differ."
               jq -c --arg hostname "$hostname" --arg zone_id "$CLOUDFLARE_ZONE_ID" '{hostname:$hostname,zone_id:$zone_id,errors,messages}' <<<"$records"
               exit 1
             fi
