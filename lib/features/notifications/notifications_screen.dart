@@ -131,7 +131,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         : _error != null && _items.isEmpty
           ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
           : _visibleItems.isEmpty
-            ? ListView(children: [const SizedBox(height: 120), Center(child: Icon(Icons.notifications_none, size: 48)), const SizedBox(height: 12), Center(child: Text(_items.isEmpty ? 'You are all caught up.' : (_filter == 'unread' ? 'No unread notifications.' : 'No notifications in this filter.')))])
+            ? ListView(children: [const SizedBox(height: 120), const Center(child: Icon(Icons.notifications_none, size: 48)), const SizedBox(height: 12), Center(child: Text(_items.isEmpty ? 'You are all caught up.' : (_filter == 'unread' ? 'No unread notifications.' : 'No notifications in this filter.')))])
             : ListView.separated(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
