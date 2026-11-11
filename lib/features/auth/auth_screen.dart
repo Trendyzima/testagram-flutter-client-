@@ -102,7 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
   });
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
-    await widget.account.updateEmailVerification(userId: userId, secret: secret);
+    await widget.account.updateVerification(userId: userId, secret: secret);
     if (mounted) setState(() { _page = _Page.signIn; _notice = 'Email verified. Sign in to continue.'; });
   });
 
