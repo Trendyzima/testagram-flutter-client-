@@ -202,8 +202,7 @@ class BackendApi {
       }));
 
   /// Reads the public, normalized TV catalogue through the Backend.
-  /// This route is contract-first and must not be used until Backend issue #161
-  /// is implemented and deployed.
+  /// Data Centre and upstream broadcasters are never called by this client.
   Future<Map<String, dynamic>> listTvChannels({
     int limit = 20,
     String? cursor,
@@ -215,11 +214,86 @@ class BackendApi {
     if (limit < 1 || limit > 50) {
       throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
     }
-    if (country != null && !RegExp(r'^[A-Za-z]{2}
-      _request('GET', baseUri.resolve('/api/social/polls').replace(queryParameters: {
+    if (cursor != null && cursor.length > 2048) {
+      throw ArgumentError.value(cursor, 'cursor', 'Cursor must not exceed 2048 characters');
+    }
+    final normalizedCountry = country?.trim().toUpperCase();
+    if (normalizedCountry != null &&
+        !RegExp(r'^[A-Z]{2}$').hasMatch(normalizedCountry)) {
+      throw ArgumentError.value(country, 'country', 'Country must be a two-letter ISO code');
+    }
+    final normalizedCategory = category?.trim();
+    if (normalizedCategory != null && normalizedCategory.length > 64) {
+      throw ArgumentError.value(category, 'category', 'Category must not exceed 64 characters');
+    }
+    final normalizedLanguage = language?.trim();
+    if (normalizedLanguage != null && normalizedLanguage.length > 16) {
+      throw ArgumentError.value(language, 'language', 'Language must not exceed 16 characters');
+    }
+    final normalizedQuery = query?.trim();
+    if (normalizedQuery != null &&
+        (normalizedQuery.isEmpty || normalizedQuery.length > 120)) {
+      throw ArgumentError.value(query, 'query', 'Search query must contain 1 to 120 characters');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/tv/channels').replace(queryParameters: {
+        'limit': '$limit',
+        if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+        if (normalizedCountry != null && normalizedCountry.isNotEmpty)
+          'country': normalizedCountry,
+        if (normalizedCategory != null && normalizedCategory.isNotEmpty)
+          'category': normalizedCategory,
+        if (normalizedLanguage != null && normalizedLanguage.isNotEmpty)
+          'language': normalizedLanguage,
+        if (normalizedQuery != null) 'query': normalizedQuery,
+      }),
+    );
+  }
+
+  Future<Map<String, dynamic>> getTvChannel(String channelId) {
+    final id = channelId.trim();
+    if (id.isEmpty || id.length > 256) {
+      throw ArgumentError.value(channelId, 'channelId', 'Invalid TV channel identifier');
+    }
+    return _request('GET', baseUri.resolve('/api/tv/channels/${Uri.encodeComponent(id)}'));
+  }
+
+  Future<Map<String, dynamic>> createTvPlaybackGrant(
+    String channelId, {
+    String playbackProfile = 'auto',
+  }) {
+    final id = channelId.trim();
+    const profiles = {'auto', 'low', 'standard', 'high'};
+    if (id.isEmpty || id.length > 256) {
+      throw ArgumentError.value(channelId, 'channelId', 'Invalid TV channel identifier');
+    }
+    if (!profiles.contains(playbackProfile)) {
+      throw ArgumentError.value(
+        playbackProfile,
+        'playbackProfile',
+        'Expected auto, low, standard or high',
+      );
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/tv/channels/${Uri.encodeComponent(id)}/playback'),
+      body: {'playback_profile': playbackProfile},
+    );
+  }
+
+  Future<Map<String, dynamic>> listPolls({int limit = 20, int offset = 0}) {
+    if (limit < 1 || limit > 50 || offset < 0) {
+      throw ArgumentError('Poll limit must be 1-50 and offset must be non-negative');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/polls').replace(queryParameters: {
         'limit': '$limit',
         'offset': '$offset',
-      }));
+      }),
+    );
+  }
 
   Future<Map<String, dynamic>> getPoll(String pollId) =>
       _request('GET', baseUri.resolve('/api/social/polls/$pollId'));
