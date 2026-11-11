@@ -76,7 +76,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
-  Widget _modeNavigation(BuildContext context) {
+  Widget _modeNavigation() {
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
       (_Page.signUp, 'Sign up'),
@@ -285,7 +285,7 @@ class _AuthScreenState extends State<AuthScreen> {
         constraints: const BoxConstraints(maxWidth: 440),
         child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Icon(Icons.hub_rounded, color: Color(0xFF18A957), size: 58),
-          _modeNavigation(context),
+          _modeNavigation(),
           const SizedBox(height: 22), Text(title, style: Theme.of(context).textTheme.headlineMedium),
           const SizedBox(height: 8), Text(subtitle), const SizedBox(height: 28),
           if (_page == _Page.signUp) ...[
