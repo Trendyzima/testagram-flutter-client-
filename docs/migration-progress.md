@@ -32,6 +32,20 @@ Every route above was checked against the Backend router and corresponding handl
 
 The inspected XClone Flutter source contains 121 Dart files and 214 GoRouter route patterns. The full route list and per-route migration state are tracked in `docs/xclone-route-migration-matrix.md`. This destination is a clean native Flutter app; source React/Vite files, Supabase implementation, Upstash/Redis dependencies, database schemas/migrations, Edge Functions, generated platform files, machine state and legacy lockfiles are explicitly excluded by `docs/clean-source-port-policy.md`.
 
+## Forensic gaps found in the legacy source
+
+The legacy route-parity audit records 212 unique source routes (211 excluding the wildcard), with 11 routes still explicitly marked `native_shell`. A shell is a registered destination, not a completed feature:
+
+- Administration: `/admin/platform-revenue`, `/admin/revenue`, `/staff`
+- Advertising: `/payouts`, `/revenue-analytics`
+- AI/general: `/ai`, `/ai-bot-setup`, `/jobs`, `/ride`
+- Messaging: `/call/:callId`
+- Governance: `/regulator/announce`
+
+The TV audit exposed a deeper data-plane mismatch: the legacy Flutter TV catalogue reads a Supabase Edge Function and the `live_streams` table. The legacy web catalogue helper instead calls `GET /api/tv/catalog`, but the active Backend router currently exposes TV health rather than a verified catalogue route; the legacy health-monitor workflow still posts to a Supabase function. The TV cache policy is now portable, but catalogue ingestion, channel health synchronization, authenticated community-live streams, social actions and player behavior are not yet a complete standalone Flutter migration.
+
+Do not manufacture admin, ad, AI, jobs, ride, regulator or call screens until their owning Backend/Data Centre contracts, permissions and failure semantics are verified. The policy files migrated in this PR are reusable business rules, not replacements for those screens.
+
 ## Deliberate blockers (not silently substituted)
 
 - Main-feed post creation is being added as a native PostgreSQL Backend route in draft Backend PR #155. The Flutter composer in this branch targets that route, but must not be merged or released until the Backend PR, idempotency migration, CORS change and moderation configuration are accepted. Moderation fails closed; no post is written if the provider is unavailable or flags the content.
