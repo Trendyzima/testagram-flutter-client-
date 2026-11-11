@@ -135,7 +135,8 @@ jobs:
             jq -c '{success,result:{status:.result.status},errors:[.errors[]? | {code,message}]}' <<<"$token_status"
             exit 1
           fi
-          echo "DNS credential is active."
+          token_id="$(jq -r '.result.id // "unavailable"' <<<"$token_status")"
+          echo "DNS credential is active. Cloudflare token ID: $token_id"
 
           zone="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" "$api/zones/$CLOUDFLARE_ZONE_ID")"
           if [[ "$(jq -r '.success // false' <<<"$zone")" != "true" ]]; then
@@ -149,8 +150,8 @@ jobs:
             records="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -H "$auth" \
               "$api/zones/$CLOUDFLARE_ZONE_ID/dns_records?name=$hostname&per_page=100")"
             if [[ "$(jq -r '.success // false' <<<"$records")" != "true" ]]; then
-              echo "::error::Cannot inspect DNS records for $hostname with the DNS-only credential."
-              jq -c '{errors,messages}' <<<"$records"
+              echo "::error::Cloudflare rejected DNS-record listing for $hostname. The DNS token passed token verification and zone access; compare the token ID printed above with the ID for the Cloudflaire api 2 token in Cloudflare."
+              jq -c --arg hostname "$hostname" --arg zone_id "$CLOUDFLARE_ZONE_ID" '{hostname:$hostname,zone_id:$zone_id,errors,messages}' <<<"$records"
               exit 1
             fi
             jq -c --arg hostname "$hostname" '{hostname:$hostname,records:[.result[]? | {id,type,name,content,proxied}]}' <<<"$records"
