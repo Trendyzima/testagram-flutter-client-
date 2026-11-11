@@ -19,6 +19,17 @@ void main() {
     });
   });
 
+  test('supports Backend read_at and kind notification fields', () {
+    const rows = [
+      {'kind': 'like', 'read_at': null},
+      {'kind': 'reply', 'read_at': '2026-11-10T10:00:00Z'},
+    ];
+    expect(PlatformInboxPolicy.unreadCount(rows), 1);
+    expect(PlatformInboxPolicy.matchesFilter(rows[0], 'unread'), isTrue);
+    expect(PlatformInboxPolicy.matchesFilter(rows[1], 'unread'), isFalse);
+    expect(PlatformInboxPolicy.matchesFilter(rows[0], 'like'), isTrue);
+  });
+
   test('counts unread only', () {
     expect(
       PlatformInboxPolicy.unreadCount([
