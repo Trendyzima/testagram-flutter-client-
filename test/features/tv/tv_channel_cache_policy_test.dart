@@ -79,7 +79,8 @@ void main() {
 
   test('rejects oversized UTF-8 payloads even when character count is smaller', () {
     final hugeTitle = List.filled(270000, '💡').join();
-    final oversizedChannel = channel();\n    oversizedChannel['title'] = hugeTitle;
+    final oversizedChannel = channel();
+    oversizedChannel['title'] = hugeTitle;
     expect(
       TvChannelCachePolicy.encode([oversizedChannel], now: now),
       isNull,
