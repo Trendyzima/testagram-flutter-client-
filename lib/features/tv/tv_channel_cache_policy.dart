@@ -76,7 +76,7 @@ class TvChannelCachePolicy {
       'savedAt': (now ?? DateTime.now()).toUtc().millisecondsSinceEpoch,
       'channels': safe,
     });
-    if (encoded.length > maxEncodedBytes) return null;
+    if (utf8.encode(encoded).length > maxEncodedBytes) return null;
     return encoded;
   }
 
@@ -84,7 +84,7 @@ class TvChannelCachePolicy {
     String? raw, {
     DateTime? now,
   }) {
-    if (raw == null || raw.isEmpty || raw.length > maxEncodedBytes) {
+    if (raw == null || raw.isEmpty || utf8.encode(raw).length > maxEncodedBytes) {
       return const [];
     }
     try {
