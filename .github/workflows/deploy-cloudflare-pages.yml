@@ -106,6 +106,7 @@ jobs:
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+          install -D cloudflare-pages/_headers build/web/_headers
 
       - name: Install Wrangler
         run: npm install --global wrangler@4
