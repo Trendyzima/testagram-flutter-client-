@@ -106,6 +106,7 @@ jobs:
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+          install -D cloudflare-pages/_headers build/web/_headers
 
       - name: Install Wrangler
         run: npm install --global wrangler@4
@@ -188,23 +189,42 @@ jobs:
             fi
           done
 
-      - name: Smoke-test production hostnames
+      - name: Smoke-test production auth entry and callback URLs
         shell: bash
         run: |
           set -euo pipefail
+          paths=(
+            '/'
+            '/?mode=signin'
+            '/?mode=signup'
+            '/?mode=forgot'
+            '/?mode=verification&userId=smoke-user&secret=smoke-secret'
+            '/?mode=recovery&userId=smoke-user&secret=smoke-secret'
+          )
           for hostname in testagram.site www.testagram.site; do
             page="$(mktemp)"
-            if ! curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
-              --max-time 30 "https://$hostname/" -o "$page"; then
-              echo "::error::https://$hostname did not return a successful response."
-              rm -f "$page"
-              exit 1
-            fi
-            if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
-              echo "::error::https://$hostname responded, but the page does not look like the deployed Flutter web app."
-              rm -f "$page"
-              exit 1
-            fi
-            rm -f "$page"
-            echo "Verified Flutter web response from https://$hostname/"
+            headers="$(mktemp)"
+            for path in "${paths[@]}"; do
+              if ! curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
+                --max-time 30 -D "$headers" "https://$hostname$path" -o "$page"; then
+                echo "::error::https://$hostname$path did not return a successful response."
+                rm -f "$page" "$headers"
+                exit 1
+              fi
+              if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
+                echo "::error::https://$hostname$path responded, but the page does not look like the deployed Flutter web app."
+                rm -f "$page" "$headers"
+                exit 1
+              fi
+              for header in 'referrer-policy: no-referrer' 'x-content-type-options: nosniff' 'x-frame-options: DENY'; do
+                if ! grep -iFq "$header" "$headers"; then
+                  echo "::error::Required Pages security header missing for https://$hostname$path: $header"
+                  cat "$headers"
+                  rm -f "$page" "$headers"
+                  exit 1
+                fi
+              done
+              echo "Verified https://$hostname$path"
+            done
+            rm -f "$page" "$headers"
           done

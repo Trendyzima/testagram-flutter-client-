@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 
 /// Tokens mirror the live Testagram CSS variables in src/index.css.
 /// Keep these values shared across Flutter Web and native Android.

@@ -53,9 +53,7 @@ class AppConfig {
     if (!isWeb ||
         currentUri.scheme != 'https' ||
         currentUri.host.isEmpty ||
-        currentUri.userInfo.isNotEmpty ||
-        currentUri.hasQuery ||
-        currentUri.hasFragment) {
+        currentUri.userInfo.isNotEmpty) {
       return siteUrl;
     }
     final host = currentUri.host.toLowerCase();

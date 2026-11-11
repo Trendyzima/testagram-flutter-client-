@@ -47,17 +47,39 @@ jobs:
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Android release-mode QA APK (not production signed)
+        run: |
+          flutter build apk --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Android release-mode QA App Bundle (not production signed)
+        run: |
+          flutter build appbundle --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
         run: |
           flutter build web --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+          install -D cloudflare-pages/_headers build/web/_headers
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v6
         with:
           name: testagram-android-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+      - name: Upload Android release-mode QA artifacts (not production signed)
+        uses: actions/upload-artifact@v6
+        with:
+          name: testagram-android-release-qa
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
           if-no-files-found: error
           retention-days: 14
       - name: Upload Flutter web bundle

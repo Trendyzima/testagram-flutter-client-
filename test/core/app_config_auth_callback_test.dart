@@ -23,19 +23,19 @@ void main() {
       );
       expect(
         AppConfig.authCallbackOriginFor(
-          Uri.parse('https://feat-auth-complete-parity.testagram-flutter-web.pages.dev/'),
+          Uri.parse('https://feat-auth.testagram-flutter-web.pages.dev/?mode=recovery&userId=u&secret=s#callback'),
           isWeb: true,
         ),
-        'https://feat-auth-complete-parity.testagram-flutter-web.pages.dev',
+        'https://feat-auth.testagram-flutter-web.pages.dev',
       );
     });
 
     test('does not trust arbitrary or insecure callback origins', () {
       for (final uri in [
-        Uri.parse('http://testagram.site'),
-        Uri.parse('https://evil.example'),
-        Uri.parse('https://testagram.site.evil.example'),
-        Uri.parse('https://user:pass@testagram.site'),
+        Uri.parse('http://testagram.site/?mode=signup'),
+        Uri.parse('https://evil.example/?mode=signup'),
+        Uri.parse('https://testagram.site.evil.example/?mode=signup'),
+        Uri.parse('https://user:pass@testagram.site/?mode=signup'),
       ]) {
         expect(
           AppConfig.authCallbackOriginFor(uri, isWeb: true),

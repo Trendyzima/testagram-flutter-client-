@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:material_ui/material_ui.dart';
 import '../testagram_theme.dart';
 /// Non-interactive visual background used by Testagram's Flutter client.
 class TestagramBackground extends StatelessWidget {

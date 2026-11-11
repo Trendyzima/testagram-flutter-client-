@@ -2,18 +2,20 @@
 
 The canonical native Flutter application for Testagram. This repository is intended to replace the Flutter/mobile client currently nested under the legacy XClone frontend. It is not a second backend and it does not own account, post, social-graph, ranking, federation, or media-storage records.
 
-## Five-repository ownership
+## Six-repository ownership
 
 - **This repository — Flutter client:** native presentation, navigation, local UX state, device permissions and API transport.
 - **Testagram Backend:** canonical Appwrite identity validation, account linking, authorization, profiles, posts, social graph, feed orchestration and public API.
-- **The Algorithm:** private ranking and recommendations. The client never calls it.
-- **Testagram Data Centre:** deployment, object-storage durability, infrastructure, backups and restore.
+- **Testagram CDN:** media delivery, edge caching and range/HLS transport. Private-media access remains origin-authoritative; the CDN must not turn private storage objects into public URLs.
+- **The Algorithm:** private ranking and recommendations. The client never calls it directly.
+- **Testagram Data Centre:** deployment, object-storage durability, infrastructure, backups and restore. Storage objects remain private and are not exposed directly by the client.
 - **Federated Content:** ActivityPub protocol state and remote delivery. The client never calls it directly.
 
 ## Hard security boundaries
 
 - Appwrite Client SDK is used only for end-user authentication and session JWT creation.
 - All product data operations go through the public Testagram Backend API using an Appwrite JWT.
+- Media delivery must use the Testagram CDN and the Backend/CDN authorization contract; do not return direct Appwrite Storage or Instabox object URLs to clients. Private assets must be authorized at the origin and excluded from shared caching unless the origin explicitly marks them public.
 - Never connect from Flutter directly to PostgreSQL/Neon, Appwrite databases, private service APIs, queues, object-store credentials, or federation/ranking services.
 - Never add Supabase SDKs, Supabase URLs/keys, Edge Function calls, or direct database access.
 - Never add Upstash or hosted Redis dependencies.
