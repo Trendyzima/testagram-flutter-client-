@@ -1,5 +1,7 @@
 name: Deploy Testagram Flutter Web
 
+# Pages deployment owns the frontend only; production DNS is managed separately.
+
 on:
   push:
     branches: [main]
