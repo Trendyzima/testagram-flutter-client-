@@ -43,6 +43,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (!entry.hasCompleteCallback) {
           _error = 'This password reset link is incomplete. Request a new reset email.';
         }
+        break;
       case AuthEntryMode.verifyEmail:
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
@@ -52,15 +53,19 @@ class _AuthScreenState extends State<AuthScreen> {
         } else {
           _notice = 'Open the complete verification link from your email, or request another one.';
         }
+        break;
       case AuthEntryMode.signUp:
         _page = _Page.signUp;
+        break;
       case AuthEntryMode.forgotPassword:
         _page = _Page.forgot;
+        break;
       case AuthEntryMode.signIn:
         if (widget.requireVerification) {
           _page = _Page.verify;
           _notice = 'Verify your email address before using Testagram.';
         }
+        break;
     }
   }
 
