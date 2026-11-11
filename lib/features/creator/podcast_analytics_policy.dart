@@ -12,6 +12,6 @@ class PodcastAnalyticsPolicy {
     if (value < 1) return '0m';
     final hours = value ~/ 3600;
     final minutes = (value % 3600) ~/ 60;
-    return hours > 0 ? hours.toString() + 'h ' + minutes.toString() + 'm' : minutes.toString() + 'm';
+    return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
   }
 }
