@@ -48,7 +48,7 @@ class BackendApi {
       (_) => random.nextInt(256).toRadixString(16).padLeft(2, '0'),
     ).join();
     if (key.trim().length < 8 || key.trim().length > 128 ||
-        !RegExp(r'^[A-Za-z0-9._:-]+
+        !RegExp(r'^[A-Za-z0-9._:-]{8,128}$').hasMatch(key.trim())) {
       throw ArgumentError.value(key, 'idempotencyKey', 'Idempotency key must contain 8-128 safe characters');
     }
     return _request(
