@@ -213,10 +213,102 @@ class _FeedScreenState extends State<FeedScreen> {
     controller.dispose();
   }
 
-  void _composerNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Post publishing is not yet exposed as a first-class Backend API. No post was sent.')),
+  Future<void> _composePost() async {
+    final controller = TextEditingController();
+    var visibility = 'public';
+    var sensitive = false;
+    var submitting = false;
+    String? error;
+    final published = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Create a post'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 4,
+                  maxLines: 8,
+                  maxLength: 5000,
+                  decoration: const InputDecoration(
+                    hintText: 'What would you like to share?',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                DropdownButtonFormField<String>(
+                  value: visibility,
+                  decoration: const InputDecoration(labelText: 'Who can see this?', border: OutlineInputBorder()),
+                  items: const [
+                    DropdownMenuItem(value: 'public', child: Text('Public')),
+                    DropdownMenuItem(value: 'followers', child: Text('Followers')),
+                    DropdownMenuItem(value: 'private', child: Text('Only me')),
+                  ],
+                  onChanged: submitting ? null : (value) {
+                    if (value != null) setDialogState(() => visibility = value);
+                  },
+                ),
+                CheckboxListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: sensitive,
+                  title: const Text('Sensitive content'),
+                  subtitle: const Text('Mark this post as sensitive'),
+                  onChanged: submitting ? null : (value) => setDialogState(() => sensitive = value ?? false),
+                ),
+                if (error != null) Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: submitting ? null : () => Navigator.of(dialogContext).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton.icon(
+              onPressed: submitting ? null : () async {
+                final content = controller.text.trim();
+                if (content.isEmpty) {
+                  setDialogState(() => error = 'Write something before publishing.');
+                  return;
+                }
+                setDialogState(() { submitting = true; error = null; });
+                try {
+                  await widget.api.createPost(
+                    content: content,
+                    visibility: visibility,
+                    sensitive: sensitive,
+                  );
+                  if (dialogContext.mounted) Navigator.of(dialogContext).pop(true);
+                } catch (e) {
+                  if (dialogContext.mounted) setDialogState(() => error = e.toString());
+                } finally {
+                  if (dialogContext.mounted) setDialogState(() => submitting = false);
+                }
+              },
+              icon: submitting
+                  ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                  : const Icon(Icons.send),
+              label: Text(submitting ? 'Publishing…' : 'Publish'),
+            ),
+          ],
+        ),
+      ),
     );
+    controller.dispose();
+    if (published == true && mounted) {
+      await _load(reset: true);
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your post was published.')),
+      );
+    }
   }
 
   @override
@@ -228,7 +320,7 @@ class _FeedScreenState extends State<FeedScreen> {
         IconButton(onPressed: widget.onSignOut, icon: const Icon(Icons.logout), tooltip: 'Sign out'),
       ],
     ),
-    floatingActionButton: FloatingActionButton(onPressed: _composerNotice, tooltip: 'Compose post', child: const Icon(Icons.edit)),
+    floatingActionButton: FloatingActionButton(onPressed: _composePost, tooltip: 'Compose post', child: const Icon(Icons.edit)),
     body: Column(children: [
       Padding(
         padding: const EdgeInsets.all(12),
