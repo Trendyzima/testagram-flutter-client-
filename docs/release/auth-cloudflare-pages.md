@@ -22,6 +22,17 @@ The Appwrite verification and recovery URLs must use the exact HTTPS origin regi
 - A successful Appwrite signup does not by itself prove that a canonical Testagram profile has been provisioned or linked. The Backend must reject unlinked identities; never auto-link by matching email.
 - Unverified Appwrite sessions must not unlock product APIs. Both the Flutter gate and Backend authorization enforce email verification.
 
+
+## Production registration blocker — do not bypass
+
+The sign-up form is a preview UI, not yet an approved production registration transaction.
+
+The main Go Backend authenticates Appwrite sessions and requires an explicit row in `testagram_identity.appwrite_accounts`; unknown identities fail closed. Its existing-user bridge requires a verified Appwrite session plus a valid legacy session and an already-migrated canonical UUID. It deliberately does not link by email or create a new profile as a side effect.
+
+The separate fresh API's `POST /v1/identity/register` route requires a short-lived signed `identity_approval_token`, an Appwrite server key, and verified identity/legal-policy evidence before creating an Appwrite user and profile. No token-issuing flow or Flutter integration for that approval token was found in the current client contract. Direct client-side `Account.create` therefore does not complete the trusted registration/profile-provisioning path.
+
+**Release decision:** keep the sign-up form on the Pages preview only. Do not enable production registration until the team chooses and implements one trusted registration flow that (1) performs the required identity/legal approval, (2) creates the Appwrite Auth identity, and (3) creates or links the canonical PostgreSQL identity atomically without email-based legacy linking. Do not create production users through the preview to work around this blocker.
+
 ## Cloudflare Pages response policy
 
 `web/_headers` is copied into the Flutter web output. It applies no-referrer, nosniff, frame denial and HSTS. The root HTML is revalidated so auth callback state is not held in a stale document cache. The global no-referrer policy is important because Appwrite verification and recovery callback URLs contain one-time secrets in query parameters.
