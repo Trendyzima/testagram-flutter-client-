@@ -31,7 +31,7 @@ class PlatformInboxPolicy {
             .hasMatch(value)) {
       return null;
     }
-    final uri = Uri.tryParse(value);
+    final rawPath = value.split('?').first.split('#').first;\n    if (rawPath.split('/').any((segment) => segment == '.' || segment == '..')) {\n      return null;\n    }\n    final uri = Uri.tryParse(value);
     if (uri == null ||
         uri.hasScheme ||
         uri.hasAuthority ||
