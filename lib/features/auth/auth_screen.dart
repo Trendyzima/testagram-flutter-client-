@@ -157,7 +157,6 @@ class _AuthScreenState extends State<AuthScreen> {
         userId: _recoveryUserId!,
         secret: _recoverySecret!,
         password: _password.text,
-        passwordAgain: _passwordAgain.text,
       );
       if (mounted) {
         setState(() {
@@ -370,9 +369,9 @@ class _MessageBanner extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
+        color: color.withValues(alpha: 0.10),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: color.withOpacity(0.35)),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
       ),
       child: Text(
         message,
