@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/backend_api.dart';
+import '../messages/platform_inbox_policy.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key, required this.api});
@@ -17,6 +18,11 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _activeLoads = 0;
   String? _cursor, _error;
   final Set<String> _marking = {};
+  String _filter = 'all';
+
+  List<Map<String, dynamic>> get _visibleItems =>
+      _items.where((item) => PlatformInboxPolicy.matchesFilter(item, _filter)).toList();
+  int get _unreadCount => PlatformInboxPolicy.unreadCount(_items);
 
   @override
   void initState() {
@@ -104,8 +110,19 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Notifications'),
-      actions: [IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
+      title: Text('Notifications · $_unreadCount unread'),
+      actions: [
+        PopupMenuButton<String>(
+          tooltip: 'Filter notifications',
+          initialValue: _filter,
+          onSelected: (value) => setState(() => _filter = value),
+          itemBuilder: (_) => PlatformInboxPolicy.filters.map((value) => PopupMenuItem(
+            value: value,
+            child: Text(value == 'all' ? 'All notifications' : value[0].toUpperCase() + value.substring(1)),
+          )).toList(),
+        ),
+        IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
+      ],
     ),
     body: RefreshIndicator(
       onRefresh: () => _load(reset: true),
@@ -118,16 +135,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             : ListView.separated(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
-                itemCount: _items.length + (_loading || _hasMore ? 1 : 0),
+                itemCount: _visibleItems.length + (_loading || _hasMore ? 1 : 0),
                 separatorBuilder: (_, __) => const Divider(height: 1),
                 itemBuilder: (context, index) {
-                  if (index == _items.length) {
+                  if (index == _visibleItems.length) {
                     return Padding(
                       padding: const EdgeInsets.all(16),
                       child: Center(child: _loading ? const CircularProgressIndicator() : TextButton(onPressed: _load, child: const Text('Load more'))),
                     );
                   }
-                  final item = _items[index];
+                  final item = _visibleItems[index];
                   final actor = item['actor'];
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
                   final kind = (item['kind'] ?? 'activity').toString().replaceAll('_', ' ');
