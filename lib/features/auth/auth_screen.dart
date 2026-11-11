@@ -14,7 +14,7 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
-  static final _emailPattern = RegExp(r'^[^\\s@]+@[^\\s@]+\\.[^\\s@]+
+  static final _emailPattern = RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
   static final _usernamePattern = RegExp(r'^[a-zA-Z0-9_]+$');
   static const _recoveryUrl = 'https://testagram.site/reset-password';
 
