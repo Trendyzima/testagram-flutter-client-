@@ -57,3 +57,6 @@ The client has no Supabase SDK, URL, key, REST endpoint or direct database opera
 - TV public-catalogue cache policy ported as a pure Flutter module. It rejects signed/private URLs and user-owned streams, bounds catalogue size and encoded payload size, deduplicates entries, and enforces a 24-hour TTL. Tests cover credential leakage, malformed/future/expired cache data and bounds.
 - TV playback lifecycle policy ported as a pure Flutter module. It covers web/external/native playback surfaces, stale channel-generation ad gating, foreground/background pause-resume and strict YouTube video-ID validation. Tests cover each policy branch.
 - These are policy foundations only; TV screens, catalogue transport, HLS player, ad integration and platform-specific playback remain unported until the Backend/CDN contract and player dependencies are verified. See `docs/tv-policy-port.md`.
+
+- Platform inbox policy ported with unread/type filtering and strict same-origin CTA path validation; tests reject external, protocol-relative, traversal and encoded control-character paths.
+- Team Chat display policy and moderation form UX guards ported with tests. These are presentation/input hints only; Backend role, membership, appeal and report authorization must be enforced independently.
