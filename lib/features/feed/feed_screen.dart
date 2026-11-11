@@ -216,7 +216,6 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _composePost() async {
     final controller = TextEditingController();
     var visibility = 'public';
-    var sensitive = false;
     var submitting = false;
     String? error;
     final published = await showDialog<bool>(
@@ -253,13 +252,6 @@ class _FeedScreenState extends State<FeedScreen> {
                     if (value != null) setDialogState(() => visibility = value);
                   },
                 ),
-                CheckboxListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: sensitive,
-                  title: const Text('Sensitive content'),
-                  subtitle: const Text('Mark this post as sensitive'),
-                  onChanged: submitting ? null : (value) => setDialogState(() => sensitive = value ?? false),
-                ),
                 if (error != null) Padding(
                   padding: const EdgeInsets.only(top: 8),
                   child: Text(error!, style: TextStyle(color: Theme.of(context).colorScheme.error)),
@@ -284,7 +276,6 @@ class _FeedScreenState extends State<FeedScreen> {
                   await widget.api.createPost(
                     content: content,
                     visibility: visibility,
-                    sensitive: sensitive,
                   );
                   if (dialogContext.mounted) Navigator.of(dialogContext).pop(true);
                 } catch (e) {
