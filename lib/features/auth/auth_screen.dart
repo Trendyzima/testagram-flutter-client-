@@ -85,9 +85,12 @@ class _AuthScreenState extends State<AuthScreen> {
       await widget.account.create(userId: ID.unique(), email: email,
         password: _password.text, name: _name.text.trim());
       await widget.account.createEmailPasswordSession(email: email, password: _password.text);
-      await widget.account.createVerification(url: AppConfig.siteUrl + '/?mode=verification');
       if (mounted) setState(() {
         _page = _Page.verify;
+        _notice = 'Account created. Sending a verification link to ' + email + '.';
+      });
+      await widget.account.createVerification(url: AppConfig.siteUrl + '/?mode=verification');
+      if (mounted) setState(() {
         _notice = 'Verification email sent to ' + email + '. Open the link before signing in.';
       });
     });
