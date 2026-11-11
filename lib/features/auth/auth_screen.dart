@@ -152,7 +152,7 @@ class _AuthScreenState extends State<AuthScreen> {
           _notice = 'Account created. Sending a verification link to $email.';
         });
       }
-      await widget.account.createVerification(url: '${AppConfig.siteUrl}/?mode=verification');
+      await widget.account.createVerification(url: '${AppConfig.authCallbackOrigin}/?mode=verification');
       if (mounted) {
         setState(() {
           _notice = 'Verification email sent to $email. Open the link before signing in.';
@@ -162,7 +162,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _resend() async => _run(() async {
-    await widget.account.createVerification(url: '${AppConfig.siteUrl}/?mode=verification');
+    await widget.account.createVerification(url: '${AppConfig.authCallbackOrigin}/?mode=verification');
     if (mounted) {
       setState(() => _notice = 'A new verification email has been sent.');
     }
@@ -190,7 +190,7 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         await widget.account.createRecovery(
           email: _email.text.trim().toLowerCase(),
-          url: '${AppConfig.siteUrl}/?mode=recovery');
+          url: '${AppConfig.authCallbackOrigin}/?mode=recovery');
       } on AppwriteException catch (error) {
         // Appwrite may distinguish an unknown email. Keep the public response
         // identical so the form cannot be used to enumerate registered users.
