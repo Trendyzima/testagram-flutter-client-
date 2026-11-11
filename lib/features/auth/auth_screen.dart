@@ -88,9 +88,6 @@ class _AuthScreenState extends State<AuthScreen> {
       if (e.code == 409) {
         return 'We could not create this account. Try signing in or use password recovery if you already registered.';
       }
-      if (e.code == 400 || e.code == 401) {
-        return 'This link is invalid or has expired. Request a fresh email and try again.';
-      }
       if (e.code == 429) {
         return 'Too many attempts. Wait and retry.';
       }
@@ -169,11 +166,10 @@ class _AuthScreenState extends State<AuthScreen> {
   });
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
+    // Verification links are commonly opened on a different device/browser
+    // with no existing Appwrite session. The one-time Appwrite callback is
+    // the authority here; do not require account.get() after redeeming it.
     await widget.account.updateVerification(userId: userId, secret: secret);
-    final user = await widget.account.get();
-    if (!user.emailVerification) {
-      throw StateError('Appwrite did not confirm the email verification.');
-    }
     if (mounted) {
       setState(() {
         _page = _Page.signIn;
@@ -216,8 +212,18 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     await _run(() async {
-      await widget.account.updateRecovery(
-        userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
+      try {
+        await widget.account.updateRecovery(
+          userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
+      } on AppwriteException catch (error) {
+        if (error.code == 400 || error.code == 401 || error.code == 404) {
+          if (mounted) {
+            setState(() => _error = 'This reset link is invalid, expired or already used. Request a new reset email.');
+          }
+          return;
+        }
+        rethrow;
+      }
       if (mounted) {
         setState(() {
           _page = _Page.signIn;
