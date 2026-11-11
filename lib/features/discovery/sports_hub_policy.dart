@@ -76,7 +76,7 @@ class SportsHubPolicy {
   }
 
   static bool isLive(String status) => RegExp(
-        r'live|in.?play|half.?time|\\bht\\b|1st half|2nd half|\\b[12]h\\b|quarter|\\bq[1-4]\\b|set [1-5]|innings',
+        r'live|in.?play|half.?time|\bht\b|1st half|2nd half|\b[12]h\b|quarter|\bq[1-4]\b|set [1-5]|innings',
         caseSensitive: false,
       ).hasMatch(status);
 
@@ -89,7 +89,7 @@ class SportsHubPolicy {
     final current = status(match);
     if (isLive(current) || isFinished(current)) return false;
     if (RegExp(
-      r'scheduled|fixture|upcoming|not started|kick.?off|\\btbd\\b|^ns$|pre.?match|time to start',
+      r'scheduled|fixture|upcoming|not started|kick.?off|\btbd\b|^ns$|pre.?match|time to start',
       caseSensitive: false,
     ).hasMatch(current)) {
       return true;
@@ -128,7 +128,7 @@ class SportsHubPolicy {
         host.startsWith('127.') ||
         host.startsWith('10.') ||
         host.startsWith('192.168.') ||
-        RegExp(r'^172\\.(1[6-9]|2[0-9]|3[01])\\.').hasMatch(host)) {
+        RegExp(r'^172\.(1[6-9]|2[0-9]|3[01])\.').hasMatch(host)) {
       return null;
     }
     return uri;
