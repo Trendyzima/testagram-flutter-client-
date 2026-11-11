@@ -1,10 +1,34 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 
 void main() {
   late Account account;
+  const pathProviderChannel = MethodChannel('plugins.flutter.io/path_provider');
+
+  setUpAll(() {
+    TestWidgetsFlutterBinding.ensureInitialized();
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(
+      pathProviderChannel,
+      (call) async => call.method == 'getApplicationDocumentsDirectory'
+          ? '/tmp/testagram-widget-tests'
+          : null,
+    );
+  });
+
+  tearDownAll(() {
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(pathProviderChannel, null);
+  });
+
+  Future<void> tapVisible(WidgetTester tester, Finder finder) async {
+    await tester.ensureVisible(finder);
+    await tester.tap(finder);
+    await tester.pumpAndSettle();
+  }
 
   setUp(() {
     final client = Client()
@@ -58,8 +82,7 @@ void main() {
     expect(find.text('Read Terms and Conditions'), findsOneWidget);
     expect(find.text('Read Privacy Notice'), findsOneWidget);
 
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Create account'));
     expect(find.text('Enter your name.'), findsOneWidget);
     expect(find.text('Enter your email address.'), findsOneWidget);
   });
@@ -79,18 +102,15 @@ void main() {
     await tester.enterText(fields.at(3), 'ValidPass123');
     await tester.enterText(fields.at(4), 'ValidPass123');
 
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Create account'));
     expect(find.textContaining('You must confirm that you are 18 or older'),
         findsOneWidget);
 
-    await tester.tap(find.text('I confirm that I am 18 years old or above.'));
-    await tester.tap(find.text(
+    await tapVisible(tester, find.text('I confirm that I am 18 years old or above.'));
+    await tapVisible(tester, find.text(
         'I accept the Terms and Conditions and Privacy Notice.'));
-    await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Create account'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Create account'));
 
     expect(find.textContaining('no account has been created'), findsOneWidget);
   });
@@ -102,16 +122,13 @@ void main() {
     await tester.tap(find.text('Create a new account'));
     await tester.pumpAndSettle();
 
-    await tester.tap(find.text('Read Terms and Conditions'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Read Terms and Conditions'));
     expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
         findsOneWidget);
-    await tester.tap(find.text('Close'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Close'));
 
-    await tester.tap(find.text('Read Privacy Notice'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.text('Read Privacy Notice'));
     expect(find.textContaining('TESTAGRAM PRIVACY NOTICE'), findsOneWidget);
   });
 
