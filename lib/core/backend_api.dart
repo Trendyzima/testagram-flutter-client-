@@ -119,6 +119,38 @@ class BackendApi {
     return Map<String, dynamic>.from(asset);
   }
 
+  /// Uploads the signed-in user's profile avatar through the Backend.
+  /// Provider selection (Appwrite first, Instabox after the Appwrite threshold)
+  /// is server-side; the client never receives storage credentials.
+  Future<Map<String, dynamic>> uploadProfileAvatar({
+    required String name,
+    required List<int> bytes,
+  }) async {
+    if (bytes.isEmpty || bytes.length > 2 * 1024 * 1024) {
+      throw const BackendApiException('Profile pictures must be 2 MiB or smaller.');
+    }
+    final request = http.MultipartRequest(
+      'POST',
+      baseUri.resolve('/api/profile/avatar'),
+    )
+      ..headers.addAll(await _headers())
+      ..files.add(http.MultipartFile.fromBytes('avatar', bytes, filename: name));
+    try {
+      final streamed = await _client.send(request).timeout(const Duration(seconds: 45));
+      final response = await http.Response.fromStream(streamed);
+      final decoded = _decodeObject(response);
+      final data = decoded['data'];
+      if (data is! Map) {
+        throw const BackendApiException('The server did not confirm the avatar update.');
+      }
+      return Map<String, dynamic>.from(data);
+    } on TimeoutException {
+      throw const BackendApiException('Avatar upload timed out. Check your connection and try again.');
+    } on http.ClientException {
+      throw const BackendApiException('Could not upload the avatar. Check your connection.');
+    }
+  }
+
   Future<Map<String, dynamic>> attachThreadMedia(String threadId, String key) =>
       _request(
         'POST',
