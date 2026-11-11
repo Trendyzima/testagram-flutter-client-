@@ -9,6 +9,6 @@ class AdReviewPolicy {
   static String formatBudget(dynamic micros, String currency) {
     final parsed = micros is num ? micros.toDouble() : double.tryParse('$micros') ?? 0;
     final value = parsed.isFinite ? parsed : 0;
-    return currency + ' ' + (value / 1000000).toStringAsFixed(2);
+    return '$currency ${(value / 1000000).toStringAsFixed(2)}';
   }
 }
