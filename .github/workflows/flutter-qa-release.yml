@@ -28,6 +28,8 @@ jobs:
         with:
           channel: stable
           cache: true
+      - name: Generate missing Android and web platform scaffolding
+        run: flutter create --org com.xclone --project-name app --platforms=android,web .
       - name: Resolve dependencies
         run: flutter pub get
       - name: Enforce backend-only dependency boundary
