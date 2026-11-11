@@ -47,6 +47,18 @@ jobs:
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Android release-mode QA APK (not production signed)
+        run: |
+          flutter build apk --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Android release-mode QA App Bundle (not production signed)
+        run: |
+          flutter build appbundle --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
         run: |
           flutter build web --release \
