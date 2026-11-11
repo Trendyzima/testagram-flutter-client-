@@ -1,12 +1,13 @@
 # Flutter migration progress
 
-Last updated: 2026-11-10
+Last updated: 2026-11-11
 
 ## Migrated into the standalone Flutter client
 
 | XClone capability | Flutter implementation | Backend contract |
 |---|---|---|
 | Home feed | For You / Following, pull-to-refresh, cursor pagination | `GET /api/feed/home` |
+| Text post publishing | Native compose, public/followers/private visibility, retry-safe request key | Proposed `POST /api/social/posts` in Backend PR #155; not deployable until that PR and migration are accepted |
 | Post reactions | Like / unlike | `POST|DELETE /api/social/posts/{id}/reaction` |
 | Reposts | Repost / undo repost | `POST|DELETE /api/social/posts/{id}/reposts` |
 | Bookmarks | Save / remove | `POST|DELETE /api/social/posts/{id}/bookmarks` |
@@ -17,7 +18,8 @@ Last updated: 2026-11-10
 | Explore/search | Search posts and people | `GET /api/search` |
 | Profile detail | Native profile header, avatar, bio, counts, protected-account state, follow/unfollow, paginated followers/following lists and profile posts | `GET /api/social/profiles/{user_id}`, `GET /api/social/profiles/{user_id}/connections`, `GET /api/social/profiles/{user_id}/posts`, `GET|POST|DELETE /api/social/follows...` |
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
-| Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
+| Notifications | List, mark read, filter by kind/unread and show unread count | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
+| TV public cache safety | 24-hour bounded public channel cache, signed URL filtering, deduplication | Local Flutter policy; catalogue and playback API still blocked |
 | Threads | Timeline, compose, like, repost, bookmark and public image attachment | `GET|POST /api/threads`, thread interaction routes and media upload-intent/upload/complete/attach |
 | Polls | List, create, vote, results and offset pagination | `GET|POST /api/social/polls`, `GET /api/social/polls/{poll_id}`, `POST /api/social/polls/{poll_id}/vote` |
 | Wallet | Native balance, recent transaction history, username-based recipient resolution and confirmation-gated KES/USD transfers | `POST /api/capability` with `testagram.wallet.balance`, `testagram.wallet.transactions.list`, `testagram.wallet.recipient.resolve`, `testagram.wallet.transfer` |
@@ -32,9 +34,9 @@ The inspected XClone Flutter source contains 121 Dart files and 214 GoRouter rou
 
 ## Deliberate blockers (not silently substituted)
 
-- Main-feed post creation is not exposed as a first-class Backend route in the inspected router. The feed composer therefore reports that publishing is unavailable. It does not write to the separate threads table.
+- Main-feed post creation is being added as a native PostgreSQL Backend route in draft Backend PR #155. The Flutter composer in this branch targets that route, but must not be merged or released until the Backend PR, idempotency migration, CORS change and moderation configuration are accepted. Moderation fails closed; no post is written if the provider is unavailable or flags the content.
 - Main-feed media upload and the full legacy media lifecycle are not yet implemented. Threads has a separate tested image upload-intent/upload/complete/attach implementation; it still needs real-device and production storage verification.
-- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, E2EE messaging, call signaling, M-Pesa top-ups, wallet analytics/savings/scheduled transfers, creator, advertising and admin/moderation remain open. The basic wallet slice is implemented: balance, recent transactions, username resolution and confirmation-gated KES/USD transfers. Same-intent transfer retries reuse their idempotency key while the wallet screen remains alive; durable recovery after app process termination remains a release-hardening task.
+- Profile read is now available as a privacy-aware header and follow-state slice. Profile editing, E2EE messaging, call signaling, M-Pesa top-ups, wallet analytics/savings/scheduled transfers, creator, advertising and admin/moderation remain open. TV cache policy is migrated, but the legacy catalogue still depends on a source API/monitoring path that has not yet been verified as a live Backend contract. The basic wallet slice is implemented: balance, recent transactions, username resolution and confirmation-gated KES/USD transfers. Same-intent transfer retries reuse their idempotency key while the wallet screen remains alive; durable recovery after app process termination remains a release-hardening task.
 - A route/screen is not considered migrated until it calls the correct owning repository, passes authorization and failure tests, and has device verification.
 
 ## Forbidden dependency boundary
@@ -47,6 +49,6 @@ The client has no Supabase SDK, URL, key, REST endpoint or direct database opera
 2. Android debug/release and web builds must pass.
 3. Appwrite JWT identity linking must work for migrated accounts; the Backend must reject unknown/unlinked identities.
 4. Verify real account feed, interactions, search, follow, notification and thread workflows.
-5. Port the remaining XClone feature domains and their backend contracts.
+5. Port the remaining XClone feature domains and their backend contracts, including the TV catalogue/playback path and admin, ads, marketplace and moderation workflows.
 6. Preserve existing signing identity, data, URLs and deep links during cutover.
 7. Do not delete, archive or redirect XClone until feature parity and production cutover are approved.
