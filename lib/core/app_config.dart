@@ -13,7 +13,17 @@ class AppConfig {
     'TESTAGRAM_API_URL',
     defaultValue: 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech',
   );
-  static const enableTvCatalogue = bool.fromEnvironment(\n    'TESTAGRAM_TV_ENABLED',\n    defaultValue: false,\n  );\n  static const tvPlaybackHostsRaw = String.fromEnvironment(
+  static const siteUrl = String.fromEnvironment(
+    'TESTAGRAM_SITE_URL',
+    defaultValue: 'https://testagram.site',
+  );
+
+  static const enableTvCatalogue = bool.fromEnvironment(
+    'TESTAGRAM_TV_ENABLED',
+    defaultValue: false,
+  );
+
+  static const tvPlaybackHostsRaw = String.fromEnvironment(
     'TESTAGRAM_TV_PLAYBACK_HOSTS',
     defaultValue: 'media.testagram.site',
   );
@@ -25,16 +35,17 @@ class AppConfig {
       .toSet();
 
   static bool get isConfigured =>
-      _isHttpUrl(appwriteEndpoint) &&
+      _isHttpsUrl(appwriteEndpoint) &&
       appwriteProjectId.trim().isNotEmpty &&
-      _isHttpUrl(backendApiUrl);
+      _isHttpsUrl(backendApiUrl) &&
+      _isHttpsUrl(siteUrl);
 
   static Uri get backendOrigin => Uri.parse(backendApiUrl);
 
-  static bool _isHttpUrl(String value) {
+  static bool _isHttpsUrl(String value) {
     final uri = Uri.tryParse(value);
     return uri != null &&
-        (uri.scheme == 'https' || uri.scheme == 'http') &&
+        uri.scheme == 'https' &&
         uri.host.isNotEmpty &&
         uri.userInfo.isEmpty;
   }
