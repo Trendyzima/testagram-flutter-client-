@@ -77,7 +77,7 @@ void main() {
     );
   });
 
-  test('deduplicates and caps catalogue entries', () {
+  test('rejects oversized UTF-8 payloads even when character count is smaller', () {\n    final hugeTitle = List.filled(270000, '💡').join();\n    expect(TvChannelCachePolicy.encode([\n      {...channel(), 'title': hugeTitle},\n    ], now: now), isNull);\n    final raw = jsonEncode({\n      'savedAt': now.millisecondsSinceEpoch,\n      'channels': [channel()..['title'] = hugeTitle],\n    });\n    expect(raw.length, lessThan(TvChannelCachePolicy.maxEncodedBytes));\n    expect(TvChannelCachePolicy.decode(raw, now: now), isEmpty);\n  });\n\n  test('deduplicates and caps catalogue entries', () {
     final rows = List.generate(300, (index) => channel(id: 'channel-$index'));
     expect(TvChannelCachePolicy.sanitizeChannels(rows), hasLength(250));
     expect(
