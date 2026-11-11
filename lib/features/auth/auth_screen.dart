@@ -40,7 +40,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String? _emailValid(String? v) {
     final s = v?.trim() ?? '';
-    if (s.isEmpty) return 'Enter your email address.';
+    if (s.isEmpty) {
+      return 'Enter your email address.';
+    }
     return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s) ? null : 'Enter a valid email address.';
   }
   String? _passwordValid(String? v) =>
@@ -48,9 +50,15 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String _friendly(Object e) {
     if (e is AppwriteException) {
-      if (e.code == 401) return 'The email or password is incorrect.';
-      if (e.code == 409) return 'An account already exists. Sign in instead.';
-      if (e.code == 429) return 'Too many attempts. Wait and retry.';
+      if (e.code == 401) {
+        return 'The email or password is incorrect.';
+      }
+      if (e.code == 409) {
+        return 'An account already exists. Sign in instead.';
+      }
+      if (e.code == 429) {
+        return 'Too many attempts. Wait and retry.';
+      }
       return e.message ?? 'The request failed.';
     }
     final s = e.toString();
@@ -157,8 +165,11 @@ class _AuthScreenState extends State<AuthScreen> {
         userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
       if (mounted) {
         setState(() {
-        _page = _Page.signIn; _password.clear(); _confirm.clear();
-        _recoveryUser = null; _recoverySecret = null;
+          _page = _Page.signIn;
+          _password.clear();
+          _confirm.clear();
+          _recoveryUser = null;
+          _recoverySecret = null;
         _notice = 'Password changed. Sign in with your new password.';
         });
       }
