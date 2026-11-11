@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
 
@@ -24,6 +25,37 @@ class BackendApi {
       if (followingOnly) 'following_only': 'true',
     });
     return _request('GET', uri);
+  }
+
+  /// Creates a moderated, idempotent post through the canonical fresh API.
+  /// The server rechecks Appwrite identity, visibility and moderation; the
+  /// generated key makes a retry safe if the response is lost in transit.
+  Future<Map<String, dynamic>> createPost({
+    required String content,
+    String visibility = 'public',
+    bool sensitive = false,
+    String? idempotencyKey,
+  }) {
+    final normalized = content.trim();
+    if (normalized.isEmpty || normalized.length > 5000) {
+      throw ArgumentError.value(content, 'content', 'Post content must contain 1-5000 characters');
+    }
+    if (!const {'public', 'followers', 'private'}.contains(visibility)) {
+      throw ArgumentError.value(visibility, 'visibility', 'Unsupported post visibility');
+    }
+    final key = idempotencyKey ?? List.generate(
+      24,
+      (_) => math.Random.secure().nextInt(256).toRadixString(16).padLeft(2, '0'),
+    ).join();
+    if (key.trim().length < 8 || key.trim().length > 128 || key.contains('\\n') || key.contains('\\r')) {
+      throw ArgumentError.value(key, 'idempotencyKey', 'Idempotency key must contain 8-128 safe characters');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/v1/posts'),
+      body: {'content': normalized, 'visibility': visibility, 'sensitive': sensitive},
+      extraHeaders: {'Idempotency-Key': key.trim()},
+    );
   }
 
   Future<Map<String, dynamic>> getThreads({int limit = 20, String? cursor, String tab = 'for-you'}) =>
@@ -360,9 +392,11 @@ class BackendApi {
     String method,
     Uri uri, {
     Map<String, dynamic>? body,
+    Map<String, String> extraHeaders = const {},
   }) async {
     final headers = <String, String>{
       ...await _headers(),
+      ...extraHeaders,
       if (body != null) 'Content-Type': 'application/json',
     };
     late final http.Response response;
