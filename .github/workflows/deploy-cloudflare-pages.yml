@@ -213,6 +213,29 @@ jobs:
               "$api/accounts/$CLOUDFLARE_ACCOUNT_ID/workers/scripts/$temporary_worker" | jq -c '{success,errors,messages}'
             rm -rf "$temporary_dir"
           fi
+      - name: Associate production hostnames with Pages
+        shell: bash
+        run: |
+          set -euo pipefail
+          base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
+
+          for domain in testagram.site www.testagram.site; do
+            current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
+              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
+            if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
+              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
+                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+                -H "Content-Type: application/json" \
+                --data "$(jq -nc --arg name "$domain" '{name:$name}')" "$base")"
+              if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
+                echo "::error::Could not associate $domain with Pages before changing its DNS."
+                jq -c '{errors,messages}' <<<"$response"
+                exit 1
+              fi
+            fi
+            echo "$domain is associated with the Pages project."
+          done
+
       - name: Route production DNS to Cloudflare Pages
         shell: bash
         run: |
@@ -231,53 +254,15 @@ jobs:
                 jq -c '{errors,messages}' <<<"$records"
                 exit 1
               fi
-              while IFS= read -r record_id; do
-                [[ -z "$record_id" ]] && continue
-                deleted="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X DELETE \
-                  -H "$auth" "$api/$record_id")"
-                if [[ "$(jq -r '.success // false' <<<"$deleted")" != "true" ]]; then
-                  echo "::error::Could not replace conflicting $type record for $hostname."
-                  jq -c '{errors,messages}' <<<"$deleted"
-                  exit 1
-                fi
-              done < <(jq -r '.result[]?.id' <<<"$records")
-            done
-
-            created="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
-              -H "$auth" -H "Content-Type: application/json" \
-              --data "$(jq -nc --arg name "$hostname" '{type:"CNAME",name:$name,content:"testagram-flutter-web.pages.dev",ttl:1,proxied:true}')" "$api")"
-            if [[ "$(jq -r '.success // false' <<<"$created")" != "true" ]]; then
-              echo "::error::Could not route $hostname to Cloudflare Pages."
-              jq -c '{errors,messages}' <<<"$created"
-              exit 1
-            fi
-            echo "$hostname now points to testagram-flutter-web.pages.dev"
-          done
-
-      - name: Attach and verify production domains
+              wh      - name: Verify production Pages domains
         shell: bash
         run: |
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
 
           for domain in testagram.site www.testagram.site; do
-            current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
-
-            if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
-              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
-                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-                -H "Content-Type: application/json" \
-                --data "$(jq -nc --arg name "$domain" '{name:$name}')" "$base")"
-              if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
-                echo "::error::Could not attach $domain to Pages."
-                jq -c '{errors,messages}' <<<"$response"
-                exit 1
-              fi
-            fi
-
             active=false
-            for attempt in $(seq 1 18); do
+            for attempt in $(seq 1 90); do
               current="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
                 -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
               if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
@@ -289,6 +274,30 @@ jobs:
               status="$(jq -r '.result.status // "unknown"' <<<"$current")"
               validation="$(jq -r '.result.validation_data.status // "unknown"' <<<"$current")"
               verification="$(jq -r '.result.verification_data.status // "unknown"' <<<"$current")"
+              echo "$domain: status=$status validation=$validation verification=$verification (attempt $attempt/90)"
+
+              if [[ "$status" == "active" && "$validation" == "active" && "$verification" == "active" ]]; then
+                active=true
+                break
+              fi
+              if [[ "$status" == "error" || "$status" == "blocked" || "$status" == "deactivated" || \
+                    "$validation" == "error" || "$validation" == "deactivated" || \
+                    "$verification" == "error" || "$verification" == "blocked" || "$verification" == "deactivated" ]]; then
+                echo "::error::Cloudflare rejected validation for $domain."
+                jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
+                exit 1
+              fi
+              sleep 10
+            done
+
+            if [[ "$active" != "true" ]]; then
+              echo "::error::Timed out after up to 15 minutes waiting for $domain to become active."
+              jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
+              exit 1
+            fi
+          done
+
+ '.result.verification_data.status // "unknown"' <<<"$current")"
               echo "$domain: status=$status validation=$validation verification=$verification"
 
               if [[ "$status" == "active" && "$validation" == "active" && "$verification" == "active" ]]; then
