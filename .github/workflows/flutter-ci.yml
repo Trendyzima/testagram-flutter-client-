@@ -65,6 +65,7 @@ jobs:
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+          install -D cloudflare-pages/_headers build/web/_headers
       - name: Upload Android debug APK
         uses: actions/upload-artifact@v6
         with:
