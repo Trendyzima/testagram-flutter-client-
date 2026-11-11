@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../posts/post_detail_screen.dart';
 
@@ -98,6 +99,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _pickAvatar() async {
+    if (_busy) return;
+    final selected = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 82,
+      maxWidth: 1024,
+      maxHeight: 1024,
+    );
+    if (selected == null || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      final bytes = await selected.readAsBytes();
+      await widget.api.uploadProfileAvatar(name: selected.name, bytes: bytes);
+      await _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Profile picture updated.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _toggleFollow() async {
     final profile = _profile;
     if (profile == null || _busy) return;
@@ -155,13 +186,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(20),
                         children: [
-                          Center(child: CircleAvatar(
-                            radius: 42,
-                            backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
-                            child: avatar.startsWith('http') ? null : Text(
-                              displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
-                              style: const TextStyle(fontSize: 28),
-                            ),
+                          Center(child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              CircleAvatar(
+                                radius: 42,
+                                backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
+                                child: avatar.startsWith('http') ? null : Text(
+                                  displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
+                                  style: const TextStyle(fontSize: 28),
+                                ),
+                              ),
+                              if (isSelf)
+                                IconButton(
+                                  tooltip: 'Change profile picture',
+                                  onPressed: _busy ? null : _pickAvatar,
+                                  icon: const Icon(Icons.camera_alt_outlined),
+                                ),
+                            ],
                           )),
                           const SizedBox(height: 14),
                           Center(child: Text(
