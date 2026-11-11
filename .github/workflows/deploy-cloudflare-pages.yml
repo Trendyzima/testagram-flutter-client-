@@ -245,6 +245,8 @@ jobs:
           api="https://api.cloudflare.com/client/v4/zones/$CLOUDFLARE_ZONE_ID/dns_records"
           auth="Authorization: Bearer $CLOUDFLARE_DNS_API_TOKEN"
 
+          # Only the apex and www web hostnames are changed. MX, TXT, CAA,
+          # DKIM, API, media, federation and all other service records remain untouched.
           for hostname in testagram.site www.testagram.site; do
             for type in A AAAA CNAME; do
               records="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
@@ -254,7 +256,30 @@ jobs:
                 jq -c '{errors,messages}' <<<"$records"
                 exit 1
               fi
-              wh      - name: Verify production Pages domains
+              while IFS= read -r record_id; do
+                [[ -z "$record_id" ]] && continue
+                deleted="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X DELETE \
+                  -H "$auth" "$api/$record_id")"
+                if [[ "$(jq -r '.success // false' <<<"$deleted")" != "true" ]]; then
+                  echo "::error::Could not replace conflicting $type record for $hostname."
+                  jq -c '{errors,messages}' <<<"$deleted"
+                  exit 1
+                fi
+              done < <(jq -r '.result[]?.id' <<<"$records")
+            done
+
+            created="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
+              -H "$auth" -H "Content-Type: application/json" \
+              --data "$(jq -nc --arg name "$hostname" '{type:"CNAME",name:$name,content:"testagram-flutter-web.pages.dev",ttl:1,proxied:true}')" "$api")"
+            if [[ "$(jq -r '.success // false' <<<"$created")" != "true" ]]; then
+              echo "::error::Could not route $hostname to Cloudflare Pages."
+              jq -c '{errors,messages}' <<<"$created"
+              exit 1
+            fi
+            echo "$hostname now points to testagram-flutter-web.pages.dev"
+          done
+
+      - name: Verify production Pages domains
         shell: bash
         run: |
           set -euo pipefail
@@ -292,30 +317,6 @@ jobs:
 
             if [[ "$active" != "true" ]]; then
               echo "::error::Timed out after up to 15 minutes waiting for $domain to become active."
-              jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
-              exit 1
-            fi
-          done
-
- '.result.verification_data.status // "unknown"' <<<"$current")"
-              echo "$domain: status=$status validation=$validation verification=$verification"
-
-              if [[ "$status" == "active" && "$validation" == "active" && "$verification" == "active" ]]; then
-                active=true
-                break
-              fi
-              if [[ "$status" == "error" || "$status" == "blocked" || "$status" == "deactivated" || \
-                    "$validation" == "error" || "$validation" == "deactivated" || \
-                    "$verification" == "error" || "$verification" == "blocked" || "$verification" == "deactivated" ]]; then
-                echo "::error::Cloudflare rejected validation for $domain."
-                jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
-                exit 1
-              fi
-              sleep 10
-            done
-
-            if [[ "$active" != "true" ]]; then
-              echo "::error::Timed out waiting for $domain to become active. Check its DNS records and Cloudflare Pages domain validation."
               jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
               exit 1
             fi
