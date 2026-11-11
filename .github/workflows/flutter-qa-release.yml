@@ -1,0 +1,78 @@
+name: Flutter QA Release Builds
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'lib/**'
+      - 'test/**'
+      - 'pubspec.yaml'
+      - '.github/workflows/flutter-qa-release.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: flutter-qa-release-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build Android and Web QA artifacts (not production signed)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Resolve dependencies
+        run: flutter pub get
+      - name: Enforce backend-only dependency boundary
+        run: dart run tool/check_dependency_boundary.dart
+      - name: Analyze and test
+        run: |
+          flutter analyze
+          flutter test --reporter expanded
+      - name: Build Android release-mode QA APK
+        env:
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+          APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID || '6af01d97002875d6d7bd' }}
+          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+        run: |
+          flutter build apk --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Android App Bundle QA artifact
+        env:
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+          APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID || '6af01d97002875d6d7bd' }}
+          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+        run: |
+          flutter build appbundle --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Build Flutter Web release
+        env:
+          APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+          APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID || '6af01d97002875d6d7bd' }}
+          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+        run: |
+          flutter build web --release \
+            --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
+            --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+      - name: Upload QA artifacts (not for store submission)
+        uses: actions/upload-artifact@v6
+        with:
+          name: testagram-qa-release-${{ github.sha }}
+          path: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/bundle/release/app-release.aab
+            build/web
+          if-no-files-found: error
+          retention-days: 14
