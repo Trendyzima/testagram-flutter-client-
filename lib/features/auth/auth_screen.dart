@@ -5,9 +5,17 @@ import '../../core/app_config.dart';
 enum _Page { signIn, signUp, forgot, verify, reset }
 
 class AuthScreen extends StatefulWidget {
-  const AuthScreen({super.key, required this.account, required this.onSignedIn});
+  const AuthScreen({
+    super.key,
+    required this.account,
+    required this.onSignedIn,
+    this.requireVerification = false,
+    this.initialEmail,
+  });
   final Account account;
   final VoidCallback onSignedIn;
+  final bool requireVerification;
+  final String? initialEmail;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -23,11 +31,32 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _email.text = widget.initialEmail ?? '';
     final q = Uri.base.queryParameters;
-    if (q['mode'] == 'recovery' && q['userId'] != null && q['secret'] != null) {
-      _recoveryUser = q['userId']; _recoverySecret = q['secret']; _page = _Page.reset;
-    } else if (q['mode'] == 'verification' && q['userId'] != null && q['secret'] != null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _verify(q['userId']!, q['secret']!));
+    final mode = q['mode'];
+    if (mode == 'recovery') {
+      _recoveryUser = q['userId'];
+      _recoverySecret = q['secret'];
+      _page = _Page.reset;
+      if (_recoveryUser == null || _recoverySecret == null) {
+        _error = 'This password reset link is incomplete. Request a new reset email.';
+      }
+    } else if (mode == 'verification') {
+      _page = _Page.verify;
+      if (q['userId'] != null && q['secret'] != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _verify(q['userId']!, q['secret']!));
+      } else {
+        _notice = 'Open the complete verification link from your email, or request another one.';
+      }
+    } else if (mode == 'signup' || mode == 'sign-up') {
+      _page = _Page.signUp;
+    } else if (mode == 'forgot' || mode == 'reset') {
+      _page = _Page.forgot;
+    } else if (mode == 'signin' || mode == 'sign-in') {
+      _page = _Page.signIn;
+    } else if (widget.requireVerification) {
+      _page = _Page.verify;
+      _notice = 'Verify your email address before using Testagram.';
     }
   }
 
@@ -54,7 +83,10 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'The email or password is incorrect.';
       }
       if (e.code == 409) {
-        return 'An account already exists. Sign in instead.';
+        return 'We could not create this account. Try signing in or use password recovery if you already registered.';
+      }
+      if (e.code == 400 || e.code == 401) {
+        return 'This link is invalid or has expired. Request a fresh email and try again.';
       }
       if (e.code == 429) {
         return 'Too many attempts. Wait and retry.';
@@ -88,6 +120,16 @@ class _AuthScreenState extends State<AuthScreen> {
     await _run(() async {
       await widget.account.createEmailPasswordSession(
         email: _email.text.trim().toLowerCase(), password: _password.text);
+      final user = await widget.account.get();
+      if (!user.emailVerification) {
+        if (mounted) {
+          setState(() {
+            _page = _Page.verify;
+            _notice = 'Your email is not verified yet. Check your inbox or resend the verification link.';
+          });
+        }
+        return;
+      }
       widget.onSignedIn();
     });
   }
@@ -125,10 +167,14 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
     await widget.account.updateVerification(userId: userId, secret: secret);
+    final user = await widget.account.get();
+    if (!user.emailVerification) {
+      throw StateError('Appwrite did not confirm the email verification.');
+    }
     if (mounted) {
       setState(() {
         _page = _Page.signIn;
-        _notice = 'Email verified. Sign in to continue.';
+        _notice = 'Email verified successfully. Sign in to continue.';
       });
     }
   });
@@ -138,9 +184,15 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     await _run(() async {
-      await widget.account.createRecovery(
-        email: _email.text.trim().toLowerCase(),
-        url: '${AppConfig.siteUrl}/?mode=recovery');
+      try {
+        await widget.account.createRecovery(
+          email: _email.text.trim().toLowerCase(),
+          url: '${AppConfig.siteUrl}/?mode=recovery');
+      } on AppwriteException catch (error) {
+        // Appwrite may distinguish an unknown email. Keep the public response
+        // identical so the form cannot be used to enumerate registered users.
+        if (error.code != 400 && error.code != 404) rethrow;
+      }
       if (mounted) {
         setState(() {
           _page = _Page.signIn;
