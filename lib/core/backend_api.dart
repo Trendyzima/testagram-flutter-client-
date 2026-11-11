@@ -33,7 +33,6 @@ class BackendApi {
   Future<Map<String, dynamic>> createPost({
     required String content,
     String visibility = 'public',
-    bool sensitive = false,
     String? idempotencyKey,
   }) {
     final normalized = content.trim();
@@ -54,8 +53,8 @@ class BackendApi {
     }
     return _request(
       'POST',
-      baseUri.resolve('/v1/posts'),
-      body: {'content': normalized, 'visibility': visibility, 'sensitive': sensitive},
+      baseUri.resolve('/api/social/posts'),
+      body: {'content': normalized, 'visibility': visibility},
       extraHeaders: {'Idempotency-Key': key.trim()},
     );
   }
