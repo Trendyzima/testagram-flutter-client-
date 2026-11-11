@@ -1,6 +1,7 @@
 import 'package:appwrite/appwrite.dart';
 import 'package:flutter/material.dart';
 import '../../core/app_config.dart';
+import 'auth_entry.dart';
 
 enum _Page { signIn, signUp, forgot, verify, reset }
 
@@ -32,31 +33,33 @@ class _AuthScreenState extends State<AuthScreen> {
   void initState() {
     super.initState();
     _email.text = widget.initialEmail ?? '';
-    final q = Uri.base.queryParameters;
-    final mode = q['mode'];
-    if (mode == 'recovery') {
-      _recoveryUser = q['userId'];
-      _recoverySecret = q['secret'];
-      _page = _Page.reset;
-      if (_recoveryUser == null || _recoverySecret == null) {
-        _error = 'This password reset link is incomplete. Request a new reset email.';
-      }
-    } else if (mode == 'verification') {
-      _page = _Page.verify;
-      if (q['userId'] != null && q['secret'] != null) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _verify(q['userId']!, q['secret']!));
-      } else {
-        _notice = 'Open the complete verification link from your email, or request another one.';
-      }
-    } else if (mode == 'signup' || mode == 'sign-up') {
-      _page = _Page.signUp;
-    } else if (mode == 'forgot' || mode == 'reset') {
-      _page = _Page.forgot;
-    } else if (mode == 'signin' || mode == 'sign-in') {
-      _page = _Page.signIn;
-    } else if (widget.requireVerification) {
-      _page = _Page.verify;
-      _notice = 'Verify your email address before using Testagram.';
+    final entry = AuthEntry.fromUri(Uri.base);
+    switch (entry.mode) {
+      case AuthEntryMode.resetPassword:
+        _recoveryUser = entry.userId;
+        _recoverySecret = entry.secret;
+        _page = _Page.reset;
+        if (!entry.hasCompleteCallback) {
+          _error = 'This password reset link is incomplete. Request a new reset email.';
+        }
+      case AuthEntryMode.verifyEmail:
+        _page = _Page.verify;
+        if (entry.hasCompleteCallback) {
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => _verify(entry.userId!, entry.secret!),
+          );
+        } else {
+          _notice = 'Open the complete verification link from your email, or request another one.';
+        }
+      case AuthEntryMode.signUp:
+        _page = _Page.signUp;
+      case AuthEntryMode.forgotPassword:
+        _page = _Page.forgot;
+      case AuthEntryMode.signIn:
+        if (widget.requireVerification) {
+          _page = _Page.verify;
+          _notice = 'Verify your email address before using Testagram.';
+        }
     }
   }
 
