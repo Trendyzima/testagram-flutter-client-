@@ -58,12 +58,16 @@ class _AuthScreenState extends State<AuthScreen> {
         s.contains('SocketException') || s.contains('Failed host lookup')) {
       return 'Cannot reach Appwrite. Check your connection, Appwrite endpoint, project Web platform and CORS settings.';
     }
-    if (s.contains('TimeoutException')) return 'Request timed out. Check your connection and retry.';
+    if (s.contains('TimeoutException')) {
+      return 'Request timed out. Check your connection and retry.';
+    }
     return 'Something went wrong. Please try again.';
   }
 
   Future<void> _run(Future<void> Function() fn) async {
-    if (_busy) return;
+    if (_busy) {
+      return;
+    }
     setState(() { _busy = true; _error = null; _notice = null; });
     try { await fn(); } catch (e) { if (mounted) setState(() => _error = _friendly(e)); }
     finally { if (mounted) setState(() => _busy = false); }
@@ -85,25 +89,29 @@ class _AuthScreenState extends State<AuthScreen> {
       await widget.account.create(userId: ID.unique(), email: email,
         password: _password.text, name: _name.text.trim());
       await widget.account.createEmailPasswordSession(email: email, password: _password.text);
-      if (mounted) setState(() {
-        _page = _Page.verify;
-        _notice = 'Account created. Sending a verification link to ' + email + '.';
-      });
-      await widget.account.createVerification(url: AppConfig.siteUrl + '/?mode=verification');
-      if (mounted) setState(() {
-        _notice = 'Verification email sent to ' + email + '. Open the link before signing in.';
-      });
+      if (mounted) {
+        setState(() {
+          _page = _Page.verify;
+          _notice = 'Account created. Sending a verification link to $email.';
+        });
+      }
+      await widget.account.createVerification(url: '${AppConfig.siteUrl}/?mode=verification');
+      if (mounted) {
+        setState(() {
+          _notice = 'Verification email sent to $email. Open the link before signing in.';
+        });
+      }
     });
   }
 
   Future<void> _resend() async => _run(() async {
-    await widget.account.createVerification(url: AppConfig.siteUrl + '/?mode=verification');
-    if (mounted) setState(() => _notice = 'A new verification email has been sent.');
+    await widget.account.createVerification(url: '${AppConfig.siteUrl}/?mode=verification');
+    if (mounted) { setState(() => _notice = 'A new verification email has been sent.'); }
   });
 
   Future<void> _verify(String userId, String secret) async => _run(() async {
     await widget.account.updateVerification(userId: userId, secret: secret);
-    if (mounted) setState(() { _page = _Page.signIn; _notice = 'Email verified. Sign in to continue.'; });
+    if (mounted) { setState(() { _page = _Page.signIn; _notice = 'Email verified. Sign in to continue.'; }); }
   });
 
   Future<void> _forgot() async {
@@ -111,7 +119,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await _run(() async {
       await widget.account.createRecovery(
         email: _email.text.trim().toLowerCase(),
-        url: AppConfig.siteUrl + '/?mode=recovery');
+        url: '${AppConfig.siteUrl}/?mode=recovery');
       if (mounted) setState(() {
         _page = _Page.signIn;
         _notice = 'If the account exists, a password reset link has been sent.';
@@ -122,7 +130,8 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _reset() async {
     if (!_form.currentState!.validate()) return;
     if (_recoveryUser == null || _recoverySecret == null) {
-      setState(() => _error = 'Recovery link is incomplete. Request a new reset email.'); return;
+      setState(() => _error = 'Recovery link is incomplete. Request a new reset email.');
+      return;
     }
     await _run(() async {
       await widget.account.updateRecovery(
