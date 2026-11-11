@@ -1,0 +1,49 @@
+name: Appwrite live staging authentication
+
+on:
+  workflow_dispatch:
+    inputs:
+      phase:
+        description: Run one safe phase of the disposable Appwrite staging account lifecycle
+        required: true
+        type: choice
+        options:
+          - register
+          - verify
+          - recover
+
+permissions:
+  contents: read
+
+jobs:
+  appwrite-auth:
+    name: Appwrite ${{ inputs.phase }} flow (staging only)
+    runs-on: ubuntu-latest
+    environment: staging
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Resolve Flutter dependencies
+        run: flutter pub get
+
+      - name: Exercise the selected live Appwrite auth phase
+        env:
+          APPWRITE_AUTH_PHASE: ${{ inputs.phase }}
+          APPWRITE_STAGING_ENDPOINT: ${{ vars.APPWRITE_STAGING_ENDPOINT }}
+          APPWRITE_STAGING_PROJECT_ID: ${{ vars.APPWRITE_STAGING_PROJECT_ID }}
+          APPWRITE_STAGING_SITE_URL: ${{ vars.APPWRITE_STAGING_SITE_URL }}
+          APPWRITE_STAGING_EMAIL: ${{ secrets.APPWRITE_STAGING_EMAIL }}
+          APPWRITE_STAGING_PASSWORD: ${{ secrets.APPWRITE_STAGING_PASSWORD }}
+          APPWRITE_STAGING_NAME: ${{ secrets.APPWRITE_STAGING_NAME }}
+          APPWRITE_VERIFICATION_USER_ID: ${{ secrets.APPWRITE_VERIFICATION_USER_ID }}
+          APPWRITE_VERIFICATION_SECRET: ${{ secrets.APPWRITE_VERIFICATION_SECRET }}
+          APPWRITE_RECOVERY_USER_ID: ${{ secrets.APPWRITE_RECOVERY_USER_ID }}
+          APPWRITE_RECOVERY_SECRET: ${{ secrets.APPWRITE_RECOVERY_SECRET }}
+          APPWRITE_RECOVERY_NEW_PASSWORD: ${{ secrets.APPWRITE_RECOVERY_NEW_PASSWORD }}
+        run: dart run tool/appwrite_live_smoke.dart
