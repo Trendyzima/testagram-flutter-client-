@@ -13,8 +13,18 @@ class AppConfig {
     'TESTAGRAM_API_URL',
     defaultValue: 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech',
   );
+  static const tvPlaybackHostsRaw = String.fromEnvironment(
+    'TESTAGRAM_TV_PLAYBACK_HOSTS',
+    defaultValue: 'media.testagram.site',
+  );
 
-  static const tvPlaybackHostsRaw = String.fromEnvironment(\n    'TESTAGRAM_TV_PLAYBACK_HOSTS',\n    defaultValue: 'media.testagram.site',\n  );\n\n  static Set<String> get tvPlaybackHosts => tvPlaybackHostsRaw\n      .split(',')\n      .map((host) => host.trim().toLowerCase())\n      .where((host) => host.isNotEmpty)\n      .toSet();\n\n  static bool get isConfigured =>
+  static Set<String> get tvPlaybackHosts => tvPlaybackHostsRaw
+      .split(',')
+      .map((host) => host.trim().toLowerCase())
+      .where((host) => host.isNotEmpty)
+      .toSet();
+
+  static bool get isConfigured =>
       _isHttpUrl(appwriteEndpoint) &&
       appwriteProjectId.trim().isNotEmpty &&
       _isHttpUrl(backendApiUrl);
