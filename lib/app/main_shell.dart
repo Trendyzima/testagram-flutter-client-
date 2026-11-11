@@ -42,7 +42,8 @@ class _MainShellState extends State<MainShell> {
       ThreadsScreen(api: widget.api),
       PollsScreen(api: widget.api),
       WalletScreen(api: widget.api),
-      if (AppConfig.enableTvCatalogue)\n        TvScreen(api: widget.api, allowedPlaybackHosts: AppConfig.tvPlaybackHosts),
+      if (AppConfig.enableTvCatalogue)
+        TvScreen(api: widget.api, allowedPlaybackHosts: AppConfig.tvPlaybackHosts),
       SettingsScreen(
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
@@ -65,7 +66,8 @@ class _MainShellState extends State<MainShell> {
           NavigationDestination(icon: Icon(Icons.forum_outlined), label: 'Threads'),
           NavigationDestination(icon: Icon(Icons.poll_outlined), label: 'Polls'),
           NavigationDestination(icon: Icon(Icons.account_balance_wallet_outlined), label: 'Wallet'),
-          if (AppConfig.enableTvCatalogue)\n            NavigationDestination(icon: Icon(Icons.live_tv_outlined), label: 'TV'),
+          if (AppConfig.enableTvCatalogue)
+            NavigationDestination(icon: Icon(Icons.live_tv_outlined), label: 'TV'),
           NavigationDestination(icon: Icon(Icons.settings_outlined), label: 'Settings'),
         ],
       ),
