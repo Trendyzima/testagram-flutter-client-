@@ -228,20 +228,38 @@ class BackendApi {
       if (country != null) 'country': country.toUpperCase(),
       if (category != null && category.isNotEmpty) 'category': category,
       if (language != null && language.isNotEmpty) 'language': language,
-      if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+      if (query != null && query.trim().isNotEmpty) 'query': query.trim(),
     }));
   }
 
-  Future<Map<String, dynamic>> getTvPlayback(String channelId) {
-    if (channelId.trim().isEmpty || channelId.length > 128 ||
+  Future<Map<String, dynamic>> getTvChannel(String channelId) {
+    if (channelId.trim().isEmpty || channelId.length > 256 ||
         channelId.contains('/') || channelId.contains('..')) {
       throw ArgumentError.value(channelId, 'channelId', 'Invalid channel ID');
     }
     return _request(
-      'POST',
-      baseUri.resolve('/api/tv/channels/${Uri.encodeComponent(channelId)}/playback'),
+      'GET',
+      baseUri.resolve('/api/tv/channels/${Uri.encodeComponent(channelId)}'),
     );
   }
+
+  Future<Map<String, dynamic>> createTvPlaybackGrant(
+    String channelId, {
+    String playbackProfile = 'auto',
+  }) {
+    const profiles = {'auto', 'low', 'standard', 'high'};
+    if (channelId.trim().isEmpty || channelId.length > 256 ||
+        channelId.contains('/') || channelId.contains('..') ||
+        !profiles.contains(playbackProfile)) {
+      throw ArgumentError('Invalid TV channel ID or playback profile');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/tv/channels/${Uri.encodeComponent(channelId)}/playback'),
+      body: {'playback_profile': playbackProfile},
+    );
+  }
+
 
   Future<Map<String, dynamic>> getPoll(String pollId) =>
       _request('GET', baseUri.resolve('/api/social/polls/$pollId'));
