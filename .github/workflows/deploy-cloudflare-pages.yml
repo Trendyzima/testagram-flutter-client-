@@ -109,7 +109,7 @@ jobs:
           flutter build web --release --base-href / \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
             --dart-define="TESTAGRAM_SITE_URL=$TESTAGRAM_SITE_URL"
 
       - name: Install Wrangler
@@ -129,9 +129,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          output="$(wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$DEPLOY_BRANCH" --commit-dirty=true 2>&1)" || { printf '%s\\n' "$output"; exit 1; }
-          printf '%s\\n' "$output"
-          preview_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\\.pages\\.dev' <<<"$output" | tail -n 1 || true)"
+          output="$(wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$DEPLOY_BRANCH" --commit-dirty=true 2>&1)" || { printf '%s\n' "$output"; exit 1; }
+          printf '%s\n' "$output"
+          preview_url="$(grep -Eo 'https://[A-Za-z0-9.-]+\.pages\.dev' <<<"$output" | tail -n 1 || true)"
           if [[ -z "$preview_url" ]]; then
             echo "::error::Wrangler did not return a Pages deployment URL."
             exit 1
@@ -149,9 +149,9 @@ jobs:
           page="$(mktemp)"
           headers="$(mktemp)"
           for path in '/' '/?mode=signin' '/?mode=signup' '/?mode=forgot'; do
-            curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 3 \\
+            curl --fail --location --silent --show-error --retry 8 --retry-all-errors --retry-delay 3 \
               --max-time 30 -D "$headers" "$PREVIEW_URL$path" -o "$page"
-            if ! grep -Eq 'flutter_bootstrap\\.js|main\\.dart\\.js' "$page"; then
+            if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
               echo "::error::Pages returned HTML without the Flutter app at $path"
               cat "$page"
               exit 1
