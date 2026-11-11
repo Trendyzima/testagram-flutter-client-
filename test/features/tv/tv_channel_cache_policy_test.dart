@@ -4,51 +4,58 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/features/tv/tv_channel_cache_policy.dart';
 
 void main() {
-  final now = DateTime.utc(2026, 10, 14, 12);
+  final now = DateTime.utc(2026, 11, 11, 12);
 
   Map<String, dynamic> channel({
-    String url = 'https://streams.example/live.m3u8',
     String id = 'channel-1',
-    String sourceType = 'catalog',
+    String logo = 'https://images.testagram.site/logo.webp',
   }) => {
     'id': id,
-    'title': 'Test channel',
+    'name': 'Test TV',
     'description': 'Public channel',
-    'playback_url': url,
-    'thumbnail_url': 'https://images.example/logo.png',
-    '_sourceType': sourceType,
+    'logo_url': logo,
+    'country_code': 'KE',
+    'language': 'en',
+    'categories': ['News', 'Local'],
+    'website_url': 'https://broadcaster.example',
+    'playback_type': 'hls',
+    'availability': 'available',
+    'health_checked_at': now.toIso8601String(),
+    'updated_at': now.toIso8601String(),
   };
 
-  test('persists only public HTTPS catalogue URLs without credentials', () {
-    final safe = TvChannelCachePolicy.sanitizeChannels([
-      channel(),
-      channel(id: 'signed', url: 'https://streams.example/live.m3u8?token=secret'),
-      channel(id: 'http', url: 'http://streams.example/live.m3u8'),
-      channel(id: 'user', sourceType: 'testagram-live'),
-    ]);
+  test('caches normalized public metadata and never playback capabilities', () {
+    final row = {
+      ...channel(),
+      'playback_url': 'https://media.example/master.m3u8?token=secret',
+      'stream_url': 'https://origin.example/live.m3u8',
+      'source_url': 'https://origin.example/live.m3u8',
+      'provider_credentials': 'must-not-persist',
+    };
+    final safe = TvChannelCachePolicy.sanitizeChannels([row]);
     expect(safe, hasLength(1));
     expect(safe.single['id'], 'channel-1');
-    expect(jsonEncode(safe), isNot(contains('secret')));
+    final encoded = TvChannelCachePolicy.encode([row], now: now)!;
+    expect(encoded, isNot(contains('playback_url')));
+    expect(encoded, isNot(contains('stream_url')));
+    expect(encoded, isNot(contains('secret')));
+    expect(encoded, isNot(contains('must-not-persist')));
   });
 
-  test('rejects user info and signed query parameters', () {
-    expect(
-      TvChannelCachePolicy.isPublicCacheUrl('https://user:pass@streams.example/live.m3u8'),
-      isFalse,
-    );
-    expect(
-      TvChannelCachePolicy.isPublicCacheUrl(
-        'https://streams.example/live.m3u8?X-Amz-Signature=secret',
-      ),
-      isFalse,
-    );
-    expect(
-      TvChannelCachePolicy.isPublicCacheUrl('https://streams.example/live.m3u8?policy=abc'),
-      isFalse,
-    );
+  test('rejects unsafe metadata URLs and strips them from cache', () {
+    for (final url in [
+      'http://images.example/logo.png',
+      'https://user:pass@images.example/logo.png',
+      'https://images.example/logo.png?token=secret',
+      'https://images.example/logo.png?X-Amz-Signature=secret',
+      'https://images.example/logo.png#fragment',
+    ]) {
+      final safe = TvChannelCachePolicy.sanitizeChannels([channel(logo: url)]);
+      expect(safe.single['logo_url'], isNull, reason: url);
+    }
   });
 
-  test('round trips fresh catalogue data and expires after the TTL', () {
+  test('round trips fresh metadata and expires after the TTL', () {
     final encoded = TvChannelCachePolicy.encode([channel()], now: now);
     expect(encoded, isNotNull);
     expect(
@@ -61,7 +68,7 @@ void main() {
     );
   });
 
-  test('rejects future-dated, malformed and oversized cache entries', () {
+  test('rejects future-dated malformed and oversized cache entries', () {
     final encoded = TvChannelCachePolicy.encode([channel()], now: now)!;
     expect(
       TvChannelCachePolicy.decode(encoded, now: now.subtract(const Duration(hours: 1))),
@@ -77,29 +84,54 @@ void main() {
     );
   });
 
-  test('rejects oversized UTF-8 payloads even when character count is smaller', () {
-    final hugeTitle = List.filled(270000, '💡').join();
-    final oversizedChannel = channel();
-    oversizedChannel['title'] = hugeTitle;
-    expect(
-      TvChannelCachePolicy.encode([oversizedChannel], now: now),
-      isNull,
-    );
-
-    final raw = jsonEncode({
-      'savedAt': now.millisecondsSinceEpoch,
-      'channels': [oversizedChannel],
-    });
-    expect(raw.length, lessThan(TvChannelCachePolicy.maxEncodedBytes));
-    expect(TvChannelCachePolicy.decode(raw, now: now), isEmpty);
+  test('rejects oversized UTF-8 payloads', () {
+    final huge = channel();
+    huge['description'] = '💡' * 300000;
+    expect(TvChannelCachePolicy.encode([huge], now: now), isNull);
   });
 
-  test('deduplicates and caps catalogue entries', () {
+  test('deduplicates and caps metadata rows', () {
     final rows = List.generate(300, (index) => channel(id: 'channel-$index'));
     expect(TvChannelCachePolicy.sanitizeChannels(rows), hasLength(250));
     expect(
       TvChannelCachePolicy.sanitizeChannels([channel(), channel()]),
       hasLength(1),
     );
+  });
+
+  test('rejects records without normalized TV identifiers and enums', () {
+    expect(
+      TvChannelCachePolicy.sanitizeChannels([{
+        ...channel(),
+        'playback_type': 'rtmp',
+      }]),
+      isEmpty,
+    );
+    expect(
+      TvChannelCachePolicy.sanitizeChannels([{
+        ...channel(),
+        'availability': 'made-up',
+      }]),
+      isEmpty,
+    );
+    expect(
+      TvChannelCachePolicy.sanitizeChannels([{
+        ...channel(),
+        'id': '',
+      }]),
+      isEmpty,
+    );
+  });
+
+  test('does not accidentally serialize unknown fields', () {
+    final encoded = TvChannelCachePolicy.encode([{
+      ...channel(),
+      'owner_email': 'private@example.test',
+      'private_origin': 's3://private-bucket/key',
+    }], now: now)!;
+    expect(encoded, isNot(contains('owner_email')));
+    expect(encoded, isNot(contains('private_origin')));
+    expect(jsonDecode(encoded)['channels'].single.keys,
+      isNot(contains('private_origin')));
   });
 }
