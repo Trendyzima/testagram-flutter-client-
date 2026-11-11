@@ -13,7 +13,11 @@ class AppConfig {
     'TESTAGRAM_API_URL',
     defaultValue: 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech',
   );
-  static const enableTvCatalogue = bool.fromEnvironment(\n    'TESTAGRAM_TV_ENABLED',\n    defaultValue: false,\n  );\n  static const tvPlaybackHostsRaw = String.fromEnvironment(
+  static const enableTvCatalogue = bool.fromEnvironment(
+    'TESTAGRAM_TV_ENABLED',
+    defaultValue: false,
+  );
+  static const tvPlaybackHostsRaw = String.fromEnvironment(
     'TESTAGRAM_TV_PLAYBACK_HOSTS',
     defaultValue: 'media.testagram.site',
   );
