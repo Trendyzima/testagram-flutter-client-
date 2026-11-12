@@ -310,7 +310,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   onPressed: () => setState(() => _obscure = !_obscure),
                   icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
               validator: _passwordValid,
-              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); if (_page == _Page.signUp) _signUp(); }),
+              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); }),
           ],
           if (_page == _Page.signUp || _page == _Page.reset) ...[
             const SizedBox(height: 14),
