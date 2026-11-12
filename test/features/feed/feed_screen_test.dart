@@ -34,6 +34,50 @@ void main() {
     api.close();
   });
 
+  testWidgets('main feed renders all attached images in a post gallery', (tester) async {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'post-with-gallery',
+                'content': 'A gallery post',
+                'created_at': '2026-11-12T09:00:00Z',
+                'media_urls': [
+                  'https://media.testagram.site/one.webp',
+                  'https://media.testagram.site/two.webp',
+                ],
+                'author': {'username': 'alice', 'display_name': 'Alice'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'likes': 0, 'replies': 0, 'reposts': 0},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A gallery post'), findsOneWidget);
+    expect(find.byType(Image), findsNWidgets(2));
+    api.close();
+  });
+
   testWidgets('main-feed composer publishes through the canonical Backend route', (tester) async {
     final requests = <http.Request>[];
     final api = BackendApi(
