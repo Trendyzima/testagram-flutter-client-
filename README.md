@@ -2,7 +2,7 @@
 
 The canonical native Flutter application for Testagram. This repository is intended to replace the Flutter/mobile client currently nested under the legacy XClone frontend. It is not a second backend and it does not own account, post, social-graph, ranking, federation, or media-storage records.
 
-## Six-repository ownership
+## Six runtime repositories + API contract control plane
 
 - **This repository — Flutter client:** native presentation, navigation, local UX state, device permissions and API transport.
 - **Testagram Backend:** canonical Appwrite identity validation, account linking, authorization, profiles, posts, social graph, feed orchestration and public API.
@@ -10,6 +10,7 @@ The canonical native Flutter application for Testagram. This repository is inten
 - **The Algorithm:** private ranking and recommendations. The client never calls it directly.
 - **Testagram Data Centre:** deployment, object-storage durability, infrastructure, backups and restore. Storage objects remain private and are not exposed directly by the client.
 - **Federated Content:** ActivityPub protocol state and remote delivery. The client never calls it directly.
+- **Testagram API:** OpenAPI contracts, private service schemas, event definitions, Dart/TypeScript SDKs, immutable source pins and cross-repository compatibility CI. It is not a runtime service or request-path gateway.
 
 ## Hard security boundaries
 
@@ -53,7 +54,7 @@ This is an expanding migration slice, **not full XClone feature parity or a prod
 2. No Supabase SDK/import/env/URL/Edge Function/database operation remains in the Flutter client.
 3. No Upstash/Redis dependency is introduced in the client.
 4. All authenticated operations use Appwrite JWTs and Backend authorization.
-5. Backend, Algorithm, Data Centre and Federation integration contracts pass across the five repositories.
+5. Backend, Algorithm, Data Centre, Federation and CDN integration contracts pass across the six runtime repositories, with API contract-governance checks.
 6. `flutter analyze`, `flutter test`, Android debug/release builds and real-device smoke tests pass.
 7. Existing XClone data, deep links, app identity/signing and user sessions are migrated safely before retiring the old client.
 8. XClone is not deleted or archived until the native client reaches verified feature parity and production cutover is approved.
@@ -73,6 +74,8 @@ The client now talks to verified first-class Backend routes:
 - `GET|POST|DELETE /api/social/follows...` — follow state and follow/unfollow.
 - `GET /api/social/notifications` and `POST /api/social/notifications/{id}/read` — notifications.
 - `GET|POST /api/threads` and dedicated thread interaction endpoints — separate thread product surface.
+
+The Flutter client must use Backend-owned Fediverse endpoints for every signed-in interaction; it must never call the Federation private or public protocol API directly and must not request a separate Mastodon password/session. The existing Appwrite session remains the only Testagram login.
 
 The Flutter CI runs `tool/check_dependency_boundary.dart`, which fails if Supabase, Upstash or Redis references are introduced into `lib/`, `test/`, platform/tooling source, `pubspec.yaml`, environment files, or the resolved `pubspec.lock`. Do not weaken or remove this check to make a build pass.
 
