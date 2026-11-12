@@ -40,4 +40,41 @@ void main() {
     expect(find.text('Send money'), findsOneWidget);
     api.close();
   });
+  testWidgets('wallet rejects transfers with more than two decimal places', (tester) async {
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (body['capability'] == 'testagram.wallet.balance') {
+        return http.Response(jsonEncode({
+          'id': 'member-1',
+          'balance': '250.00',
+          'currency': 'KES',
+          'status': 'active',
+        }), 200);
+      }
+      if (body['capability'] == 'testagram.wallet.transactions.list') {
+        return http.Response(jsonEncode({'items': []}), 200);
+      }
+      return http.Response('{}', 404);
+    });
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'test-jwt',
+      client: client,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Send money'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), 'recipient');
+    await tester.enterText(find.byType(TextField).at(1), '10000.001');
+    await tester.tap(find.text('Review transfer'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Review transfer'), findsOneWidget);
+    expect(find.text('Confirm transfer'), findsNothing);
+    api.close();
+  });
+
 }
