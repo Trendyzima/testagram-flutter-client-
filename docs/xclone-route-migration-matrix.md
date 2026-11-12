@@ -56,8 +56,8 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - `/videos` — Not ported
 - `/shorts` — Not ported
 - `/videos/watchlater` — Not ported
-- `/hashtags` — Ported slice: native trending hashtag directory backed by the Backend's seven-day public-topic endpoint
-- `/hashtag/:tag` — Ported slice: privacy-filtered, cursor-paginated hashtag timeline and post-detail navigation
+- `/hashtags` — Ported slice: native trending hashtag directory backed by the Backend's seven-day public-topic endpoint, including viewer follow-state indicators
+- `/hashtag/:tag` — Ported slice: privacy-filtered, cursor-paginated hashtag timeline, post-detail navigation, authenticated follow/unfollow controls and multi-media cards
 - `/leaderboard` — Not ported
 - `/leaderboard/creators` — Not ported
 - `/products` — Not ported
