@@ -14,7 +14,7 @@ Last updated: 2026-11-12
 | Post detail | Privacy-filtered post read and interaction summary | `GET /api/social/posts/{id}`, `GET /api/social/posts/{id}/interaction-summary` |
 | Post interaction lists | Likes, reposts and quotes (up to 100 per request) | `GET /api/social/posts/{id}/interactions/{kind}` |
 | Interaction counters/state | Per-post viewer state hydration | `GET /api/social/posts/{id}/interaction-summary` |
-| Explore/search | Search posts and people | `GET /api/search` |
+| Explore/search/hashtags | Search posts and people; seven-day trending hashtag chips; cursor-paginated hashtag timelines with post-detail navigation | `GET /api/search`, `GET /api/hashtags/trending`, `GET /api/hashtags/{tag}` |
 | Profile detail | Native profile header, avatar, bio, counts, protected-account state, follow/unfollow, paginated followers/following lists and profile posts | `GET /api/social/profiles/{user_id}`, `GET /api/social/profiles/{user_id}/connections`, `GET /api/social/profiles/{user_id}/posts`, `GET|POST|DELETE /api/social/follows...` |
 | Follow graph | Follow, unfollow and relationship state from search | `GET|POST|DELETE /api/social/follows...` |
 | Notifications | List and mark read | `GET /api/social/notifications`, `POST /api/social/notifications/{id}/read` |
