@@ -18,6 +18,8 @@ class _HashtagScreenState extends State<HashtagScreen> {
   final List<Map<String, dynamic>> _posts = [];
   bool _loading = false;
   bool _hasMore = true;
+  bool _isFollowing = false;
+  bool _followBusy = false;
   int _generation = 0;
   String? _cursor;
   String? _error;
@@ -76,6 +78,7 @@ class _HashtagScreenState extends State<HashtagScreen> {
           : <Map<String, dynamic>>[];
       if (!mounted || generation != _generation) return;
       setState(() {
+        _isFollowing = data['is_following'] == true;
         final existing = _posts.map((post) => (post['id'] ?? '').toString()).toSet();
         _posts.addAll(rows.where((post) => !existing.contains((post['id'] ?? '').toString())));
         _cursor = (data['next_cursor'] ?? '').toString();
@@ -92,6 +95,31 @@ class _HashtagScreenState extends State<HashtagScreen> {
     }
   }
 
+  Future<void> _toggleFollow() async {
+    if (_followBusy) return;
+    setState(() => _followBusy = true);
+    try {
+      final response = _data(_isFollowing
+          ? await widget.api.unfollowHashtag(_tag)
+          : await widget.api.followHashtag(_tag));
+      if (!mounted) return;
+      setState(() => _isFollowing = response['is_following'] == true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isFollowing
+            ? 'Following #$_tag. Your Explore topics will reflect this interest.'
+            : 'Unfollowed #$_tag.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update hashtag follow: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
+    }
+  }
+
   Widget _postCard(Map<String, dynamic> post) {
     final author = post['author'];
     final name = author is Map
@@ -101,8 +129,10 @@ class _HashtagScreenState extends State<HashtagScreen> {
     final avatar = author is Map ? (author['avatar_url'] ?? '').toString() : '';
     final id = (post['id'] ?? '').toString();
     final content = (post['content'] ?? '').toString();
-    final media = post['media_urls'];
-    final mediaUrl = media is List && media.isNotEmpty ? media.first.toString() : '';
+    final rawMedia = post['media_urls'];
+    final mediaUrls = rawMedia is List
+        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
+        : <String>[];
 
     return InkWell(
       onTap: id.isEmpty ? null : () => Navigator.of(context).push(
@@ -133,18 +163,36 @@ class _HashtagScreenState extends State<HashtagScreen> {
                     Text('@$username', style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 8),
                   Text(content, style: const TextStyle(height: 1.4)),
-                  if (mediaUrl.startsWith('https://') || mediaUrl.startsWith('http://')) ...[
+                  if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        mediaUrl,
-                        height: 220,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    if (mediaUrls.length == 1)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          mediaUrls.first,
+                          height: 220,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: mediaUrls.map((url) => SizedBox(
+                          width: (MediaQuery.sizeOf(context).width - 96) / 2,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              url,
+                              height: 140,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        )).toList(),
                       ),
-                    ),
                   ],
                   const SizedBox(height: 8),
                   Text(
@@ -162,7 +210,19 @@ class _HashtagScreenState extends State<HashtagScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('#$_tag')),
+    appBar: AppBar(
+      title: Text('#$_tag'),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TextButton.icon(
+            onPressed: _followBusy ? null : _toggleFollow,
+            icon: Icon(_isFollowing ? Icons.check : Icons.add),
+            label: Text(_followBusy ? 'Saving' : _isFollowing ? 'Following' : 'Follow'),
+          ),
+        ),
+      ],
+    ),
     body: RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: _loading && _posts.isEmpty
