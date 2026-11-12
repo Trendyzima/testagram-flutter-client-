@@ -223,190 +223,23 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _composePost() async {
-    final controller = TextEditingController();
-    final selectedMedia = <_PostMediaDraft>[];
-    var visibility = 'public';
-    final draft = await showModalBottomSheet<Map<String, dynamic>>(
+    final draft = await showModalBottomSheet<_PostDraft>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setSheetState) {
-          final count = controller.text.runes.length;
-          final canPublish = count > 0 && count <= 5000 && selectedMedia.length <= 4 && (visibility == 'public' || selectedMedia.isEmpty);
-          return Padding(
-            padding: EdgeInsets.fromLTRB(
-              18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
-            ),
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Row(children: [
-                    Expanded(child: Text('Create a post', style: Theme.of(sheetContext).textTheme.titleLarge)),
-                    TextButton(onPressed: () => Navigator.pop(sheetContext), child: const Text('Cancel')),
-                  ]),
-                  const SizedBox(height: 12),
-                  TextField(
-                    controller: controller,
-                    autofocus: true,
-                    minLines: 4,
-                    maxLines: 9,
-                    maxLength: 5000,
-                    onChanged: (_) => setSheetState(() {}),
-                    decoration: const InputDecoration(
-                      hintText: 'What is happening? Use #hashtags and @mentions.',
-                      border: OutlineInputBorder(),
-                      alignLabelWithHint: true,
-                    ),
-                  ),
-                  if (selectedMedia.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        for (var index = 0; index < selectedMedia.length; index++)
-                          SizedBox(
-                            width: 104,
-                            child: Stack(
-                              children: [
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(10),
-                                  child: Image.memory(
-                                    selectedMedia[index].bytes,
-                                    width: 104,
-                                    height: 104,
-                                    fit: BoxFit.cover,
-                                  ),
-                                ),
-                                Positioned(
-                                  top: 2,
-                                  right: 2,
-                                  child: IconButton.filledTonal(
-                                    tooltip: 'Remove image',
-                                    visualDensity: VisualDensity.compact,
-                                    onPressed: () => setSheetState(() => selectedMedia.removeAt(index)),
-                                    icon: const Icon(Icons.close, size: 16),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                      ],
-                    ),
-                  ],
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: TextButton.icon(
-                      onPressed: selectedMedia.length >= 4 ? null : () async {
-                        try {
-                          final picked = await ImagePicker().pickImage(
-                            source: ImageSource.gallery,
-                            imageQuality: 85,
-                            maxWidth: 2048,
-                            maxHeight: 2048,
-                          );
-                          if (!mounted || !sheetContext.mounted || picked == null) return;
-                          final extension = picked.name.toLowerCase().split('.').last;
-                          const types = {
-                            'jpg': 'image/jpeg',
-                            'jpeg': 'image/jpeg',
-                            'png': 'image/png',
-                            'webp': 'image/webp',
-                            'gif': 'image/gif',
-                            'avif': 'image/avif',
-                          };
-                          final contentType = types[extension];
-                          if (contentType == null) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
-                            );
-                            return;
-                          }
-                          final bytes = await picked.readAsBytes();
-                          if (!mounted || !sheetContext.mounted) return;
-                          if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              const SnackBar(content: Text('Each image must be smaller than 20 MiB.')),
-                            );
-                            return;
-                          }
-                          setSheetState(() => selectedMedia.add(_PostMediaDraft(
-                            name: picked.name,
-                            contentType: contentType,
-                            bytes: bytes,
-                          )));
-                        } catch (error) {
-                          if (sheetContext.mounted) {
-                            ScaffoldMessenger.of(sheetContext).showSnackBar(
-                              SnackBar(content: Text('Could not select image: $error')),
-                            );
-                          }
-                        }
-                      },
-                      icon: const Icon(Icons.add_photo_alternate_outlined),
-                      label: Text('Add photo (${selectedMedia.length}/4)'),
-                    ),
-                  ),
-                  if (selectedMedia.isNotEmpty && visibility != 'public') ...[
-                    const SizedBox(height: 8),
-                    const Text(
-                      'Photo attachments are currently available on public posts only. Remove photos to publish to followers or privately.',
-                      style: TextStyle(color: Colors.orange),
-                    ),
-                  ],
-                  const SizedBox(height: 8),
-                  Text('Who can see this post?', style: Theme.of(sheetContext).textTheme.labelLarge),
-                  const SizedBox(height: 8),
-                  SegmentedButton<String>(
-                    segments: const [
-                      ButtonSegment(value: 'public', label: Text('Everyone'), icon: Icon(Icons.public)),
-                      ButtonSegment(value: 'followers', label: Text('Followers'), icon: Icon(Icons.people_outline)),
-                      ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
-                    ],
-                    selected: {visibility},
-                    onSelectionChanged: (value) => setSheetState(() => visibility = value.first),
-                  ),
-                  const SizedBox(height: 14),
-                  Row(children: [
-                    Expanded(child: Text('$count / 5000', style: Theme.of(sheetContext).textTheme.bodySmall)),
-                    FilledButton.icon(
-                      onPressed: canPublish ? () => Navigator.pop(sheetContext, {
-                        'content': controller.text.trim(),
-                        'visibility': visibility,
-                        'media': List<_PostMediaDraft>.from(selectedMedia),
-                      }) : null,
-                      icon: const Icon(Icons.send),
-                      label: const Text('Publish'),
-                    ),
-                  ]),
-                  const SizedBox(height: 4),
-                  Text(
-                    'Public posts can be delivered to federated servers when federation is enabled for your account.',
-                    style: Theme.of(sheetContext).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (_) => const _PostComposerSheet(),
     );
-    controller.dispose();
     if (!mounted || draft == null || _publishing) return;
 
-    final mediaDrafts = (draft['media'] as List?)?.whereType<_PostMediaDraft>().toList() ?? [];
     final uploadedKeys = <String>[];
     final attachedKeys = <String>{};
     var postId = '';
     setState(() => _publishing = true);
     try {
       final created = _data(await widget.api.createPost(
-        content: draft['content'] as String,
-        visibility: draft['visibility'] as String,
+        content: draft.content,
+        visibility: draft.visibility,
         idempotencyKey: _newIdempotencyKey(),
       ));
       postId = (created['id'] ?? '').toString();
@@ -414,7 +247,7 @@ class _FeedScreenState extends State<FeedScreen> {
         throw const BackendApiException('The server did not confirm the new post ID.');
       }
 
-      for (final media in mediaDrafts) {
+      for (final media in draft.media) {
         final asset = await widget.api.uploadPublicImage(
           name: media.name,
           contentType: media.contentType,
@@ -433,7 +266,7 @@ class _FeedScreenState extends State<FeedScreen> {
       await _load(reset: true);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(mediaDrafts.isEmpty
+          SnackBar(content: Text(draft.media.isEmpty
               ? 'Your post was published.'
               : 'Your post and ${attachedKeys.length} photo(s) were published.')),
         );
@@ -520,6 +353,205 @@ class _FeedScreenState extends State<FeedScreen> {
       )),
     ]),
   );
+}
+
+class _PostDraft {
+  const _PostDraft({
+    required this.content,
+    required this.visibility,
+    required this.media,
+  });
+
+  final String content;
+  final String visibility;
+  final List<_PostMediaDraft> media;
+}
+
+class _PostComposerSheet extends StatefulWidget {
+  const _PostComposerSheet({super.key});
+
+  @override
+  State<_PostComposerSheet> createState() => _PostComposerSheetState();
+}
+
+class _PostComposerSheetState extends State<_PostComposerSheet> {
+  final _controller = TextEditingController();
+  final _media = <_PostMediaDraft>[];
+  String _visibility = 'public';
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      if (!mounted || picked == null) return;
+      final extension = picked.name.toLowerCase().split('.').last;
+      const types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+        'avif': 'image/avif',
+      };
+      final contentType = types[extension];
+      if (contentType == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
+        );
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Each image must be smaller than 20 MiB.')),
+        );
+        return;
+      }
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select image: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _controller.text.runes.length;
+    final canPublish = count > 0 &&
+        count <= 5000 &&
+        _media.length <= 4 &&
+        (_visibility == 'public' || _media.isEmpty);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        18, 8, 18, MediaQuery.viewInsetsOf(context).bottom + 18,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(child: Text('Create a post', style: Theme.of(context).textTheme.titleLarge)),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ]),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 9,
+              maxLength: 5000,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'What is happening? Use #hashtags and @mentions.',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            if (_media.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var index = 0; index < _media.length; index++)
+                    SizedBox(
+                      width: 104,
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.memory(
+                              _media[index].bytes,
+                              width: 104,
+                              height: 104,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: IconButton.filledTonal(
+                              tooltip: 'Remove image',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => setState(() => _media.removeAt(index)),
+                              icon: const Icon(Icons.close, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: _media.length >= 4 ? null : _pickImage,
+                icon: const Icon(Icons.add_photo_alternate_outlined),
+                label: Text('Add photo (${_media.length}/4)'),
+              ),
+            ),
+            if (_media.isNotEmpty && _visibility != 'public') ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Photo attachments are currently available on public posts only. Remove photos to publish to followers or privately.',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text('Who can see this post?', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'public', label: Text('Everyone'), icon: Icon(Icons.public)),
+                ButtonSegment(value: 'followers', label: Text('Followers'), icon: Icon(Icons.people_outline)),
+                ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
+              ],
+              selected: {_visibility},
+              onSelectionChanged: (value) => setState(() => _visibility = value.first),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: Text('$count / 5000', style: Theme.of(context).textTheme.bodySmall)),
+              FilledButton.icon(
+                onPressed: canPublish ? () => Navigator.pop(context, _PostDraft(
+                  content: _controller.text.trim(),
+                  visibility: _visibility,
+                  media: List<_PostMediaDraft>.from(_media),
+                )) : null,
+                icon: const Icon(Icons.send),
+                label: const Text('Publish'),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Public posts can be delivered to federated servers when federation is enabled for your account.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PostMediaDraft {
