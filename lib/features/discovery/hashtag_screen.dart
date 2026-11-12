@@ -148,7 +148,7 @@ class _HashtagScreenState extends State<HashtagScreen> {
                   ],
                   const SizedBox(height: 8),
                   Text(
-                    '\${post['likes_count'] ?? 0} likes  ·  \${post['replies_count'] ?? 0} replies',
+                    '${post['likes_count'] ?? 0} likes  ·  ${post['replies_count'] ?? 0} replies',
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ],
