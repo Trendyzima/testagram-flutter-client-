@@ -66,6 +66,15 @@ jobs:
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
           install -D cloudflare-pages/_headers build/web/_headers
+      - name: Verify versioned Flutter entry points
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$GITHUB_SHA"
+          sed -i "s#flutter_bootstrap\\.js#flutter_bootstrap.js?v=${version}#g" build/web/index.html
+          sed -i "s#main\\.dart\\.js#main.dart.js?v=${version}#g" build/web/flutter_bootstrap.js
+          grep -Fq "flutter_bootstrap.js?v=${version}" build/web/index.html
+          grep -Fq "main.dart.js?v=${version}" build/web/flutter_bootstrap.js
       - name: Verify compiled authentication UI markers
         shell: bash
         run: |
