@@ -234,7 +234,7 @@ class _FeedScreenState extends State<FeedScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           final count = controller.text.runes.length;
-          final canPublish = count > 0 && count <= 5000 && selectedMedia.length <= 4;
+          final canPublish = count > 0 && count <= 5000 && selectedMedia.length <= 4 && (visibility == 'public' || selectedMedia.isEmpty);
           return Padding(
             padding: EdgeInsets.fromLTRB(
               18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
@@ -351,6 +351,13 @@ class _FeedScreenState extends State<FeedScreen> {
                       label: Text('Add photo (${selectedMedia.length}/4)'),
                     ),
                   ),
+                  if (selectedMedia.isNotEmpty && visibility != 'public') ...[
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Photo attachments are currently available on public posts only. Remove photos to publish to followers or privately.',
+                      style: TextStyle(color: Colors.orange),
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Text('Who can see this post?', style: Theme.of(sheetContext).textTheme.labelLarge),
                   const SizedBox(height: 8),
