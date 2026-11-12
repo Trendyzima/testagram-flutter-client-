@@ -18,6 +18,8 @@ class _HashtagScreenState extends State<HashtagScreen> {
   final List<Map<String, dynamic>> _posts = [];
   bool _loading = false;
   bool _hasMore = true;
+  bool _isFollowing = false;
+  bool _followBusy = false;
   int _generation = 0;
   String? _cursor;
   String? _error;
@@ -76,6 +78,7 @@ class _HashtagScreenState extends State<HashtagScreen> {
           : <Map<String, dynamic>>[];
       if (!mounted || generation != _generation) return;
       setState(() {
+        _isFollowing = data['is_following'] == true;
         final existing = _posts.map((post) => (post['id'] ?? '').toString()).toSet();
         _posts.addAll(rows.where((post) => !existing.contains((post['id'] ?? '').toString())));
         _cursor = (data['next_cursor'] ?? '').toString();
@@ -89,6 +92,31 @@ class _HashtagScreenState extends State<HashtagScreen> {
       if (mounted && generation == _generation) {
         setState(() => _loading = false);
       }
+    }
+  }
+
+  Future<void> _toggleFollow() async {
+    if (_followBusy) return;
+    setState(() => _followBusy = true);
+    try {
+      final response = _data(_isFollowing
+          ? await widget.api.unfollowHashtag(_tag)
+          : await widget.api.followHashtag(_tag));
+      if (!mounted) return;
+      setState(() => _isFollowing = response['is_following'] == true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_isFollowing
+            ? 'Following #$_tag. Your Explore topics will reflect this interest.'
+            : 'Unfollowed #$_tag.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not update hashtag follow: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _followBusy = false);
     }
   }
 
@@ -162,7 +190,19 @@ class _HashtagScreenState extends State<HashtagScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: Text('#$_tag')),
+    appBar: AppBar(
+      title: Text('#$_tag'),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: TextButton.icon(
+            onPressed: _followBusy ? null : _toggleFollow,
+            icon: Icon(_isFollowing ? Icons.check : Icons.add),
+            label: Text(_followBusy ? 'Saving' : _isFollowing ? 'Following' : 'Follow'),
+          ),
+        ),
+      ],
+    ),
     body: RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: _loading && _posts.isEmpty
