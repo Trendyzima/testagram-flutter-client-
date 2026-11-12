@@ -368,7 +368,7 @@ class _PostDraft {
 }
 
 class _PostComposerSheet extends StatefulWidget {
-  const _PostComposerSheet({super.key});
+  const _PostComposerSheet();
 
   @override
   State<_PostComposerSheet> createState() => _PostComposerSheetState();
