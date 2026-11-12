@@ -89,7 +89,7 @@ void main() {
       );
       expect(() => api.followHashtag('bad tag'), throwsArgumentError);
       expect(() => api.unfollowHashtag(''), throwsArgumentError);
-      expect(() => api.followHashtag('a' * 65), throwsArgumentError);
+      expect(() => api.followHashtag(List.filled(65, 'a').join()), throwsArgumentError);
       api.close();
     });
 
