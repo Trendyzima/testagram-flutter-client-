@@ -249,7 +249,7 @@ class BackendApi {
     }
     return _request(
       'GET',
-      baseUri.resolve('/api/hashtags/' + Uri.encodeComponent(normalized)).replace(
+      baseUri.resolve('/api/hashtags/${Uri.encodeComponent(normalized)}').replace(
         queryParameters: {
           'limit': '$limit',
           if (cursor != null && cursor.isNotEmpty) 'before': cursor,
