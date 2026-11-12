@@ -223,7 +223,6 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _composePost() async {
     final controller = TextEditingController();
     var visibility = 'public';
-    var submitting = false;
     final draft = await showModalBottomSheet<Map<String, String>>(
       context: context,
       isScrollControlled: true,
@@ -232,7 +231,7 @@ class _FeedScreenState extends State<FeedScreen> {
       builder: (sheetContext) => StatefulBuilder(
         builder: (sheetContext, setSheetState) {
           final count = controller.text.runes.length;
-          final canPublish = count > 0 && count <= 5000 && !submitting;
+          final canPublish = count > 0 && count <= 5000;
           return Padding(
             padding: EdgeInsets.fromLTRB(
               18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
@@ -243,7 +242,7 @@ class _FeedScreenState extends State<FeedScreen> {
               children: [
                 Row(children: [
                   Expanded(child: Text('Create a post', style: Theme.of(sheetContext).textTheme.titleLarge)),
-                  TextButton(onPressed: submitting ? null : () => Navigator.pop(sheetContext), child: const Text('Cancel')),
+                  TextButton(onPressed: () => Navigator.pop(sheetContext), child: const Text('Cancel')),
                 ]),
                 const SizedBox(height: 12),
                 TextField(
@@ -269,7 +268,7 @@ class _FeedScreenState extends State<FeedScreen> {
                     ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
                   ],
                   selected: {visibility},
-                  onSelectionChanged: submitting ? null : (value) => setSheetState(() => visibility = value.first),
+                  onSelectionChanged: (value) => setSheetState(() => visibility = value.first),
                 ),
                 const SizedBox(height: 14),
                 Row(children: [
