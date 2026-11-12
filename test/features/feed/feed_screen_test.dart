@@ -64,8 +64,14 @@ void main() {
     await tester.tap(find.byTooltip('Compose post'));
     await tester.pumpAndSettle();
     await tester.enterText(find.byType(TextField), 'Hello from Testagram #BuildInPublic');
-    await tester.tap(find.text('Publish'));
     await tester.pumpAndSettle();
+    final publishButton = find.widgetWithText(FilledButton, 'Publish');
+    expect(publishButton, findsOneWidget);
+    expect(tester.widget<FilledButton>(publishButton).onPressed, isNotNull);
+    await tester.ensureVisible(publishButton);
+    await tester.tap(publishButton);
+    await tester.pumpAndSettle();
+    expect(find.text('Create a post'), findsNothing);
 
     final createRequest = requests.firstWhere((request) => request.url.path == '/api/social/posts');
     expect(createRequest.method, 'POST');
