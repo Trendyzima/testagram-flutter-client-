@@ -217,7 +217,7 @@ jobs:
                 rm -f "$page" "$headers"
                 exit 1
               fi
-              if ! grep -Eq 'flutter_bootstrap\\.js|main\\.dart\\.js' "$page"; then
+              if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
                 echo "::error::https://$hostname$path responded, but the page does not look like the deployed Flutter web app."
                 rm -f "$page" "$headers"
                 exit 1
