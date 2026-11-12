@@ -29,7 +29,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String? _postsError;
   String? _resolvedUserId;
 
-  String get _targetUserId => userId ?? _resolvedUserId ?? '';
+  String get _targetUserId => widget.userId ?? _resolvedUserId ?? '';
 
   @override
   void initState() {
