@@ -107,6 +107,12 @@ jobs:
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
           install -D cloudflare-pages/_headers build/web/_headers
+          for marker in 'Sign up' 'Reset password' 'Create your account'; do
+            if ! grep -aFq "$marker" build/web/main.dart.js; then
+              echo "::error::The production Flutter bundle is missing the required authentication UI marker: $marker"
+              exit 1
+            fi
+          done
 
       - name: Install Wrangler
         run: npm install --global wrangler@4
@@ -189,7 +195,7 @@ jobs:
             fi
           done
 
-      - name: Smoke-test production auth entry and callback URLs
+      - name: Smoke-test production auth entry, callback URLs and deployed bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -211,7 +217,7 @@ jobs:
                 rm -f "$page" "$headers"
                 exit 1
               fi
-              if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
+              if ! grep -Eq 'flutter_bootstrap\\.js|main\\.dart\\.js' "$page"; then
                 echo "::error::https://$hostname$path responded, but the page does not look like the deployed Flutter web app."
                 rm -f "$page" "$headers"
                 exit 1
@@ -224,7 +230,34 @@ jobs:
                   exit 1
                 fi
               done
-              echo "Verified https://$hostname$path"
             done
+
+            for asset in flutter_bootstrap.js main.dart.js; do
+              asset_body="$(mktemp)"
+              asset_headers="$(mktemp)"
+              if ! curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
+                --max-time 60 -D "$asset_headers" "https://$hostname/$asset" -o "$asset_body"; then
+                echo "::error::Production Flutter asset is unavailable: https://$hostname/$asset"
+                rm -f "$page" "$headers" "$asset_body" "$asset_headers"
+                exit 1
+              fi
+              if ! grep -iEq 'cache-control:.*no-cache' "$asset_headers"; then
+                echo "::error::Flutter application asset is missing the no-cache revalidation policy: https://$hostname/$asset"
+                cat "$asset_headers"
+                rm -f "$page" "$headers" "$asset_body" "$asset_headers"
+                exit 1
+              fi
+              if [[ "$asset" == "main.dart.js" ]]; then
+                for marker in 'Sign up' 'Reset password' 'Create your account'; do
+                  if ! grep -aFq "$marker" "$asset_body"; then
+                    echo "::error::Production bundle at https://$hostname/$asset is missing authentication UI marker: $marker"
+                    rm -f "$page" "$headers" "$asset_body" "$asset_headers"
+                    exit 1
+                  fi
+                done
+              fi
+              rm -f "$asset_body" "$asset_headers"
+            done
+            echo "Verified authentication entry points and current Flutter bundle on https://$hostname"
             rm -f "$page" "$headers"
           done
