@@ -107,7 +107,9 @@ class _WalletScreenState extends State<WalletScreen> {
                 final rawAmount = int.tryParse(amount.text.trim());
                 final rawPhone = phone.text.trim();
                 if (rawPhone.isEmpty || rawAmount == null ||
-                    rawAmount < 10 || rawAmount > 150000) return;
+                    rawAmount < 10 || rawAmount > 150000) {
+                  return;
+                }
                 Navigator.pop(dialogContext, {
                   'phone': rawPhone,
                   'amount': rawAmount.toString(),
@@ -141,6 +143,7 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       if (confirmed != true || !mounted) return;
 
+      final messenger = ScaffoldMessenger.of(context);
       setState(() => _sending = true);
       final request = await widget.api.requestMpesaTopUp(
         phone: form['phone']!,
@@ -162,19 +165,17 @@ class _WalletScreenState extends State<WalletScreen> {
       }
       if (!mounted) return;
       await _load(silent: true);
+      if (!mounted) return;
       final message = state == 'settled'
           ? 'Deposit confirmed${receipt.isEmpty ? '.' : ' · Receipt $receipt'}'
           : state == 'failed'
               ? 'M-Pesa payment was not completed. No funds were added.'
               : 'M-Pesa prompt sent. Complete it on your phone; your balance updates after confirmation.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(message)),
-      );
+      messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(error.toString())),
-        );
+        final messenger = ScaffoldMessenger.of(context);
+        messenger.showSnackBar(SnackBar(content: Text(error.toString())));
         await _load(silent: true);
       }
     } finally {
