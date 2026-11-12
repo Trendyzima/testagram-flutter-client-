@@ -8,6 +8,51 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('loads trending hashtags and a cursor-paginated hashtag timeline', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'items': [], 'posts': [], 'has_more': false},
+          }), 200);
+        }),
+      );
+
+      await api.getTrendingHashtags(limit: 12);
+      await api.getHashtagTimeline('#Testagram', limit: 15, cursor: 'next-page');
+
+      expect(requests, hasLength(2));
+      expect(requests[0].method, 'GET');
+      expect(requests[0].url.path, '/api/hashtags/trending');
+      expect(requests[0].url.queryParameters, {'limit': '12'});
+      expect(requests[1].method, 'GET');
+      expect(requests[1].url.path, '/api/hashtags/Testagram');
+      expect(requests[1].url.queryParameters, {
+        'limit': '15',
+        'before': 'next-page',
+      });
+      expect(requests.every((request) =>
+          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+      api.close();
+    });
+
+    test('rejects invalid hashtag values and limits before sending', () {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(() => api.getTrendingHashtags(limit: 51), throwsArgumentError);
+      expect(() => api.getHashtagTimeline('bad tag'), throwsArgumentError);
+      expect(() => api.getHashtagTimeline(''), throwsArgumentError);
+      expect(() => api.getHashtagTimeline('test', limit: 0), throwsArgumentError);
+      api.close();
+    });
+
     test('publishes a canonical post with visibility and idempotency', () async {
       late http.Request captured;
       final api = BackendApi(
