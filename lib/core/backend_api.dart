@@ -220,6 +220,44 @@ class BackendApi {
       _request('POST', baseUri.resolve('/api/social/posts/$postId/replies'),
           body: {'content': content});
 
+  /// Returns public hashtag topics ordered by distinct-post volume over seven days.
+  Future<Map<String, dynamic>> getTrendingHashtags({int limit = 20}) {
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/hashtags/trending').replace(
+        queryParameters: {'limit': '$limit'},
+      ),
+    );
+  }
+
+  /// Loads a privacy-filtered, cursor-paginated hashtag timeline.
+  Future<Map<String, dynamic>> getHashtagTimeline(
+    String tag, {
+    int limit = 20,
+    String? cursor,
+  }) {
+    final normalized = tag.trim().replaceFirst(RegExp(r'^#'), '');
+    if (normalized.isEmpty || normalized.runes.length > 64 ||
+        normalized.contains(RegExp(r'[^\p{L}\p{N}_]', unicode: true))) {
+      throw ArgumentError.value(tag, 'tag', 'Hashtag must contain 1-64 letters, numbers or underscores');
+    }
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/hashtags/' + Uri.encodeComponent(normalized)).replace(
+        queryParameters: {
+          'limit': '$limit',
+          if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+        },
+      ),
+    );
+  }
+
   Future<Map<String, dynamic>> search({required String query, String kind = 'all', int limit = 20}) =>
       _request('GET', baseUri.resolve('/api/search').replace(queryParameters: {
         'q': query,
