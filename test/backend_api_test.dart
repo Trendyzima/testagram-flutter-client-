@@ -100,6 +100,28 @@ void main() {
       api.close();
     });
 
+    test('attaches a verified media asset to an owned main-feed post', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'key': 'media/key-1', 'post_id': 'post-1'},
+          }), 200);
+        }),
+      );
+
+      await api.attachPostMedia('post-1', 'media/key-1');
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/media/attach');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(jsonDecode(captured.body), {'key': 'media/key-1', 'post_id': 'post-1'});
+      api.close();
+    });
+
     test('wallet methods use the authenticated native capability contract', () async {
       final requests = <http.Request>[];
       final api = BackendApi(
