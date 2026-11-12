@@ -7,14 +7,12 @@ class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
     required this.api,
-    required this.currentUserId,
     required this.themeMode,
     required this.onThemeModeChanged,
     required this.onSignOut,
   });
 
   final BackendApi api;
-  final String currentUserId;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final Future<void> Function() onSignOut;
@@ -56,10 +54,7 @@ class SettingsScreen extends StatelessWidget {
               trailing: const Icon(Icons.chevron_right),
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
-                  builder: (_) => ProfileScreen(
-                    api: api,
-                    userId: currentUserId,
-                  ),
+                  builder: (_) => ProfileScreen.currentUser(api: api),
                 ),
               ),
             ),
