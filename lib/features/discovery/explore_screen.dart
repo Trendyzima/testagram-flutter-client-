@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../profile/profile_screen.dart';
+import 'hashtag_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key, required this.api});
@@ -14,11 +15,48 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final _query = TextEditingController();
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _people = [];
+  List<Map<String, dynamic>> _trending = [];
+  bool _trendingLoading = true;
+  String? _trendingError;
   final Map<String, String> _followStatus = {};
   final Set<String> _busyFollow = {};
   bool _loading = false;
   int _searchGeneration = 0;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrending();
+  }
+
+  Future<void> _loadTrending() async {
+    setState(() { _trendingLoading = true; _trendingError = null; });
+    try {
+      final response = await widget.api.getTrendingHashtags(limit: 20);
+      final rawData = response['data'];
+      final data = rawData is Map ? rawData : response;
+      final rawItems = data['items'];
+      if (!mounted) return;
+      setState(() {
+        _trending = rawItems is List
+            ? rawItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+      });
+    } catch (error) {
+      if (mounted) setState(() => _trendingError = error.toString());
+    } finally {
+      if (mounted) setState(() => _trendingLoading = false);
+    }
+  }
+
+  void _openHashtag(String value) {
+    final tag = value.trim().replaceFirst(RegExp(r'^#'), '');
+    if (tag.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
 
   @override
   void dispose() {
@@ -28,6 +66,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   Future<void> _search() async {
     final value = _query.text.trim();
+    if (value.startsWith('#') && value.length > 1) {
+      _openHashtag(value);
+      return;
+    }
     final generation = ++_searchGeneration;
     if (value.length < 2) {
       setState(() {
@@ -114,6 +156,40 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
       Expanded(child: ListView(
         children: [
+          if (_trending.isNotEmpty) ...[
+            const _SectionTitle('Trending hashtags'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _trending.map((topic) {
+                  final tag = (topic['tag'] ?? '').toString();
+                  final count = (topic['posts_count'] ?? 0).toString();
+                  return ActionChip(
+                    avatar: const Icon(Icons.tag, size: 16),
+                    label: Text('#$tag  ·  $count'),
+                    onPressed: tag.isEmpty ? null : () => _openHashtag(tag),
+                  );
+                }).toList(),
+              ),
+            ),
+          ] else if (_trendingLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              child: LinearProgressIndicator(),
+            )
+          else if (_trendingError != null)
+            ListTile(
+              leading: const Icon(Icons.trending_up),
+              title: const Text('Trending topics unavailable'),
+              subtitle: Text(_trendingError!),
+              trailing: IconButton(
+                tooltip: 'Retry trending topics',
+                onPressed: _loadTrending,
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
           if (_people.isNotEmpty) ...[
             const _SectionTitle('People'),
             for (final person in _people)
@@ -150,7 +226,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 subtitle: Text((post['author'] is Map ? (post['author']['username'] ?? '') : '').toString()),
               ),
           ],
-          if (!_loading && _error == null && _posts.isEmpty && _people.isEmpty)
+          if (!_loading && _error == null && _posts.isEmpty && _people.isEmpty && _trending.isEmpty)
             const Padding(padding: EdgeInsets.all(24), child: Text('Search for people or posts to explore Testagram.')),
         ],
       )),
