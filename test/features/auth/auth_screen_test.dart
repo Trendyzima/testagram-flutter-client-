@@ -51,7 +51,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('account creation requires profile fields, age and legal consent',
+  testWidgets('registration form explains prerequisites and remains disabled',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(account: account, onSignedIn: () {}),
