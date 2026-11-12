@@ -147,7 +147,7 @@ class BackendApi {
   /// Use headers for every image, video, HLS manifest, segment and key request.
   /// Never persist the assertion or put it in a URL.
   Future<PrivateMediaAccess> getPrivateMediaAccess(String key) async {
-    if (!RegExp(r'^users/[A-Za-z0-9-]{1,128}/[a-f0-9]{32}$').hasMatch(key)) {
+    if (!RegExp(r'^users/[A-Za-z0-9._-]{1,128}/[a-f0-9]{32}$').hasMatch(key)) {
       throw ArgumentError.value(key, 'key', 'Invalid private media object key');
     }
     final response = await _request('POST', baseUri.resolve('/api/media/cdn-download-url'), body: {'key': key});

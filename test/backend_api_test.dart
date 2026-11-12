@@ -197,6 +197,27 @@ void main() {
       api.close();
     });
 
+    test('accepts Appwrite owner IDs with underscores and periods', () async {
+      const key = 'users/user_123.test/0123456789abcdef0123456789abcdef';
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async => http.Response(jsonEncode({
+          'ok': true,
+          'data': {
+            'url': 'https://media.testagram.site/v1/$key',
+            'authorization': 'Bearer v1.payload.signature',
+            'expires_at': DateTime.now().toUtc().add(const Duration(minutes: 2)).toIso8601String(),
+            'expires_in_seconds': 120,
+            'visibility': 'private',
+          },
+        }), 200)),
+      );
+      final access = await api.getPrivateMediaAccess(key);
+      expect(access.headers['Authorization'], 'Bearer v1.payload.signature');
+      api.close();
+    });
+
     test('rejects malformed private media keys and unsafe CDN responses', () async {
       var calls = 0;
       final api = BackendApi(

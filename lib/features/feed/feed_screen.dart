@@ -583,6 +583,21 @@ class _PostCard extends StatelessWidget {
     final mediaUrls = rawMedia is List
         ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
         : <String>[];
+    final rawMediaAuthHeaders = post['media_auth_headers'];
+    final mediaAuthHeaders = <String, String>{};
+    if (rawMediaAuthHeaders is Map) {
+      for (final entry in rawMediaAuthHeaders.entries) {
+        final url = entry.key.toString();
+        final authorization = entry.value.toString();
+        if (url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
+          mediaAuthHeaders[url] = authorization;
+        }
+      }
+    }
+    Map<String, String>? headersForMedia(String url) {
+      final authorization = mediaAuthHeaders[url];
+      return authorization == null ? null : {'Authorization': authorization};
+    }
     if (mediaUrls.isEmpty) {
       final legacyUrl = (post['media_url'] ?? '').toString();
       if (legacyUrl.startsWith('http')) mediaUrls.add(legacyUrl);
@@ -613,6 +628,7 @@ class _PostCard extends StatelessWidget {
                   width: double.infinity,
                   height: 230,
                   fit: BoxFit.cover,
+                  headers: headersForMedia(mediaUrls.first),
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               )
@@ -628,6 +644,7 @@ class _PostCard extends StatelessWidget {
                       url,
                       height: 142,
                       fit: BoxFit.cover,
+                      headers: headersForMedia(url),
                       errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                     ),
                   ),
