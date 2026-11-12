@@ -50,3 +50,6 @@ The client has no Supabase SDK, URL, key, REST endpoint or direct database opera
 5. Port the remaining XClone feature domains and their backend contracts.
 6. Preserve existing signing identity, data, URLs and deep links during cutover.
 7. Do not delete, archive or redirect XClone until feature parity and production cutover are approved.
+
+
+Main-feed media: public posts support up to four verified image attachments through the Backend media upload/complete/attach lifecycle. Private/follower post attachments remain blocked pending a privacy-aware private media delivery contract.

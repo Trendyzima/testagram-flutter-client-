@@ -119,6 +119,15 @@ class BackendApi {
     return Map<String, dynamic>.from(asset);
   }
 
+  /// Attaches an already verified public media asset to an owned main-feed post.
+  /// The Backend checks asset ownership, readiness, visibility and post ownership.
+  Future<Map<String, dynamic>> attachPostMedia(String postId, String key) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/media/attach'),
+        body: {'key': key, 'post_id': postId},
+      );
+
   Future<Map<String, dynamic>> attachThreadMedia(String threadId, String key) =>
       _request(
         'POST',
