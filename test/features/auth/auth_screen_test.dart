@@ -32,7 +32,8 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
-    expect(find.text('Create a new account'), findsOneWidget);
+    expect(find.text('New to Testagram?'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
     expect(find.text('Sign up'), findsOneWidget);
     expect(find.text('Reset password'), findsOneWidget);
 
@@ -56,7 +57,7 @@ void main() {
       home: AuthScreen(account: account, onSignedIn: () {}),
     ));
 
-    await tapVisible(tester, find.text('Create a new account'));
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
     expect(find.text('Create your account'), findsOneWidget);
@@ -68,9 +69,13 @@ void main() {
     expect(find.text('Read Terms and Conditions'), findsOneWidget);
     expect(find.text('Read Privacy Notice'), findsOneWidget);
 
-    await tapVisible(tester, find.text('Create account'));
-    expect(find.text('Enter your name.'), findsOneWidget);
-    expect(find.text('Enter your email address.'), findsOneWidget);
+    expect(find.text('Registration is not open yet.'), findsOneWidget);
+    expect(find.textContaining('your details are not submitted'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
+        findsOneWidget);
+    expect(tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Registration not available yet'),
+    ).onPressed, isNull);
   });
 
   testWidgets('registration remains fail-closed until identity approval exists',
@@ -79,33 +84,23 @@ void main() {
       home: AuthScreen(account: account, onSignedIn: () {}),
     ));
 
-    await tester.tap(find.text('Create a new account'));
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
-    final fields = find.byType(TextFormField);
-    await tester.enterText(fields.at(0), 'Test User');
-    await tester.enterText(fields.at(1), 'test_user');
-    await tester.enterText(fields.at(2), 'test@example.com');
-    await tester.enterText(fields.at(3), 'ValidPass123');
-    await tester.enterText(fields.at(4), 'ValidPass123');
 
-    await tapVisible(tester, find.text('Create account'));
-    expect(find.textContaining('You must confirm that you are 18 or older'),
+    expect(find.text('Registration is not open yet.'), findsOneWidget);
+    expect(find.textContaining('your details are not submitted'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
         findsOneWidget);
-
-    await tapVisible(tester, find.text('I confirm that I am 18 years old or above.'));
-    await tapVisible(tester, find.text(
-        'I accept the Terms and Conditions and Privacy Notice.'));
-
-    await tapVisible(tester, find.text('Create account'));
-
-    expect(find.textContaining('no account has been created'), findsOneWidget);
+    expect(tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Registration not available yet'),
+    ).onPressed, isNull);
   });
 
   testWidgets('legal documents can be read before consent', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(account: account, onSignedIn: () {}),
     ));
-    await tester.tap(find.text('Create a new account'));
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
     await tapVisible(tester, find.text('Read Terms and Conditions'));
