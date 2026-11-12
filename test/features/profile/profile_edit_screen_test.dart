@@ -39,9 +39,9 @@ void main() {
     expect(find.text('Display name'), findsOneWidget);
     expect(find.text('Bio'), findsOneWidget);
     expect(find.text('Location'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Website'), 250);
+    await tester.scrollUntilVisible(find.text('Website'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('Website'), findsOneWidget);
-    await tester.scrollUntilVisible(find.text('Social links'), 250);
+    await tester.scrollUntilVisible(find.text('Social links'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('Social links'), findsOneWidget);
     expect(find.text('Save profile'), findsOneWidget);
     api.close();
