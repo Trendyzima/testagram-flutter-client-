@@ -35,6 +35,7 @@ void main() {
             ],
             'has_more': false,
             'next_cursor': '',
+            'is_following': request.method == 'POST',
           },
         }), 200);
       }),
@@ -51,6 +52,19 @@ void main() {
     expect(find.text('#Testagram'), findsOneWidget);
     expect(find.text('A post about #Testagram'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
+    expect(find.text('Follow'), findsOneWidget);
+
+    await tester.tap(find.text('Follow'));
+    await tester.pumpAndSettle();
+    expect(captured.method, 'POST');
+    expect(captured.url.path, '/api/hashtags/Testagram/follow');
+    expect(find.text('Following'), findsOneWidget);
+
+    await tester.tap(find.text('Following'));
+    await tester.pumpAndSettle();
+    expect(captured.method, 'DELETE');
+    expect(captured.url.path, '/api/hashtags/Testagram/follow');
+    expect(find.text('Follow'), findsOneWidget);
     api.close();
   });
 }

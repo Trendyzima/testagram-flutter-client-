@@ -18,7 +18,7 @@ void main() {
           'ok': true,
           'data': {
             'items': [
-              {'tag': 'fediverse', 'posts_count': 42},
+              {'tag': 'fediverse', 'posts_count': 42, 'is_following': true},
               {'tag': 'testagram', 'posts_count': 18},
             ],
             'window': '7d',
@@ -34,6 +34,7 @@ void main() {
     expect(find.text('Trending this week'), findsOneWidget);
     expect(find.text('#fediverse'), findsOneWidget);
     expect(find.text('42 public posts this week'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
     api.close();
   });
 }
