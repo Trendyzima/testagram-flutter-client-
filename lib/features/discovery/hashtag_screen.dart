@@ -129,8 +129,10 @@ class _HashtagScreenState extends State<HashtagScreen> {
     final avatar = author is Map ? (author['avatar_url'] ?? '').toString() : '';
     final id = (post['id'] ?? '').toString();
     final content = (post['content'] ?? '').toString();
-    final media = post['media_urls'];
-    final mediaUrl = media is List && media.isNotEmpty ? media.first.toString() : '';
+    final rawMedia = post['media_urls'];
+    final mediaUrls = rawMedia is List
+        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
+        : <String>[];
 
     return InkWell(
       onTap: id.isEmpty ? null : () => Navigator.of(context).push(
@@ -161,18 +163,36 @@ class _HashtagScreenState extends State<HashtagScreen> {
                     Text('@$username', style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 8),
                   Text(content, style: const TextStyle(height: 1.4)),
-                  if (mediaUrl.startsWith('https://') || mediaUrl.startsWith('http://')) ...[
+                  if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: Image.network(
-                        mediaUrl,
-                        height: 220,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    if (mediaUrls.length == 1)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          mediaUrls.first,
+                          height: 220,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                        ),
+                      )
+                    else
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: mediaUrls.map((url) => SizedBox(
+                          width: (MediaQuery.sizeOf(context).width - 96) / 2,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(12),
+                            child: Image.network(
+                              url,
+                              height: 140,
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                            ),
+                          ),
+                        )).toList(),
                       ),
-                    ),
                   ],
                   const SizedBox(height: 8),
                   Text(
