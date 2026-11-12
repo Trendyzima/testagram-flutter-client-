@@ -292,7 +292,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                             : entry.key == 'linkedin'
                                                 ? Icons.work_outline_rounded
                                                 : entry.key == 'facebook'
-                                                    ? Icons.facebook_rounded
+                                                    ? Icons.facebook
                                                     : Icons.alternate_email_rounded,
                                         size: 16,
                                       ),
