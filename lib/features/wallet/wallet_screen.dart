@@ -43,15 +43,31 @@ class _WalletScreenState extends State<WalletScreen> {
         widget.api.listWalletTransactions(limit: 50),
       ]);
       final items = values[1]['items'];
+      final transactions = items is List
+          ? items
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(growable: false)
+          : <Map<String, dynamic>>[];
+      final pendingDeposit = transactions.cast<Map<String, dynamic>?>().firstWhere(
+            (item) =>
+                item != null &&
+                item['provider'] == 'mpesa' &&
+                item['status'] == 'pending' &&
+                (item['checkout_request_id'] ?? '').toString().isNotEmpty,
+            orElse: () => null,
+          );
       if (!mounted) return;
       setState(() {
         _wallet = values[0];
-        _transactions = items is List
-            ? items
-                .whereType<Map>()
-                .map((item) => Map<String, dynamic>.from(item))
-                .toList(growable: false)
-            : const [];
+        _transactions = transactions;
+        // Recover a pending checkout from the server ledger after app restart.
+        _pendingCheckoutRequestId = pendingDeposit == null
+            ? null
+            : pendingDeposit['checkout_request_id'].toString();
+        _pendingDepositAmount = pendingDeposit == null
+            ? null
+            : (pendingDeposit['amount_kes'] ?? pendingDeposit['amount'] ?? '').toString();
         _loading = false;
         _error = null;
       });
