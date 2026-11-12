@@ -57,7 +57,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - `/shorts` — Not ported
 - `/videos/watchlater` — Not ported
 - `/hashtags` — Not ported
-- `/hashtag/:tag` — Not ported
+- `/hashtag/:tag` — Ported slice: privacy-filtered, cursor-paginated hashtag timeline and post-detail navigation
 - `/leaderboard` — Not ported
 - `/leaderboard/creators` — Not ported
 - `/products` — Not ported
@@ -243,7 +243,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 | Authentication, recovery, legal acceptance, session lifecycle | `features/auth`, `core/auth` | Ported slice: Appwrite session/JWT foundation; source Supabase PKCE/session implementation excluded |
 | Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, native text post publishing with visibility and idempotency, native post detail, replies, reactions, reposts, bookmarks, and likes/reposts/quotes lists; main-feed media attachment, drafts, scheduling and quote creation remain open |
 | Threads | `features/threads` | Ported slice: timeline, composer, interactions and image attachment |
-| Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slice: search and follow basics; all secondary discovery routes remain open |
+| Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slices: people/post search, follow basics, seven-day trending hashtag chips and privacy-filtered hashtag timelines; topic ranking, broad discovery feeds and sports routes remain open |
 | Notifications | `features/notifications` | Ported slice: list and mark read; preferences, realtime and push remain open |
 | Profiles, followers, profile sections, privacy, lists, blocks, mutes | `features/profile`, `features/social`, `features/settings` | Ported slices: authenticated privacy-aware profile header, follow state/action, paginated followers and following lists, privacy-filtered profile posts with post-detail navigation; profile editing and settings remain open |
 | Direct messages, platform inbox, team chat, calls | `features/messages` | Blocked on verified messaging/E2EE/call contracts |
