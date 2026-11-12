@@ -260,7 +260,8 @@ class _WalletScreenState extends State<WalletScreen> {
                   textInputAction: TextInputAction.next,
                   decoration: InputDecoration(
                     labelText: 'Amount',
-                    prefixText: '${(_wallet['currency'] ?? 'KES')}' ,
+                    prefixText: '${(_wallet['currency'] ?? 'KES')} ',
+                    helperText: 'KES 0.01 – 10,000.00 · up to 2 decimal places',
                   ),
                 ),
                 TextField(
@@ -280,10 +281,239 @@ class _WalletScreenState extends State<WalletScreen> {
               onPressed: () {
                 final recipient = username.text.trim().replaceFirst(RegExp(r'^@'), '');
                 final value = amount.text.trim();
-                if (recipient.length < 2 || value.isEmpty) return;
+                final parsedAmount = double.tryParse(value);
+                final validAmount = RegExp(r'^\\d+(?:\\.\\d{1,2})?
+              },
+              child: const Text('Review transfer'),
+            ),
+          ],
+        ),
+      );
+      if (form == null || !mounted) return;
+
+      setState(() => _sending = true);
+      final recipient = await widget.api.resolveWalletRecipient(form['username']!);
+      final recipientId = (recipient['user_id'] ?? '').toString();
+      final canonicalUsername = (recipient['username'] ?? form['username']!).toString();
+      if (recipientId.isEmpty) {
+        throw const BackendApiException('The recipient account could not be verified.');
+      }
+
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Confirm transfer'),
+          content: Text(
+            'Send ${_wallet['currency'] ?? 'KES'} ${form['amount']} to @$canonicalUsername?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Go back'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Send money'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      final currency = (_wallet['currency'] ?? 'KES').toString();
+      final fingerprint = walletTransferFingerprint(
+        recipientId: recipientId,
+        amount: form['amount']!,
+        currency: currency,
+        note: form['note']!,
+      );
+      final idempotencyKey = _transferAttempt.keyFor(
+        fingerprint: fingerprint,
+        generateKey: _newIdempotencyKey,
+      );
+      await widget.api.transferWalletFunds(
+        recipientId: recipientId,
+        amount: form['amount']!,
+        note: form['note']!,
+        idempotencyKey: idempotencyKey,
+      );
+      _transferAttempt.complete(fingerprint);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Transfer to @$canonicalUsername completed.')),
+      );
+      await _load(silent: true);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      username.dispose();
+      amount.dispose();
+      note.dispose();
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  String _newIdempotencyKey() {
+    final random = Random.secure();
+    return List.generate(32, (_) => random.nextInt(16).toRadixString(16)).join();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final currency = (_wallet['currency'] ?? 'KES').toString();
+    final balance = (_wallet['balance'] ?? '0.00').toString();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Wallet'),
+        actions: [
+          IconButton(
+            tooltip: 'Refresh wallet',
+            onPressed: _loading ? null : _load,
+            icon: const Icon(Icons.refresh),
+          ),
+        ],
+      ),
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : RefreshIndicator(
+              onRefresh: () => _load(silent: true),
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Available balance',
+                              style: Theme.of(context).textTheme.titleMedium),
+                          const SizedBox(height: 8),
+                          Text(
+                            '$currency $balance',
+                            style: Theme.of(context).textTheme.headlineMedium,
+                          ),
+                          const SizedBox(height: 16),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: _sending ? null : _topUp,
+                                icon: const Icon(Icons.account_balance_wallet_rounded),
+                                label: const Text('Add with M-Pesa'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _sending ? null : _transfer,
+                                icon: _sending
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.send_rounded),
+                                label: Text(_sending ? 'Processing…' : 'Send money'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'KES wallet · M-Pesa deposits · verified transfers',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 12),
+                    Text(_error!,
+                        style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                    TextButton(onPressed: _load, child: const Text('Try again')),
+                  ],
+                  if (_pendingCheckoutRequestId != null) ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.hourglass_top_rounded),
+                        title: Text('M-Pesa deposit pending · KES ${_pendingDepositAmount ?? ''}'),
+                        subtitle: const Text(
+                          'The wallet is not credited until Safaricom confirms settlement.',
+                        ),
+                        trailing: TextButton(
+                          onPressed: _sending ? null : _checkPendingDeposit,
+                          child: const Text('Check status'),
+                        ),
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 20),
+                  Text('Recent activity', style: Theme.of(context).textTheme.titleLarge),
+                  const SizedBox(height: 8),
+                  if (_transactions.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(child: Text('No wallet transactions yet.')),
+                    )
+                  else
+                    ..._transactions.map((item) {
+                      final kind = (item['kind'] ?? 'transaction').toString();
+                      final status = (item['status'] ?? 'completed').toString();
+                      final amountText = (item['amount'] ?? '0.00').toString();
+                      final itemCurrency = (item['currency'] ?? currency).toString();
+                      final createdAt = DateTime.tryParse((item['created_at'] ?? '').toString());
+                      final localDate = createdAt?.toLocal();
+                      final date = localDate == null
+                          ? ''
+                          : '${localDate.year.toString().padLeft(4, '0')}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
+                      final isOutgoing = kind.contains('out') || kind.contains('sent') || kind.contains('debit');
+                      final isIncoming = kind.contains('in') || kind.contains('received') || kind.contains('credit') || kind.contains('topup');
+                      final transactionIcon = isOutgoing
+                          ? Icons.arrow_upward_rounded
+                          : isIncoming
+                              ? Icons.arrow_downward_rounded
+                              : Icons.account_balance_wallet_rounded;
+                      return Card(
+                        child: ListTile(
+                          leading: CircleAvatar(child: Icon(transactionIcon)),
+                          title: Text(kind.replaceAll('_', ' ')),
+                          subtitle: Text('$date • $status'),
+                          trailing: Text(
+                            '\${isOutgoing ? '−' : isIncoming ? '+' : ''}$itemCurrency $amountText',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isOutgoing
+                                  ? Theme.of(context).colorScheme.error
+                                  : isIncoming
+                                      ? Theme.of(context).colorScheme.primary
+                                      : null,
+                            ),
+                          ),
+                        ),
+                      );
+                    }),
+                  const SizedBox(height: 24),
+                  Text(
+                    'Transfers are authorized by the Testagram Backend. Check the recipient and amount before confirming.',
+                    style: Theme.of(context).textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+    );
+  }
+}
+).hasMatch(value) &&
+                    parsedAmount != null && parsedAmount > 0 && parsedAmount <= 10000;
+                if (recipient.length < 2 || !validAmount) return;
                 Navigator.pop(dialogContext, {
                   'username': recipient,
-                  'amount': value,
+                  'amount': parsedAmount.toStringAsFixed(2),
                   'note': note.text.trim(),
                 });
               },
