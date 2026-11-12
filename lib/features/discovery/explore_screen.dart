@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/backend_api.dart';
 import '../profile/profile_screen.dart';
 import 'hashtag_screen.dart';
+import 'hashtags_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
   const ExploreScreen({super.key, required this.api});
@@ -136,7 +137,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Explore')),
+    appBar: AppBar(
+      title: const Text('Explore'),
+      actions: [
+        IconButton(
+          tooltip: 'Browse hashtags',
+          icon: const Icon(Icons.tag),
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => HashtagsScreen(api: widget.api),
+          )),
+        ),
+      ],
+    ),
     body: Column(children: [
       Padding(
         padding: const EdgeInsets.all(14),
