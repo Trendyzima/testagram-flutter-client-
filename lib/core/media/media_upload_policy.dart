@@ -19,7 +19,7 @@ class MediaUploadPolicy {
     if (bytes <= 0) throw const FormatException('The selected media file is empty.');
     final limit = isVideo ? videoMaxBytes : imageMaxBytes;
     if (bytes > limit) {
-      throw FormatException(isVideo ? 'Videos must be 100 MB or smaller.' : 'Images must be 20 MB or smaller.');
+      throw FormatException(isVideo ? 'Videos must be 20 MiB or smaller.' : 'Images must be 20 MB or smaller.');
     }
   }
   static String contentType(String extension) => switch (extension.toLowerCase()) {
