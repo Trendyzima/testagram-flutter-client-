@@ -8,8 +8,10 @@ import 'profile_connections_screen.dart';
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.api, required this.userId});
 
+  const ProfileScreen.currentUser({super.key, required this.api}) : userId = null;
+
   final BackendApi api;
-  final String userId;
+  final String? userId;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -25,6 +27,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _postsHasMore = false;
   bool _loadingPosts = false;
   String? _postsError;
+  String? _resolvedUserId;
+
+  String get _targetUserId => widget.userId ?? _resolvedUserId ?? '';
 
   @override
   void initState() {
@@ -35,7 +40,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Future<void> _load() async {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
-      final response = await widget.api.getProfile(widget.userId);
+      final response = widget.userId == null
+          ? await widget.api.getMyProfile()
+          : await widget.api.getProfile(widget.userId!);
       final raw = response['data'];
       if (raw is! Map) {
         throw const BackendApiException('The server returned an invalid profile.');
@@ -43,6 +50,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) {
         setState(() {
           _profile = Map<String, dynamic>.from(raw);
+          _resolvedUserId = (raw['id'] ?? raw['user_id'] ?? '').toString();
           _posts.clear();
           _postsCursor = null;
           _postsHasMore = false;
@@ -73,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     });
     try {
       final response = await widget.api.getProfilePosts(
-        widget.userId,
+        _targetUserId,
         cursor: _postsCursor,
       );
       final data = response['data'];
@@ -105,9 +113,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     try {
       final following = profile['is_following'] == true;
       if (following || profile['follow_status'] == 'pending') {
-        await widget.api.unfollowUser(widget.userId);
+        await widget.api.unfollowUser(_targetUserId);
       } else {
-        await widget.api.followUser(widget.userId);
+        await widget.api.followUser(_targetUserId);
       }
       await _load();
     } catch (error) {
@@ -121,7 +129,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openConnections(String kind) {
     Navigator.of(context).push(MaterialPageRoute<void>(
-      builder: (_) => ProfileConnectionsScreen(api: widget.api, userId: widget.userId, kind: kind),
+      builder: (_) => ProfileConnectionsScreen(api: widget.api, userId: _targetUserId, kind: kind),
     ));
   }
 

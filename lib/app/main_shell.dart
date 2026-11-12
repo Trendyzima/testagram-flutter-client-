@@ -41,6 +41,7 @@ class _MainShellState extends State<MainShell> {
       PollsScreen(api: widget.api),
       WalletScreen(api: widget.api),
       SettingsScreen(
+        api: widget.api,
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
         onSignOut: widget.onSignOut,

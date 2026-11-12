@@ -1,13 +1,18 @@
 import 'package:material_ui/material_ui.dart';
 
+import '../../core/backend_api.dart';
+import '../profile/profile_screen.dart';
+
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
     super.key,
+    required this.api,
     required this.themeMode,
     required this.onThemeModeChanged,
     required this.onSignOut,
   });
 
+  final BackendApi api;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
   final Future<void> Function() onSignOut;
@@ -40,6 +45,20 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Text('Account', style: Theme.of(context).textTheme.titleLarge),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: const Text('My profile'),
+              subtitle: const Text('View your public profile, posts and connections.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => ProfileScreen.currentUser(api: api),
+                ),
+              ),
+            ),
+          ),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
