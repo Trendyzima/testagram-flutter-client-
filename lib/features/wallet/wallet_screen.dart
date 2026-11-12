@@ -478,12 +478,29 @@ class _WalletScreenState extends State<WalletScreen> {
                       final date = localDate == null
                           ? ''
                           : '${localDate.year.toString().padLeft(4, '0')}-${localDate.month.toString().padLeft(2, '0')}-${localDate.day.toString().padLeft(2, '0')}';
+                      final isOutgoing = kind.endsWith('_out');
+                      final isIncoming = kind.endsWith('_in') || kind.contains('topup');
+                      final icon = isOutgoing
+                          ? Icons.arrow_upward_rounded
+                          : isIncoming
+                              ? Icons.arrow_downward_rounded
+                              : Icons.account_balance_wallet_rounded;
                       return Card(
                         child: ListTile(
-                          leading: const CircleAvatar(child: Icon(Icons.account_balance_wallet)),
+                          leading: CircleAvatar(child: Icon(icon)),
                           title: Text(kind.replaceAll('_', ' ')),
                           subtitle: Text('$date • $status'),
-                          trailing: Text('$itemCurrency $amountText'),
+                          trailing: Text(
+                            '${isOutgoing ? '−' : isIncoming ? '+' : ''}$itemCurrency $amountText',
+                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: isOutgoing
+                                  ? Theme.of(context).colorScheme.error
+                                  : isIncoming
+                                      ? Theme.of(context).colorScheme.primary
+                                      : null,
+                            ),
+                          ),
                         ),
                       );
                     }),
