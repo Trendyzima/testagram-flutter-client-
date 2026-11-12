@@ -63,6 +63,7 @@ class _WalletScreenState extends State<WalletScreen> {
   }
 
   Future<void> _topUp() async {
+    final messenger = ScaffoldMessenger.of(context);
     final phone = TextEditingController();
     final amount = TextEditingController(text: '100');
     try {
@@ -143,7 +144,6 @@ class _WalletScreenState extends State<WalletScreen> {
       );
       if (confirmed != true || !mounted) return;
 
-      final messenger = ScaffoldMessenger.of(context);
       setState(() => _sending = true);
       final request = await widget.api.requestMpesaTopUp(
         phone: form['phone']!,
@@ -174,7 +174,6 @@ class _WalletScreenState extends State<WalletScreen> {
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (mounted) {
-        final messenger = ScaffoldMessenger.of(context);
         messenger.showSnackBar(SnackBar(content: Text(error.toString())));
         await _load(silent: true);
       }
