@@ -1,3 +1,5 @@
+import 'dart:math';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
@@ -15,7 +17,7 @@ class _FeedScreenState extends State<FeedScreen> {
   final _scroll = ScrollController();
   final List<Map<String, dynamic>> _posts = [];
   final Set<String> _busy = {};
-  bool _loading = false, _hasMore = true, _following = false;
+  bool _loading = false, _hasMore = true, _following = false, _publishing = false;
   int _loadGeneration = 0;
   int _activeLoads = 0;
   String? _cursor, _error;
@@ -213,10 +215,110 @@ class _FeedScreenState extends State<FeedScreen> {
     controller.dispose();
   }
 
-  void _composerNotice() {
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Post publishing is not yet exposed as a first-class Backend API. No post was sent.')),
+  String _newIdempotencyKey() {
+    final random = Random.secure();
+    return 'post-${DateTime.now().microsecondsSinceEpoch}-${random.nextInt(1 << 32)}';
+  }
+
+  Future<void> _composePost() async {
+    final controller = TextEditingController();
+    var visibility = 'public';
+    final draft = await showModalBottomSheet<Map<String, String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setSheetState) {
+          final count = controller.text.runes.length;
+          final canPublish = count > 0 && count <= 5000;
+          return Padding(
+            padding: EdgeInsets.fromLTRB(
+              18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(children: [
+                  Expanded(child: Text('Create a post', style: Theme.of(sheetContext).textTheme.titleLarge)),
+                  TextButton(onPressed: () => Navigator.pop(sheetContext), child: const Text('Cancel')),
+                ]),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: controller,
+                  autofocus: true,
+                  minLines: 4,
+                  maxLines: 9,
+                  maxLength: 5000,
+                  onChanged: (_) => setSheetState(() {}),
+                  decoration: const InputDecoration(
+                    hintText: 'What is happening? Use #hashtags and @mentions.',
+                    border: OutlineInputBorder(),
+                    alignLabelWithHint: true,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Text('Who can see this post?', style: Theme.of(sheetContext).textTheme.labelLarge),
+                const SizedBox(height: 8),
+                SegmentedButton<String>(
+                  segments: const [
+                    ButtonSegment(value: 'public', label: Text('Everyone'), icon: Icon(Icons.public)),
+                    ButtonSegment(value: 'followers', label: Text('Followers'), icon: Icon(Icons.people_outline)),
+                    ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
+                  ],
+                  selected: {visibility},
+                  onSelectionChanged: (value) => setSheetState(() => visibility = value.first),
+                ),
+                const SizedBox(height: 14),
+                Row(children: [
+                  Expanded(child: Text('$count / 5000', style: Theme.of(sheetContext).textTheme.bodySmall)),
+                  FilledButton.icon(
+                    onPressed: canPublish ? () => Navigator.pop(sheetContext, {
+                      'content': controller.text.trim(),
+                      'visibility': visibility,
+                    }) : null,
+                    icon: const Icon(Icons.send),
+                    label: const Text('Continue'),
+                  ),
+                ]),
+                const SizedBox(height: 4),
+                Text(
+                  'Public posts can be delivered to federated servers when federation is enabled for your account.',
+                  style: Theme.of(sheetContext).textTheme.bodySmall,
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
+    controller.dispose();
+    if (!mounted || draft == null || _publishing) return;
+
+    setState(() => _publishing = true);
+    try {
+      await widget.api.createPost(
+        content: draft['content']!,
+        visibility: draft['visibility']!,
+        idempotencyKey: _newIdempotencyKey(),
+      );
+      if (!mounted) return;
+      await _load(reset: true);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Your post was published.')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Post was not confirmed: $e')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _publishing = false);
+    }
   }
 
   @override
@@ -228,7 +330,7 @@ class _FeedScreenState extends State<FeedScreen> {
         IconButton(onPressed: widget.onSignOut, icon: const Icon(Icons.logout), tooltip: 'Sign out'),
       ],
     ),
-    floatingActionButton: FloatingActionButton(onPressed: _composerNotice, tooltip: 'Compose post', child: const Icon(Icons.edit)),
+    floatingActionButton: FloatingActionButton(onPressed: _publishing ? null : _composePost, tooltip: 'Compose post', child: _publishing ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.edit)),
     body: Column(children: [
       Padding(
         padding: const EdgeInsets.all(12),

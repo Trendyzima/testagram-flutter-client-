@@ -139,6 +139,32 @@ class BackendApi {
       _request('POST', baseUri.resolve('/api/threads/$threadId/bookmarks/toggle'));
 
   /// Loads a single post through the Backend's privacy-filtered read route.
+  /// Publishes a canonical main-feed post. The Backend enforces moderation,
+  /// visibility, idempotency and durable federation outbox delivery.
+  Future<Map<String, dynamic>> createPost({
+    required String content,
+    String visibility = 'public',
+    required String idempotencyKey,
+  }) {
+    final normalized = content.trim();
+    const allowedVisibility = {'public', 'followers', 'private'};
+    if (normalized.isEmpty || normalized.runes.length > 5000) {
+      throw ArgumentError.value(content, 'content', 'Post must contain 1-5000 characters');
+    }
+    if (!allowedVisibility.contains(visibility)) {
+      throw ArgumentError.value(visibility, 'visibility', 'Unsupported post visibility');
+    }
+    if (!RegExp(r'^[A-Za-z0-9._:-]{8,128}$').hasMatch(idempotencyKey)) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey', 'Invalid idempotency key');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/social/posts'),
+      body: {'content': normalized, 'visibility': visibility},
+      extraHeaders: {'Idempotency-Key': idempotencyKey},
+    );
+  }
+
   Future<Map<String, dynamic>> getPost(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId'));
 
@@ -433,9 +459,11 @@ class BackendApi {
     String method,
     Uri uri, {
     Map<String, dynamic>? body,
+    Map<String, String> extraHeaders = const {},
   }) async {
     final headers = <String, String>{
       ...await _headers(),
+      ...extraHeaders,
       if (body != null) 'Content-Type': 'application/json',
     };
     late final http.Response response;

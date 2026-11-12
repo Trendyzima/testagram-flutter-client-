@@ -241,7 +241,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 | Domain | Source modules | Destination status |
 |---|---|---|
 | Authentication, recovery, legal acceptance, session lifecycle | `features/auth`, `core/auth` | Ported slice: Appwrite session/JWT foundation; source Supabase PKCE/session implementation excluded |
-| Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, native post detail, replies, reactions, reposts, bookmarks, and likes/reposts/quotes lists; post publishing and quote creation remain open |
+| Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, native text post publishing with visibility and idempotency, native post detail, replies, reactions, reposts, bookmarks, and likes/reposts/quotes lists; main-feed media attachment, drafts, scheduling and quote creation remain open |
 | Threads | `features/threads` | Ported slice: timeline, composer, interactions and image attachment |
 | Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slice: search and follow basics; all secondary discovery routes remain open |
 | Notifications | `features/notifications` | Ported slice: list and mark read; preferences, realtime and push remain open |
