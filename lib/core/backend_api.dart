@@ -304,6 +304,20 @@ class BackendApi {
   Future<Map<String, dynamic>> unfollowUser(String targetUserId) =>
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
 
+  /// Reads the canonical federation preference through the public Backend API.
+  /// The Appwrite session JWT is attached by the shared authenticated request path.
+  Future<Map<String, dynamic>> getMyFederationPreference() =>
+      _request('GET', baseUri.resolve('/api/me/federation'));
+
+  /// Updates federation opt-in. Backend remains authoritative for account
+  /// status, discoverability, privacy and rollout eligibility.
+  Future<Map<String, dynamic>> updateMyFederationPreference({required bool enabled}) =>
+      _request(
+        'PUT',
+        baseUri.resolve('/api/me/federation'),
+        body: {'enabled': enabled},
+      );
+
   /// Reads the authenticated user's wallet from the native Backend ledger.
   Future<Map<String, dynamic>> getWalletBalance({String currency = 'KES'}) =>
       callCapability('testagram.wallet.balance', input: {'currency': currency});
@@ -378,6 +392,10 @@ class BackendApi {
           break;
         case 'POST':
           response = await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+              .timeout(const Duration(seconds: 20));
+          break;
+        case 'PUT':
+          response = await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
               .timeout(const Duration(seconds: 20));
           break;
         case 'DELETE':
