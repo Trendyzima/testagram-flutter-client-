@@ -62,6 +62,128 @@ class _WalletScreenState extends State<WalletScreen> {
     }
   }
 
+  Future<void> _topUp() async {
+    final phone = TextEditingController();
+    final amount = TextEditingController(text: '100');
+    try {
+      final form = await showDialog<Map<String, String>>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Add money with M-Pesa'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: phone,
+                  keyboardType: TextInputType.phone,
+                  textInputAction: TextInputAction.next,
+                  decoration: const InputDecoration(
+                    labelText: 'Safaricom phone number',
+                    hintText: '07XX XXX XXX',
+                    prefixIcon: Icon(Icons.phone_android_rounded),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: amount,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    labelText: 'Amount',
+                    prefixText: 'KES ',
+                    helperText: 'KES 10 – 150,000 · whole shillings',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                final rawAmount = int.tryParse(amount.text.trim());
+                final rawPhone = phone.text.trim();
+                if (rawPhone.isEmpty || rawAmount == null ||
+                    rawAmount < 10 || rawAmount > 150000) return;
+                Navigator.pop(dialogContext, {
+                  'phone': rawPhone,
+                  'amount': rawAmount.toString(),
+                });
+              },
+              child: const Text('Continue'),
+            ),
+          ],
+        ),
+      );
+      if (form == null || !mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Confirm M-Pesa deposit'),
+          content: Text(
+            'Request an STK Push for KES ${form['amount']} to ${form['phone']}? '
+            'Your wallet is credited only after Safaricom confirms payment.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Go back'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Send prompt'),
+            ),
+          ],
+        ),
+      );
+      if (confirmed != true || !mounted) return;
+
+      setState(() => _sending = true);
+      final request = await widget.api.requestMpesaTopUp(
+        phone: form['phone']!,
+        amountKes: int.parse(form['amount']!),
+        idempotencyKey: _newIdempotencyKey(),
+      );
+      final checkoutId = (request['checkout_request_id'] ?? '').toString();
+      var state = (request['status'] ?? 'pending').toString();
+      String receipt = '';
+      if (checkoutId.isNotEmpty && state != 'settled' && state != 'failed') {
+        for (var attempt = 0; attempt < 20; attempt++) {
+          await Future<void>.delayed(const Duration(seconds: 3));
+          if (!mounted) return;
+          final status = await widget.api.getMpesaTopUpStatus(checkoutId);
+          state = (status['status'] ?? state).toString();
+          receipt = (status['receipt_number'] ?? '').toString();
+          if (state == 'settled' || state == 'failed') break;
+        }
+      }
+      if (!mounted) return;
+      await _load(silent: true);
+      final message = state == 'settled'
+          ? 'Deposit confirmed${receipt.isEmpty ? '.' : ' · Receipt $receipt'}'
+          : state == 'failed'
+              ? 'M-Pesa payment was not completed. No funds were added.'
+              : 'M-Pesa prompt sent. Complete it on your phone; your balance updates after confirmation.';
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(message)),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+        await _load(silent: true);
+      }
+    } finally {
+      phone.dispose();
+      amount.dispose();
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
   Future<void> _transfer() async {
     final username = TextEditingController();
     final amount = TextEditingController();
@@ -231,16 +353,32 @@ class _WalletScreenState extends State<WalletScreen> {
                             style: Theme.of(context).textTheme.headlineMedium,
                           ),
                           const SizedBox(height: 16),
-                          FilledButton.icon(
-                            onPressed: _sending ? null : _transfer,
-                            icon: _sending
-                                ? const SizedBox(
-                                    width: 16,
-                                    height: 16,
-                                    child: CircularProgressIndicator(strokeWidth: 2),
-                                  )
-                                : const Icon(Icons.send),
-                            label: Text(_sending ? 'Processing…' : 'Send money'),
+                          Wrap(
+                            spacing: 10,
+                            runSpacing: 10,
+                            children: [
+                              FilledButton.icon(
+                                onPressed: _sending ? null : _topUp,
+                                icon: const Icon(Icons.account_balance_wallet_rounded),
+                                label: const Text('Add with M-Pesa'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed: _sending ? null : _transfer,
+                                icon: _sending
+                                    ? const SizedBox(
+                                        width: 16,
+                                        height: 16,
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      )
+                                    : const Icon(Icons.send_rounded),
+                                label: Text(_sending ? 'Processing…' : 'Send money'),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'KES wallet · M-Pesa deposits · verified transfers',
+                            style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ],
                       ),
