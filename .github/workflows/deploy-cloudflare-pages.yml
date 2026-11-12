@@ -107,6 +107,18 @@ jobs:
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
           install -D cloudflare-pages/_headers build/web/_headers
+          # Cloudflare's edge may retain an older response's cache metadata for
+          # stable Flutter filenames. Version both JS entry points per commit.
+          sed -i "s#flutter_bootstrap\\.js#flutter_bootstrap.js?v=${GITHUB_SHA}#g" build/web/index.html
+          sed -i "s#main\\.dart\\.js#main.dart.js?v=${GITHUB_SHA}#g" build/web/flutter_bootstrap.js
+          if ! grep -Fq "flutter_bootstrap.js?v=${GITHUB_SHA}" build/web/index.html; then
+            echo "::error::Flutter index.html does not reference the versioned bootstrap."
+            exit 1
+          fi
+          if ! grep -Fq "main.dart.js?v=${GITHUB_SHA}" build/web/flutter_bootstrap.js; then
+            echo "::error::Flutter bootstrap does not reference the versioned application bundle."
+            exit 1
+          fi
           for marker in 'Sign up' 'Reset password' 'Create your account'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::The production Flutter bundle is missing the required authentication UI marker: $marker"
@@ -195,10 +207,11 @@ jobs:
             fi
           done
 
-      - name: Smoke-test production auth entry, callback URLs and deployed bundle
+      - name: Smoke-test production auth entry, callback URLs and versioned bundle
         shell: bash
         run: |
           set -euo pipefail
+          version="$GITHUB_SHA"
           paths=(
             '/'
             '/?mode=signin'
@@ -217,8 +230,8 @@ jobs:
                 rm -f "$page" "$headers"
                 exit 1
               fi
-              if ! grep -Eq 'flutter_bootstrap\.js|main\.dart\.js' "$page"; then
-                echo "::error::https://$hostname$path responded, but the page does not look like the deployed Flutter web app."
+              if ! grep -Fq "flutter_bootstrap.js?v=$version" "$page"; then
+                echo "::error::https://$hostname$path is not serving the current versioned Flutter bootstrap ($version)."
                 rm -f "$page" "$headers"
                 exit 1
               fi
@@ -232,22 +245,21 @@ jobs:
               done
             done
 
-            for asset in flutter_bootstrap.js main.dart.js; do
+            for asset in "flutter_bootstrap.js?v=$version" "main.dart.js?v=$version"; do
               asset_body="$(mktemp)"
               asset_headers="$(mktemp)"
               if ! curl --fail --location --silent --show-error --retry 6 --retry-all-errors --retry-delay 5 \
                 --max-time 60 -D "$asset_headers" "https://$hostname/$asset" -o "$asset_body"; then
-                echo "::error::Production Flutter asset is unavailable: https://$hostname/$asset"
+                echo "::error::Versioned Flutter asset is unavailable: https://$hostname/$asset"
                 rm -f "$page" "$headers" "$asset_body" "$asset_headers"
                 exit 1
               fi
-              if ! grep -iEq 'cache-control:.*no-cache' "$asset_headers"; then
-                echo "::error::Flutter application asset is missing the no-cache revalidation policy: https://$hostname/$asset"
-                cat "$asset_headers"
+              if [[ "$asset" == flutter_bootstrap.js* ]] && ! grep -Fq "main.dart.js?v=$version" "$asset_body"; then
+                echo "::error::Flutter bootstrap at https://$hostname/$asset does not reference the current versioned app bundle."
                 rm -f "$page" "$headers" "$asset_body" "$asset_headers"
                 exit 1
               fi
-              if [[ "$asset" == "main.dart.js" ]]; then
+              if [[ "$asset" == main.dart.js* ]]; then
                 for marker in 'Sign up' 'Reset password' 'Create your account'; do
                   if ! grep -aFq "$marker" "$asset_body"; then
                     echo "::error::Production bundle at https://$hostname/$asset is missing authentication UI marker: $marker"
@@ -258,6 +270,6 @@ jobs:
               fi
               rm -f "$asset_body" "$asset_headers"
             done
-            echo "Verified authentication entry points and current Flutter bundle on https://$hostname"
+            echo "Verified current versioned auth bundle and callback entry points on https://$hostname"
             rm -f "$page" "$headers"
           done
