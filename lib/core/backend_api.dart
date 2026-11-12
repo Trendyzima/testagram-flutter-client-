@@ -243,6 +243,11 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
+  /// Resolves the caller's canonical Testagram profile from the verified session.
+  /// Appwrite user IDs are not canonical Testagram account UUIDs.
+  Future<Map<String, dynamic>> getMyProfile() =>
+      _request('GET', baseUri.resolve('/api/me/profile'));
+
   /// Loads a profile's privacy-filtered posts using chronological pagination.
   Future<Map<String, dynamic>> getProfilePosts(
     String userId, {
