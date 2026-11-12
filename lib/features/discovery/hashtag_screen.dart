@@ -131,7 +131,7 @@ class _HashtagScreenState extends State<HashtagScreen> {
     final content = (post['content'] ?? '').toString();
     final rawMedia = post['media_urls'];
     final mediaUrls = rawMedia is List
-        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
+        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('https://')).take(4).toList()
         : <String>[];
 
     return InkWell(
