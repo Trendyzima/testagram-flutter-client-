@@ -3,7 +3,7 @@
 class MediaUploadPolicy {
   const MediaUploadPolicy._();
   static const imageMaxBytes = 20 * 1024 * 1024;
-  static const videoMaxBytes = 100 * 1024 * 1024;
+  static const videoMaxBytes = 20 * 1024 * 1024;
   static const imageExtensions = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'};
   static const videoExtensions = {'mp4', 'webm'};
   static String normalizeExtension(String filename, {required bool isVideo}) {
@@ -26,8 +26,10 @@ class MediaUploadPolicy {
     'jpg' || 'jpeg' => 'image/jpeg',
     'png' => 'image/png',
     'webp' => 'image/webp',
+    'gif' => 'image/gif',
+    'avif' => 'image/avif',
     'webm' => 'video/webm',
-    'mp4' || 'm4v' => 'video/mp4',
+    'mp4' => 'video/mp4',
     _ => throw const FormatException('Unsupported media format.'),
   };
 }
