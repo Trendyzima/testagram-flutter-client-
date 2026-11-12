@@ -14,14 +14,12 @@ class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
     required this.api,
-    required this.currentUserId,
     required this.onSignOut,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
   final BackendApi api;
-  final String currentUserId;
   final Future<void> Function() onSignOut;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -44,7 +42,6 @@ class _MainShellState extends State<MainShell> {
       WalletScreen(api: widget.api),
       SettingsScreen(
         api: widget.api,
-        currentUserId: widget.currentUserId,
         themeMode: widget.themeMode,
         onThemeModeChanged: widget.onThemeModeChanged,
         onSignOut: widget.onSignOut,
