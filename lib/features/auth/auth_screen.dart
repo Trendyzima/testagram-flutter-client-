@@ -172,21 +172,6 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  Future<void> _signUp() async {
-    if (_busy || !_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted) {
-      setState(() => _error = 'You must confirm that you are 18 or older and accept the Terms and Conditions and Privacy Notice.');
-      return;
-    }
-    // Do not create an Appwrite account directly. Registration must pass the
-    // Backend identity-approval issuer and canonical account-linking flow.
-    // Those controls are not yet available to this client.
-    setState(() {
-      _error = null;
-      _notice = 'Your details have not been submitted and no account has been created. Secure registration is being completed. Please try again later.';
-    });
-  }
-
   Future<void> _resend() async => _run(() async {
     await widget.account.createVerification(url: '${AppConfig.authCallbackOrigin}/?mode=verification');
     if (mounted) {
@@ -325,7 +310,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   onPressed: () => setState(() => _obscure = !_obscure),
                   icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
               validator: _passwordValid,
-              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); if (_page == _Page.signUp) _signUp(); }),
+              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); }),
           ],
           if (_page == _Page.signUp || _page == _Page.reset) ...[
             const SizedBox(height: 14),
@@ -334,6 +319,32 @@ class _AuthScreenState extends State<AuthScreen> {
               validator: (v) => v != _password.text ? 'Passwords do not match.' : null),
           ],
           if (_page == _Page.signUp) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                    const SizedBox(width: 10),
+                    const Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Registration is not open yet.',
+                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          SizedBox(height: 4),
+                          Text(
+                            'This form is available for preview, but your details are not submitted and no account is created. Secure identity review and account provisioning must be completed first.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 12),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
               value: _ageConfirmed,
@@ -361,8 +372,10 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 20),
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
-          if (_page == _Page.signUp) FilledButton(onPressed: _busy ? null : _signUp,
-            child: _busy ? const CircularProgressIndicator() : const Text('Create account')),
+          if (_page == _Page.signUp) const FilledButton(
+            onPressed: null,
+            child: Text('Registration not available yet'),
+          ),
           if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
             child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
           if (_page == _Page.reset) FilledButton(onPressed: _busy ? null : _reset,
@@ -372,7 +385,14 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 12),
           if (_page == _Page.signIn) ...[
             TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?')),
-            TextButton(onPressed: _busy ? null : () => _go(_Page.signUp), child: const Text('Create a new account')),
+            const SizedBox(height: 4),
+            Text('New to Testagram?', style: Theme.of(context).textTheme.bodyMedium),
+            const SizedBox(height: 6),
+            FilledButton.tonalIcon(
+              onPressed: _busy ? null : () => _go(_Page.signUp),
+              icon: const Icon(Icons.person_add_alt_1),
+              label: const Text('Create account'),
+            ),
           ] else if (_page != _Page.verify)
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))
           else
