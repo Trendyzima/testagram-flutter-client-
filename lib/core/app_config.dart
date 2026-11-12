@@ -9,7 +9,7 @@ class AppConfig {
   );
   static const appwriteProjectId = String.fromEnvironment(
     'APPWRITE_PROJECT_ID',
-    defaultValue: '6af01f05003503d9d603',
+    defaultValue: '',
   );
   static const backendApiUrl = String.fromEnvironment(
     'TESTAGRAM_API_URL',
