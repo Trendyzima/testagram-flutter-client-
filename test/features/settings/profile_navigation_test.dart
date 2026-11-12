@@ -39,7 +39,6 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: SettingsScreen(
         api: api,
-        currentUserId: 'canonical-user-123',
         themeMode: ThemeMode.system,
         onThemeModeChanged: (_) {},
         onSignOut: () async {},
@@ -54,7 +53,7 @@ void main() {
     expect(find.text('Profile'), findsOneWidget);
     expect(find.text('Test User'), findsOneWidget);
     expect(find.text('@test_user'), findsOneWidget);
-    expect(captured?.url.path, '/api/social/profiles/canonical-user-123');
+    expect(captured?.url.path, '/api/me/profile');
     expect(captured?.headers['Authorization'], 'Bearer test-jwt');
 
     api.close();
