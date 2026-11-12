@@ -114,6 +114,13 @@ void main() {
 
     expect(find.text('M-Pesa deposit pending · KES 500'), findsOneWidget);
     expect(find.text('Check status'), findsOneWidget);
+    final depositButton = tester.widget<FilledButton>(
+      find.ancestor(
+        of: find.text('Deposit pending'),
+        matching: find.byType(FilledButton),
+      ).first,
+    );
+    expect(depositButton.onPressed, isNull);
     api.close();
   });
 
