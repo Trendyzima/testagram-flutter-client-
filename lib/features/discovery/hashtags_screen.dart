@@ -120,7 +120,9 @@ class _HashtagsScreenState extends State<HashtagsScreen> {
                 leading: CircleAvatar(child: Text('${index + 1}')),
                 title: Text('#${(_topics[index]['tag'] ?? '').toString()}'),
                 subtitle: Text('${_topics[index]['posts_count'] ?? 0} public posts this week'),
-                trailing: const Icon(Icons.chevron_right),
+                trailing: _topics[index]['is_following'] == true
+                    ? const Icon(Icons.check_circle_outline)
+                    : const Icon(Icons.chevron_right),
                 onTap: () => _open((_topics[index]['tag'] ?? '').toString()),
               ),
         ],
