@@ -157,6 +157,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isSelf = profile?['is_self'] == true;
     final following = profile?['is_following'] == true;
     final pending = profile?['follow_status'] == 'pending';
+    final socialLinks = profile?['social_links'] is Map
+        ? Map<String, dynamic>.from(profile!['social_links'] as Map)
+        : <String, dynamic>{};
 
     return Scaffold(
       appBar: AppBar(
@@ -273,6 +276,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ]),
                             ],
                           ),
+                          if (socialLinks.values.any((value) => value.toString().trim().isNotEmpty)) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                for (final entry in socialLinks.entries)
+                                  if (entry.value.toString().trim().isNotEmpty)
+                                    Chip(
+                                      visualDensity: VisualDensity.compact,
+                                      avatar: Icon(
+                                        entry.key == 'instagram'
+                                            ? Icons.camera_alt_outlined
+                                            : entry.key == 'linkedin'
+                                                ? Icons.work_outline_rounded
+                                                : entry.key == 'facebook'
+                                                    ? Icons.facebook_rounded
+                                                    : Icons.alternate_email_rounded,
+                                        size: 16,
+                                      ),
+                                      label: Text('${entry.key}: ${entry.value}'),
+                                    ),
+                              ],
+                            ),
+                          ],
                           const SizedBox(height: 20),
                           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                             _Count(
