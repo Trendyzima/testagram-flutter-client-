@@ -53,6 +53,46 @@ void main() {
       api.close();
     });
 
+    test('follows and unfollows normalized hashtags with authenticated requests', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'tag': 'testagram', 'is_following': request.method == 'POST'},
+          }), 200);
+        }),
+      );
+
+      await api.followHashtag('#Testagram');
+      await api.unfollowHashtag('Testagram');
+
+      expect(requests, hasLength(2));
+      expect(requests[0].method, 'POST');
+      expect(requests[0].url.path, '/api/hashtags/Testagram/follow');
+      expect(jsonDecode(requests[0].body), isEmpty);
+      expect(requests[1].method, 'DELETE');
+      expect(requests[1].url.path, '/api/hashtags/Testagram/follow');
+      expect(requests.every((request) =>
+          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+      api.close();
+    });
+
+    test('rejects malformed hashtags before follow requests are sent', () {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(() => api.followHashtag('bad tag'), throwsArgumentError);
+      expect(() => api.unfollowHashtag(''), throwsArgumentError);
+      expect(() => api.followHashtag('a' * 65), throwsArgumentError);
+      api.close();
+    });
+
     test('publishes a canonical post with visibility and idempotency', () async {
       late http.Request captured;
       final api = BackendApi(
