@@ -175,7 +175,7 @@ void main() {
         }),
       );
 
-      expect(() => api.getPrivateMediaAccess('../private/object'), throwsArgumentError);
+      await expectLater(api.getPrivateMediaAccess('../private/object'), throwsArgumentError);
       await expectLater(
         api.getPrivateMediaAccess('users/alice/0123456789abcdef0123456789abcdef'),
         throwsA(isA<BackendApiException>()),
