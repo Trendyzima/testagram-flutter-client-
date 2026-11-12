@@ -77,4 +77,44 @@ void main() {
     api.close();
   });
 
+  testWidgets('wallet restores a pending M-Pesa deposit from transaction history', (tester) async {
+    final client = MockClient((request) async {
+      final body = jsonDecode(request.body) as Map<String, dynamic>;
+      if (body['capability'] == 'testagram.wallet.balance') {
+        return http.Response(jsonEncode({
+          'id': 'member-1',
+          'balance': '250.00',
+          'currency': 'KES',
+          'status': 'active',
+        }), 200);
+      }
+      if (body['capability'] == 'testagram.wallet.transactions.list') {
+        return http.Response(jsonEncode({
+          'items': [{
+            'kind': 'deposit',
+            'status': 'pending',
+            'provider': 'mpesa',
+            'checkout_request_id': 'ws_CO_pending_123',
+            'amount_kes': '500',
+            'amount': '500.00',
+            'currency': 'KES',
+          }],
+        }), 200);
+      }
+      return http.Response('{}', 404);
+    });
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'test-jwt',
+      client: client,
+    );
+
+    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('M-Pesa deposit pending · KES 500'), findsOneWidget);
+    expect(find.text('Check status'), findsOneWidget);
+    api.close();
+  });
+
 }
