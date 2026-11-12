@@ -21,6 +21,8 @@ class _WalletScreenState extends State<WalletScreen> {
   Map<String, dynamic> _wallet = const {};
   List<Map<String, dynamic>> _transactions = const [];
   final WalletTransferAttempt _transferAttempt = WalletTransferAttempt();
+  String? _pendingCheckoutRequestId;
+  String? _pendingDepositAmount;
 
   @override
   void initState() {
@@ -154,13 +156,27 @@ class _WalletScreenState extends State<WalletScreen> {
       var state = (request['status'] ?? 'pending').toString();
       String receipt = '';
       if (checkoutId.isNotEmpty && state != 'settled' && state != 'failed') {
-        for (var attempt = 0; attempt < 20; attempt++) {
+        setState(() {
+          _pendingCheckoutRequestId = checkoutId;
+          _pendingDepositAmount = form['amount'];
+        });
+        // Keep the foreground wait short. The checkout ID remains available
+        // for a manual status check if Safaricom is slow or the app is closed.
+        for (var attempt = 0; attempt < 5; attempt++) {
           await Future<void>.delayed(const Duration(seconds: 3));
           if (!mounted) return;
           final status = await widget.api.getMpesaTopUpStatus(checkoutId);
           state = (status['status'] ?? state).toString();
           receipt = (status['receipt_number'] ?? '').toString();
           if (state == 'settled' || state == 'failed') break;
+        }
+      }
+      if (state == 'settled' || state == 'failed') {
+        if (mounted) {
+          setState(() {
+            _pendingCheckoutRequestId = null;
+            _pendingDepositAmount = null;
+          });
         }
       }
       if (!mounted) return;
@@ -170,7 +186,7 @@ class _WalletScreenState extends State<WalletScreen> {
           ? 'Deposit confirmed${receipt.isEmpty ? '.' : ' · Receipt $receipt'}'
           : state == 'failed'
               ? 'M-Pesa payment was not completed. No funds were added.'
-              : 'M-Pesa prompt sent. Complete it on your phone; your balance updates after confirmation.';
+              : 'M-Pesa prompt sent. Deposit is pending; check its status below when you finish on your phone.';
       messenger.showSnackBar(SnackBar(content: Text(message)));
     } catch (error) {
       if (mounted) {
@@ -180,6 +196,39 @@ class _WalletScreenState extends State<WalletScreen> {
     } finally {
       phone.dispose();
       amount.dispose();
+      if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _checkPendingDeposit() async {
+    final checkoutId = _pendingCheckoutRequestId;
+    if (checkoutId == null || _sending) return;
+    setState(() => _sending = true);
+    try {
+      final status = await widget.api.getMpesaTopUpStatus(checkoutId);
+      final state = (status['status'] ?? 'pending').toString();
+      final receipt = (status['receipt_number'] ?? '').toString();
+      if (state == 'settled' || state == 'failed') {
+        setState(() {
+          _pendingCheckoutRequestId = null;
+          _pendingDepositAmount = null;
+        });
+      }
+      await _load(silent: true);
+      if (!mounted) return;
+      final message = state == 'settled'
+          ? 'Deposit confirmed${receipt.isEmpty ? '.' : ' · Receipt $receipt'}'
+          : state == 'failed'
+              ? 'M-Pesa payment was not completed. No funds were added.'
+              : 'Payment is still pending with Safaricom. Your balance has not changed.';
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not check deposit status: $error')),
+        );
+      }
+    } finally {
       if (mounted) setState(() => _sending = false);
     }
   }
@@ -389,6 +438,22 @@ class _WalletScreenState extends State<WalletScreen> {
                     Text(_error!,
                         style: TextStyle(color: Theme.of(context).colorScheme.error)),
                     TextButton(onPressed: _load, child: const Text('Try again')),
+                  ],
+                  if (_pendingCheckoutRequestId != null) ...[
+                    const SizedBox(height: 12),
+                    Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.hourglass_top_rounded),
+                        title: Text('M-Pesa deposit pending · KES ${_pendingDepositAmount ?? ''}'),
+                        subtitle: const Text(
+                          'The wallet is not credited until Safaricom confirms settlement.',
+                        ),
+                        trailing: TextButton(
+                          onPressed: _sending ? null : _checkPendingDeposit,
+                          child: const Text('Check status'),
+                        ),
+                      ),
+                    ),
                   ],
                   const SizedBox(height: 20),
                   Text('Recent activity', style: Theme.of(context).textTheme.titleLarge),
