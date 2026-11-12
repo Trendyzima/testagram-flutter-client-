@@ -4,14 +4,14 @@ class MediaUploadPolicy {
   const MediaUploadPolicy._();
   static const imageMaxBytes = 20 * 1024 * 1024;
   static const videoMaxBytes = 100 * 1024 * 1024;
-  static const imageExtensions = {'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif'};
-  static const videoExtensions = {'mp4', 'mov', 'm4v', 'webm'};
+  static const imageExtensions = {'jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'};
+  static const videoExtensions = {'mp4', 'webm'};
   static String normalizeExtension(String filename, {required bool isVideo}) {
     final hasExtension = filename.contains('.') && !filename.endsWith('.');
     final extension = hasExtension ? filename.split('.').last.toLowerCase() : '';
     final allowed = isVideo ? videoExtensions : imageExtensions;
     if (!allowed.contains(extension)) {
-      throw const FormatException('Unsupported media format. Choose JPG, PNG, WebP or MP4/MOV/M4V/WebM.');
+      throw const FormatException('Unsupported media format. Choose JPG, PNG, WebP, GIF, AVIF, MP4 or WebM.');
     }
     return extension;
   }
@@ -26,9 +26,6 @@ class MediaUploadPolicy {
     'jpg' || 'jpeg' => 'image/jpeg',
     'png' => 'image/png',
     'webp' => 'image/webp',
-    'heic' => 'image/heic',
-    'heif' => 'image/heif',
-    'mov' => 'video/quicktime',
     'webm' => 'video/webm',
     'mp4' || 'm4v' => 'video/mp4',
     _ => throw const FormatException('Unsupported media format.'),
