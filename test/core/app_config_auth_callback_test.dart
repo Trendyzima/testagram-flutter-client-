@@ -2,6 +2,12 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/core/app_config.dart';
 
 void main() {
+  group('AppConfig project configuration', () {
+    test('defaults to the Frankfurt Appwrite region used by the project', () {
+      expect(AppConfig.appwriteEndpoint, 'https://fra.cloud.appwrite.io/v1');
+    });
+  });
+
   group('AppConfig.authCallbackOriginFor', () {
     test('uses the canonical site for native applications', () {
       expect(
