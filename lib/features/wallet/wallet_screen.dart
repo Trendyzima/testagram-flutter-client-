@@ -161,7 +161,7 @@ class _WalletScreenState extends State<WalletScreen> {
           _pendingDepositAmount = form['amount'];
         });
         // Keep the foreground wait short. The checkout ID remains available
-        // for a manual status check if Safaricom is slow or the app is closed.
+        // for a later status check if Safaricom is slow or the user navigates away.
         for (var attempt = 0; attempt < 5; attempt++) {
           await Future<void>.delayed(const Duration(seconds: 3));
           if (!mounted) return;
