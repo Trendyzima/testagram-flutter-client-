@@ -4,6 +4,7 @@ import '../posts/post_detail_screen.dart';
 
 import '../../core/backend_api.dart';
 import 'profile_connections_screen.dart';
+import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key, required this.api, required this.userId});
@@ -127,6 +128,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _editProfile() async {
+    final current = _profile;
+    if (current == null || current['is_self'] != true) return;
+    final updated = await Navigator.of(context).push<Map<String, dynamic>>(
+      MaterialPageRoute<Map<String, dynamic>>(
+        builder: (_) => ProfileEditScreen(api: widget.api, profile: current),
+      ),
+    );
+    if (updated != null && mounted) {
+      setState(() => _profile = updated);
+      await _load();
+    }
+  }
+
   void _openConnections(String kind) {
     Navigator.of(context).push(MaterialPageRoute<void>(
       builder: (_) => ProfileConnectionsScreen(api: widget.api, userId: _targetUserId, kind: kind),
@@ -142,9 +157,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final isSelf = profile?['is_self'] == true;
     final following = profile?['is_following'] == true;
     final pending = profile?['follow_status'] == 'pending';
+    final socialLinks = profile?['social_links'] is Map
+        ? Map<String, dynamic>.from(profile!['social_links'] as Map)
+        : <String, dynamic>{};
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(
+        title: const Text('Profile'),
+        actions: [
+          if (_profile?['is_self'] == true)
+            IconButton(
+              tooltip: 'Edit profile',
+              onPressed: _busy ? null : _editProfile,
+              icon: const Icon(Icons.edit_outlined),
+            ),
+        ],
+      ),
       body: _loading && profile == null
           ? const Center(child: CircularProgressIndicator())
           : _error != null && profile == null
@@ -163,25 +191,116 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(20),
                         children: [
-                          Center(child: CircleAvatar(
-                            radius: 42,
-                            backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
-                            child: avatar.startsWith('http') ? null : Text(
-                              displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
-                              style: const TextStyle(fontSize: 28),
+                          Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              Container(
+                                height: 150,
+                                width: double.infinity,
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                                  borderRadius: BorderRadius.circular(18),
+                                ),
+                                clipBehavior: Clip.antiAlias,
+                                child: (profile['cover_url'] ?? '').toString().startsWith('http')
+                                    ? Image.network(
+                                        profile['cover_url'].toString(),
+                                        fit: BoxFit.cover,
+                                        errorBuilder: (_, __, ___) => const SizedBox.expand(),
+                                      )
+                                    : const Center(child: Icon(Icons.landscape_outlined, size: 38)),
+                              ),
+                              Positioned(
+                                left: 18,
+                                bottom: -38,
+                                child: CircleAvatar(
+                                  radius: 48,
+                                  backgroundColor: Theme.of(context).colorScheme.surface,
+                                  child: CircleAvatar(
+                                    radius: 43,
+                                    backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
+                                    child: avatar.startsWith('http') ? null : Text(
+                                      displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
+                                      style: const TextStyle(fontSize: 28),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 48),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      displayName.isEmpty ? 'Testagram user' : displayName,
+                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                                    ),
+                                    if (username.isNotEmpty)
+                                      Text('@$username', style: Theme.of(context).textTheme.bodyMedium),
+                                  ],
+                                ),
+                              ),
+                              if (isSelf)
+                                OutlinedButton.icon(
+                                  onPressed: _editProfile,
+                                  icon: const Icon(Icons.edit_outlined, size: 18),
+                                  label: const Text('Edit'),
+                                ),
+                            ],
+                          ),
+                          if ((profile['bio'] ?? '').toString().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Text(profile['bio'].toString(), style: Theme.of(context).textTheme.bodyLarge),
+                          ],
+                          const SizedBox(height: 10),
+                          Wrap(
+                            spacing: 16,
+                            runSpacing: 8,
+                            children: [
+                              if ((profile['location'] ?? '').toString().isNotEmpty)
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.location_on_outlined, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(profile['location'].toString()),
+                                ]),
+                              if ((profile['website'] ?? '').toString().isNotEmpty)
+                                Row(mainAxisSize: MainAxisSize.min, children: [
+                                  const Icon(Icons.link_rounded, size: 16),
+                                  const SizedBox(width: 4),
+                                  Text(profile['website'].toString()),
+                                ]),
+                            ],
+                          ),
+                          if (socialLinks.values.any((value) => value.toString().trim().isNotEmpty)) ...[
+                            const SizedBox(height: 12),
+                            Wrap(
+                              spacing: 8,
+                              runSpacing: 4,
+                              children: [
+                                for (final entry in socialLinks.entries)
+                                  if (entry.value.toString().trim().isNotEmpty)
+                                    Chip(
+                                      visualDensity: VisualDensity.compact,
+                                      avatar: Icon(
+                                        entry.key == 'instagram'
+                                            ? Icons.camera_alt_outlined
+                                            : entry.key == 'linkedin'
+                                                ? Icons.work_outline_rounded
+                                                : entry.key == 'facebook'
+                                                    ? Icons.facebook
+                                                    : Icons.alternate_email_rounded,
+                                        size: 16,
+                                      ),
+                                      label: Text('${entry.key}: ${entry.value}'),
+                                    ),
+                              ],
                             ),
-                          )),
-                          const SizedBox(height: 14),
-                          Center(child: Text(
-                            displayName.isEmpty ? 'Testagram user' : displayName,
-                            style: Theme.of(context).textTheme.headlineSmall,
-                          )),
-                          if (username.isNotEmpty) Center(child: Text('@$username')),
-                          const SizedBox(height: 12),
-                          if ((profile['bio'] ?? '').toString().isNotEmpty)
-                            Text(profile['bio'].toString(), textAlign: TextAlign.center),
-                          if ((profile['website'] ?? '').toString().isNotEmpty)
-                            Center(child: Text(profile['website'].toString())),
+                          ],
                           const SizedBox(height: 20),
                           Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                             _Count(

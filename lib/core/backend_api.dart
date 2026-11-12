@@ -248,6 +248,31 @@ class BackendApi {
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
 
+  /// Updates the authenticated member's canonical profile. The Backend verifies
+  /// ownership and readiness of uploaded avatar and cover media before saving.
+  Future<Map<String, dynamic>> updateMyProfile({
+    required String displayName,
+    required String bio,
+    required String website,
+    required String location,
+    required String avatarKey,
+    required String coverKey,
+    Map<String, String> socialLinks = const {},
+  }) =>
+      _request(
+        'PUT',
+        baseUri.resolve('/api/me/profile'),
+        body: {
+          'display_name': displayName,
+          'bio': bio,
+          'website': website,
+          'location': location,
+          'avatar_key': avatarKey,
+          'cover_key': coverKey,
+          'social_links': socialLinks,
+        },
+      );
+
   /// Loads a profile's privacy-filtered posts using chronological pagination.
   Future<Map<String, dynamic>> getProfilePosts(
     String userId, {
@@ -356,6 +381,35 @@ class BackendApi {
       'amount': amount.trim(),
       'note': note,
       'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  /// Starts a KES-only M-Pesa STK Push. Settlement is confirmed asynchronously
+  /// by the signed provider callback; a successful request is not a credit.
+  Future<Map<String, dynamic>> requestMpesaTopUp({
+    required String phone,
+    required int amountKes,
+    required String idempotencyKey,
+  }) {
+    if (amountKes < 10 || amountKes > 150000 ||
+        idempotencyKey.trim().length < 8 || idempotencyKey.trim().length > 128) {
+      throw ArgumentError('Amount or idempotency key is invalid');
+    }
+    return callCapability('testagram.wallet.mpesa.stk_push', input: {
+      'phone': phone.trim(),
+      'amount_kes': amountKes,
+      'currency': 'KES',
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  /// Reads the server-side settlement state for an M-Pesa checkout request.
+  Future<Map<String, dynamic>> getMpesaTopUpStatus(String checkoutRequestId) {
+    if (checkoutRequestId.trim().isEmpty || checkoutRequestId.length > 128) {
+      throw ArgumentError.value(checkoutRequestId, 'checkoutRequestId');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {
+      'checkout_request_id': checkoutRequestId.trim(),
     });
   }
 
