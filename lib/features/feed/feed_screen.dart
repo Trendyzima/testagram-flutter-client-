@@ -579,8 +579,14 @@ class _PostCard extends StatelessWidget {
     final name = author is Map ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString() : 'Testagram user';
     final body = (post['content'] ?? '').toString();
     final created = (post['created_at'] ?? '').toString();
-    final media = post['media_urls'];
-    final mediaUrl = media is List && media.isNotEmpty ? media.first.toString() : '';
+    final rawMedia = post['media_urls'];
+    final mediaUrls = rawMedia is List
+        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
+        : <String>[];
+    if (mediaUrls.isEmpty) {
+      final legacyUrl = (post['media_url'] ?? '').toString();
+      if (legacyUrl.startsWith('http')) mediaUrls.add(legacyUrl);
+    }
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -597,9 +603,36 @@ class _PostCard extends StatelessWidget {
           ]),
           const SizedBox(height: 7),
           InkWell(onTap: onOpen, child: Text(body, style: const TextStyle(height: 1.4))),
-          if (mediaUrl.startsWith('http')) ...[
+          if (mediaUrls.isNotEmpty) ...[
             const SizedBox(height: 10),
-            ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.network(mediaUrl, width: double.infinity, height: 230, fit: BoxFit.cover, errorBuilder: (_, __, ___) => const SizedBox.shrink())),
+            if (mediaUrls.length == 1)
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: Image.network(
+                  mediaUrls.first,
+                  width: double.infinity,
+                  height: 230,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                ),
+              )
+            else
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: mediaUrls.map((url) => SizedBox(
+                  width: (MediaQuery.sizeOf(context).width - 96) / 2,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      url,
+                      height: 142,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                    ),
+                  ),
+                )).toList(),
+              ),
           ],
           const SizedBox(height: 10),
           Wrap(spacing: 2, children: [
