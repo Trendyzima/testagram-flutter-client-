@@ -258,6 +258,34 @@ class BackendApi {
     );
   }
 
+  /// Follows a hashtag as a private viewer-interest signal for Explore.
+  Future<Map<String, dynamic>> followHashtag(String tag) {
+    final normalized = _normalizeHashtag(tag);
+    return _request(
+      'POST',
+      baseUri.resolve('/api/hashtags/${Uri.encodeComponent(normalized)}/follow'),
+      body: const {},
+    );
+  }
+
+  /// Removes the current viewer's hashtag-interest signal.
+  Future<Map<String, dynamic>> unfollowHashtag(String tag) {
+    final normalized = _normalizeHashtag(tag);
+    return _request(
+      'DELETE',
+      baseUri.resolve('/api/hashtags/${Uri.encodeComponent(normalized)}/follow'),
+    );
+  }
+
+  String _normalizeHashtag(String tag) {
+    final normalized = tag.trim().replaceFirst(RegExp(r'^#'), '');
+    if (normalized.isEmpty || normalized.runes.length > 64 ||
+        normalized.contains(RegExp(r'[^\\p{L}\\p{N}_]', unicode: true))) {
+      throw ArgumentError.value(tag, 'tag', 'Hashtag must contain 1-64 letters, numbers or underscores');
+    }
+    return normalized;
+  }
+
   Future<Map<String, dynamic>> search({required String query, String kind = 'all', int limit = 20}) =>
       _request('GET', baseUri.resolve('/api/search').replace(queryParameters: {
         'q': query,
