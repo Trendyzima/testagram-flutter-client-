@@ -40,6 +40,31 @@ void main() {
       api.close();
     });
 
+    test('follows and unfollows a hashtag through authenticated Backend routes', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'tag': 'kenya', 'is_following': request.method == 'POST'},
+          }), 200);
+        }),
+      );
+
+      await api.followHashtag('#Kenya');
+      await api.unfollowHashtag('Kenya');
+
+      expect(requests.map((request) => request.method), ['POST', 'DELETE']);
+      expect(requests.every((request) =>
+          request.url.path == '/api/hashtags/Kenya/follow' &&
+          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+      expect(jsonDecode(requests.first.body), isEmpty);
+      api.close();
+    });
+
     test('rejects invalid hashtag values and limits before sending', () {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
