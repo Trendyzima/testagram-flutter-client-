@@ -6,7 +6,6 @@ import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/polls/polls_screen.dart';
-import '../features/profile/profile_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/threads/threads_screen.dart';
 import '../features/wallet/wallet_screen.dart';
