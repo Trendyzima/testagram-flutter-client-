@@ -59,7 +59,6 @@ class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
   bool _requiresVerification = false;
-  String? _currentUserId;
   BackendApi? _api;
 
   @override
@@ -73,7 +72,6 @@ class _AuthGateState extends State<AuthGate> {
       final user = await widget.account.get();
       _requiresVerification = !user.emailVerification;
       _signedIn = user.emailVerification;
-      _currentUserId = user.$id;
       if (_signedIn) _api = _createApi();
     } catch (_) {
       _signedIn = false;
@@ -87,13 +85,10 @@ class _AuthGateState extends State<AuthGate> {
         getJwt: () async => (await widget.account.createJWT()).jwt,
       );
 
-  Future<void> _onSignedIn() async {
-    final user = await widget.account.get();
-    if (!mounted) return;
+  void _onSignedIn() {
     setState(() {
       _signedIn = true;
       _requiresVerification = false;
-      _currentUserId = user.$id;
       _api = _createApi();
     });
   }
@@ -106,7 +101,6 @@ class _AuthGateState extends State<AuthGate> {
       if (mounted) {
         setState(() {
           _signedIn = false;
-          _currentUserId = null;
           _api = null;
         });
       }
@@ -127,7 +121,6 @@ class _AuthGateState extends State<AuthGate> {
     }
     return MainShell(
       api: _api!,
-      currentUserId: _currentUserId!,
       onSignOut: _signOut,
       themeMode: widget.themeMode,
       onThemeModeChanged: widget.onThemeModeChanged,
