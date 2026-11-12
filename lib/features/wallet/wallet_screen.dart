@@ -427,9 +427,15 @@ class _WalletScreenState extends State<WalletScreen> {
                             runSpacing: 10,
                             children: [
                               FilledButton.icon(
-                                onPressed: _sending ? null : _topUp,
+                                onPressed: _sending || _pendingCheckoutRequestId != null
+                                    ? null
+                                    : _topUp,
                                 icon: const Icon(Icons.account_balance_wallet_rounded),
-                                label: const Text('Add with M-Pesa'),
+                                label: Text(
+                                  _pendingCheckoutRequestId == null
+                                      ? 'Add with M-Pesa'
+                                      : 'Deposit pending',
+                                ),
                               ),
                               OutlinedButton.icon(
                                 onPressed: _sending ? null : _transfer,
