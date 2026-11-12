@@ -8,6 +8,53 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('publishes a canonical post with visibility and idempotency', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'id': 'post-123', 'visibility': 'public'},
+          }), 201);
+        }),
+      );
+
+      final response = await api.createPost(
+        content: 'Hello Testagram #BuildInPublic',
+        visibility: 'public',
+        idempotencyKey: 'post-create-123456',
+      );
+
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/social/posts');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['idempotency-key'], 'post-create-123456');
+      expect(jsonDecode(captured.body), {
+        'content': 'Hello Testagram #BuildInPublic',
+        'visibility': 'public',
+      });
+      expect((response['data'] as Map)['id'], 'post-123');
+      api.close();
+    });
+
+    test('rejects invalid post content, visibility and idempotency locally', () {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(() => api.createPost(content: '  ', idempotencyKey: 'post-create-123456'),
+          throwsArgumentError);
+      expect(() => api.createPost(content: 'Hello', visibility: 'world',
+          idempotencyKey: 'post-create-123456'), throwsArgumentError);
+      expect(() => api.createPost(content: 'Hello', idempotencyKey: 'short'),
+          throwsArgumentError);
+      api.close();
+    });
+
     test('wallet methods use the authenticated native capability contract', () async {
       final requests = <http.Request>[];
       final api = BackendApi(
