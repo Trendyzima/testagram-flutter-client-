@@ -43,6 +43,7 @@ void main() {
     expect(find.text('Website'), findsOneWidget);
     await tester.scrollUntilVisible(find.text('Social links'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('Social links'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('Save profile'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('Save profile'), findsOneWidget);
     api.close();
   });
