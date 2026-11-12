@@ -459,9 +459,11 @@ class BackendApi {
     String method,
     Uri uri, {
     Map<String, dynamic>? body,
+    Map<String, String> extraHeaders = const {},
   }) async {
     final headers = <String, String>{
       ...await _headers(),
+      ...extraHeaders,
       if (body != null) 'Content-Type': 'application/json',
     };
     late final http.Response response;
