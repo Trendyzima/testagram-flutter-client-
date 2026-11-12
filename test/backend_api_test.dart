@@ -122,6 +122,68 @@ void main() {
       api.close();
     });
 
+    test('requests private CDN media access with an authenticated Backend call', () async {
+      late http.Request captured;
+      final expiry = DateTime.now().toUtc().add(const Duration(minutes: 2));
+      const key = 'users/alice/0123456789abcdef0123456789abcdef';
+      const assertion = 'Bearer v1.payload.signature';
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'url': 'https://media.testagram.site/v1/$key',
+              'authorization': assertion,
+              'expires_at': expiry.toIso8601String(),
+              'expires_in_seconds': 120,
+              'visibility': 'private',
+            },
+          }), 200);
+        }),
+      );
+
+      final access = await api.getPrivateMediaAccess(key);
+      expect(captured.method, 'POST');
+      expect(captured.url.path, '/api/media/cdn-download-url');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(jsonDecode(captured.body), {'key': key});
+      expect(access.url.toString(), 'https://media.testagram.site/v1/$key');
+      expect(access.headers, {'Authorization': assertion});
+      expect(access.expiresAt.isAfter(DateTime.now().toUtc()), isTrue);
+      expect(access.url.hasQuery, isFalse);
+      api.close();
+    });
+
+    test('rejects malformed private media keys and unsafe CDN responses', () async {
+      var calls = 0;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((_) async {
+          calls++;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'url': 'https://media.testagram.site/v1/users/alice/0123456789abcdef0123456789abcdef?token=leak',
+              'authorization': 'Bearer v1.payload.signature',
+              'expires_at': DateTime.now().toUtc().add(const Duration(minutes: 1)).toIso8601String(),
+            },
+          }), 200);
+        }),
+      );
+
+      await expectLater(api.getPrivateMediaAccess('../private/object'), throwsArgumentError);
+      await expectLater(
+        api.getPrivateMediaAccess('users/alice/0123456789abcdef0123456789abcdef'),
+        throwsA(isA<BackendApiException>()),
+      );
+      expect(calls, 1);
+      api.close();
+    });
+
     test('wallet methods use the authenticated native capability contract', () async {
       final requests = <http.Request>[];
       final api = BackendApi(

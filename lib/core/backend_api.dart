@@ -5,6 +5,14 @@ import 'package:crypto/crypto.dart';
 
 import 'package:http/http.dart' as http;
 
+class PrivateMediaAccess {
+  const PrivateMediaAccess({required this.url, required this.authorization, required this.expiresAt});
+  final Uri url;
+  final String authorization;
+  final DateTime expiresAt;
+  Map<String, String> get headers => {'Authorization': authorization};
+}
+
 class BackendApi {
   BackendApi({required this.baseUri, required this.getJwt, http.Client? client})
       : _client = client ?? http.Client();
@@ -135,6 +143,27 @@ class BackendApi {
         body: {'key': key},
       );
 
+  /// Fetch a short-lived viewer-bound assertion for one ready private object.
+  /// Use headers for every image, video, HLS manifest, segment and key request.
+  /// Never persist the assertion or put it in a URL.
+  Future<PrivateMediaAccess> getPrivateMediaAccess(String key) async {
+    if (!RegExp(r'^users/[A-Za-z0-9-]{1,128}/[a-f0-9]{32}$').hasMatch(key)) {
+      throw ArgumentError.value(key, 'key', 'Invalid private media object key');
+    }
+    final response = await _request('POST', baseUri.resolve('/api/media/cdn-download-url'), body: {'key': key});
+    final rawData = response['data'];
+    if (rawData is! Map) throw const BackendApiException('The server did not return private media authorization.');
+    final data = Map<String, dynamic>.from(rawData);
+    final uri = Uri.tryParse((data['url'] ?? '').toString());
+    final authorization = (data['authorization'] ?? '').toString();
+    final expiresAt = DateTime.tryParse((data['expires_at'] ?? '').toString())?.toUtc();
+    if (uri == null || uri.scheme != 'https' || uri.host.isEmpty || uri.hasQuery || uri.hasFragment ||
+        !uri.path.endsWith('/$key') || !authorization.startsWith('Bearer v1.') ||
+        authorization.length > 8192 || expiresAt == null || !expiresAt.isAfter(DateTime.now().toUtc())) {
+      throw const BackendApiException('The server returned invalid or expired private media authorization.');
+    }
+    return PrivateMediaAccess(url: uri, authorization: authorization, expiresAt: expiresAt);
+  }
   Future<Map<String, dynamic>> deleteMedia(String key) =>
       _request('POST', baseUri.resolve('/api/media/delete'), body: {'key': key});
 
