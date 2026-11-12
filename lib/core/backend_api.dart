@@ -318,7 +318,7 @@ class BackendApi {
   String _normalizeHashtag(String tag) {
     final normalized = tag.trim().replaceFirst(RegExp(r'^#'), '');
     if (normalized.isEmpty || normalized.runes.length > 64 ||
-        normalized.contains(RegExp(r'[^\\p{L}\\p{N}_]', unicode: true))) {
+        normalized.contains(RegExp(r'[^\p{L}\p{N}_]', unicode: true))) {
       throw ArgumentError.value(tag, 'tag', 'Hashtag must contain 1-64 letters, numbers or underscores');
     }
     return normalized;
