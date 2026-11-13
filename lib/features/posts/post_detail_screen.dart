@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/media/testagram_media_player.dart';
 import 'post_interactions_screen.dart';
 
 class PostDetailScreen extends StatefulWidget {
@@ -179,6 +180,15 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final name = (authorMap['display_name'] ?? authorMap['username'] ?? 'Testagram user').toString();
     final username = (authorMap['username'] ?? '').toString();
     final imageUrl = (post?['image_url'] ?? '').toString();
+    final rawContentTypes = post?['media_content_types'];
+    final contentType = rawContentTypes is List && rawContentTypes.isNotEmpty
+        ? rawContentTypes.first.toString()
+        : (post?['is_video'] == true ? 'video/mp4' : 'image/jpeg');
+    final rawMediaAuthHeaders = post?['media_auth_headers'];
+    final mediaHeaders = MediaPlaybackDescriptor.headersForUrl(
+      rawMediaAuthHeaders is Map ? rawMediaAuthHeaders : null,
+      mediaUrl,
+    );
     final mediaUrl = imageUrl.isNotEmpty
         ? imageUrl
         : ((post?['media_urls'] is List && (post!['media_urls'] as List).isNotEmpty)
@@ -225,10 +235,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             child: ClipRRect(
                               borderRadius: BorderRadius.circular(14),
-                              child: Image.network(
-                                mediaUrl,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                              child: TestagramMediaView(
+                                url: mediaUrl,
+                                contentType: contentType,
+                                headers: mediaHeaders,
+                                height: 300,
                               ),
                             ),
                           ),
