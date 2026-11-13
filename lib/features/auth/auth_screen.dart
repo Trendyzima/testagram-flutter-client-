@@ -370,9 +370,13 @@ class _AuthScreenState extends State<AuthScreen> {
         );
         final user = await widget.account.get();
         if (!user.emailVerification) {
-          await widget.account.createVerification(
-            url: '${AppConfig.authCallbackOrigin}/?mode=verification',
-          );
+          try {
+            await widget.account.createVerification(
+              url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+            );
+          } on AppwriteException catch (error) {
+            if (error.code != 409) rethrow;
+          }
         }
         final jwt = await widget.account.createJWT();
         final result = await api.redeemProvisioningAuthorization(
