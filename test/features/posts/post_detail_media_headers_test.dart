@@ -35,7 +35,7 @@ void main() {
       );
       expect(
         postDetailMediaHeadersForUrl({
-          'media_auth_headers': {url: 'Bearer v1.bad\\r\\nX-Evil: yes'},
+          'media_auth_headers': {url: 'Bearer v1.bad\r\nX-Evil: yes'},
         }, url),
         isNull,
       );
