@@ -3,6 +3,26 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/backend_api.dart';
 import 'post_interactions_screen.dart';
 
+/// Returns a viewer-bound CDN header only for the exact HTTPS URL authorized
+/// by Backend. Never infer authorization from a post's visibility or URL path.
+Map<String, String>? postDetailMediaHeadersForUrl(
+  Map<String, dynamic>? post,
+  String url,
+) {
+  final uri = Uri.tryParse(url);
+  if (uri == null || uri.scheme != 'https' || uri.host.isEmpty) return null;
+  final raw = post?['media_auth_headers'];
+  if (raw is! Map) return null;
+  final authorization = raw[url]?.toString().trim() ?? '';
+  if (!authorization.startsWith('Bearer v1.') ||
+      authorization.length > 8192 ||
+      authorization.contains('\\r') ||
+      authorization.contains('\\n')) {
+    return null;
+  }
+  return {'Authorization': authorization};
+}
+
 class PostDetailScreen extends StatefulWidget {
   const PostDetailScreen({super.key, required this.api, required this.postId});
 
@@ -227,6 +247,7 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                               borderRadius: BorderRadius.circular(14),
                               child: Image.network(
                                 mediaUrl,
+                                headers: postDetailMediaHeadersForUrl(post, mediaUrl),
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                               ),
