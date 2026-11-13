@@ -715,6 +715,67 @@ void main() {
       api.close();
     });
 
+    test('streams public video, retries replica protection, and never sends client checksum', () async {
+      final requests = <http.Request>[];
+      var completionAttempts = 0;
+      const key = 'users/owner_123/0123456789abcdef0123456789abcdef';
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          if (request.url.path == '/api/media/upload-intent') {
+            return http.Response(jsonEncode({'ok': true, 'data': {'key': key, 'url': '/api/media/upload?key=${Uri.encodeComponent(key)}'}}), 201);
+          }
+          if (request.method == 'PUT') return http.Response('', 204);
+          if (request.url.path == '/api/media/complete') {
+            completionAttempts++;
+            final data = completionAttempts == 1
+                ? {'key': key, 'status': 'replication_pending', 'retry_after_ms': 250}
+                : {'key': key, 'status': 'ready', 'public_url': 'https://media.testagram.site/v1/$key'};
+            return http.Response(jsonEncode({'ok': true, 'data': data}), completionAttempts == 1 ? 202 : 201);
+          }
+          return http.Response('unexpected request', 500);
+        }),
+      );
+      final asset = await api.uploadPublicMedia(
+        name: 'clip.mp4',
+        contentType: 'video/mp4',
+        sizeBytes: 3,
+        bytes: Stream<List<int>>.value([1, 2, 3]),
+      );
+      expect(asset['status'], 'ready');
+      expect(requests.map((request) => request.method), ['POST', 'PUT', 'POST', 'POST']);
+      expect(requests[1].headers['authorization'], 'Bearer jwt');
+      expect(requests[1].headers['content-type'], 'video/mp4');
+      expect(requests[1].bodyBytes, [1, 2, 3]);
+      expect(jsonDecode(requests[2].body), {
+        'key': key, 'visibility': 'public', 'content_type': 'video/mp4',
+      });
+      expect(jsonDecode(requests[2].body).containsKey('checksum_sha256'), isFalse);
+      api.close();
+    });
+
+    test('rejects an upload intent that points outside the Backend origin', () async {
+      var putCount = 0;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'jwt',
+        client: MockClient((request) async {
+          if (request.url.path == '/api/media/upload-intent') {
+            return http.Response(jsonEncode({'ok': true, 'data': {'key': 'users/u1/0123456789abcdef0123456789abcdef', 'url': 'https://evil.example/api/media/upload?key=x'}}), 201);
+          }
+          if (request.method == 'PUT') putCount++;
+          return http.Response('{}', 200);
+        }),
+      );
+      await expectLater(
+        api.uploadPublicMedia(name: 'clip.mp4', contentType: 'video/mp4', sizeBytes: 3, bytes: Stream<List<int>>.value([1, 2, 3])),
+        throwsA(isA<BackendApiException>()),
+      );
+      expect(putCount, 0);
+      api.close();
+    });
     test('attaches only a ready media key through the thread media endpoint', () async {
       late http.Request captured;
       final api = BackendApi(
