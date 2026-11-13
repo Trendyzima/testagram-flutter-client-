@@ -568,19 +568,17 @@ class _PostCard extends StatelessWidget {
         ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
         : <String>[];
     final rawMediaAuthHeaders = post['media_auth_headers'];
-    final mediaAuthHeaders = <String, String>{};
-    if (rawMediaAuthHeaders is Map) {
-      for (final entry in rawMediaAuthHeaders.entries) {
-        final url = entry.key.toString();
-        final authorization = entry.value.toString();
-        if (url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
-          mediaAuthHeaders[url] = authorization;
-        }
-      }
-    }
-    Map<String, String>? headersForMedia(String url) {
-      final authorization = mediaAuthHeaders[url];
-      return authorization == null ? null : {'Authorization': authorization};
+    final mediaAuthHeaders = rawMediaAuthHeaders is Map ? rawMediaAuthHeaders : null;
+    final rawContentTypes = post['media_content_types'];
+    final mediaContentTypes = rawContentTypes is List
+        ? rawContentTypes.map((value) => value.toString()).toList()
+        : <String>[];
+    Map<String, String> headersForMedia(String url) =>
+        MediaPlaybackDescriptor.headersForUrl(mediaAuthHeaders, url);
+    String contentTypeForMedia(int index) {
+      if (index < mediaContentTypes.length) return mediaContentTypes[index];
+      if (post['is_video'] == true && index == 0) return 'video/mp4';
+      return 'image/jpeg';
     }
     if (mediaUrls.isEmpty) {
       final legacyUrl = (post['media_url'] ?? '').toString();
@@ -607,13 +605,11 @@ class _PostCard extends StatelessWidget {
             if (mediaUrls.length == 1)
               ClipRRect(
                 borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  mediaUrls.first,
-                  width: double.infinity,
-                  height: 230,
-                  fit: BoxFit.cover,
+                child: TestagramMediaView(
+                  url: mediaUrls.first,
+                  contentType: contentTypeForMedia(0),
                   headers: headersForMedia(mediaUrls.first),
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                  height: 230,
                 ),
               )
             else
@@ -624,12 +620,11 @@ class _PostCard extends StatelessWidget {
                   width: (MediaQuery.sizeOf(context).width - 96) / 2,
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      url,
-                      height: 142,
-                      fit: BoxFit.cover,
+                    child: TestagramMediaView(
+                      url: url,
+                      contentType: contentTypeForMedia(mediaUrls.indexOf(url)),
                       headers: headersForMedia(url),
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                      height: 142,
                     ),
                   ),
                 )).toList(),
