@@ -35,11 +35,11 @@ void main() {
       adultConfirmed: true,
       termsAccepted: true,
       privacyAccepted: true,
-      idempotencyKey: 'a' * 43,
+      idempotencyKey: List<String>.filled(43, 'a').join(),
     );
     expect(result.applicationId, application.applicationId);
     expect(seen.url.path, '/api/identity/applications');
-    expect(seen.headers['Idempotency-Key'], 'a' * 43);
+    expect(seen.headers['Idempotency-Key'], List<String>.filled(43, 'a').join());
     final body = jsonDecode(seen.body) as Map<String, dynamic>;
     expect(body['email'], 'user@example.com');
     expect(body['username'], 'test_user');
