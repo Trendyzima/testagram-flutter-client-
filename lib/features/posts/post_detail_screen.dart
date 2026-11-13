@@ -184,16 +184,16 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     final contentType = rawContentTypes is List && rawContentTypes.isNotEmpty
         ? rawContentTypes.first.toString()
         : (post?['is_video'] == true ? 'video/mp4' : 'image/jpeg');
-    final rawMediaAuthHeaders = post?['media_auth_headers'];
-    final mediaHeaders = MediaPlaybackDescriptor.headersForUrl(
-      rawMediaAuthHeaders is Map ? rawMediaAuthHeaders : null,
-      mediaUrl,
-    );
     final mediaUrl = imageUrl.isNotEmpty
         ? imageUrl
         : ((post?['media_urls'] is List && (post!['media_urls'] as List).isNotEmpty)
             ? (post['media_urls'] as List).first.toString()
             : '');
+    final rawMediaAuthHeaders = post?['media_auth_headers'];
+    final mediaHeaders = MediaPlaybackDescriptor.headersForUrl(
+      rawMediaAuthHeaders is Map ? rawMediaAuthHeaders : null,
+      mediaUrl,
+    );
 
     return Scaffold(
       appBar: AppBar(title: const Text('Post')),
