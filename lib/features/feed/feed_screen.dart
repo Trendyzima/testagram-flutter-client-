@@ -5,6 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/media/media_upload_policy.dart';
+import '../../core/media/testagram_media_player.dart';
 import '../posts/post_detail_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -248,10 +250,11 @@ class _FeedScreenState extends State<FeedScreen> {
       }
 
       for (final media in draft.media) {
-        final asset = await widget.api.uploadPublicImage(
+        final asset = await widget.api.uploadPublicMedia(
           name: media.name,
           contentType: media.contentType,
-          bytes: media.bytes,
+          sizeBytes: media.sizeBytes,
+          bytes: media.file.openRead(),
         );
         final key = (asset['key'] ?? '').toString();
         if (key.isEmpty) {
@@ -268,7 +271,7 @@ class _FeedScreenState extends State<FeedScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(draft.media.isEmpty
               ? 'Your post was published.'
-              : 'Your post and ${attachedKeys.length} photo(s) were published.')),
+              : 'Your post and ${attachedKeys.length} media item(s) were published.')),
         );
       }
     } catch (error) {
@@ -385,53 +388,25 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
     super.dispose();
   }
 
-  Future<void> _pickImage() async {
+  Future<void> _pickMedia() async {
     try {
-      final picked = await ImagePicker().pickImage(
-        source: ImageSource.gallery,
-        imageQuality: 85,
-        maxWidth: 2048,
-        maxHeight: 2048,
-      );
+      final picked = await ImagePicker().pickMedia();
       if (!mounted || picked == null) return;
       final extension = picked.name.toLowerCase().split('.').last;
-      const types = {
-        'jpg': 'image/jpeg',
-        'jpeg': 'image/jpeg',
-        'png': 'image/png',
-        'webp': 'image/webp',
-        'gif': 'image/gif',
-        'avif': 'image/avif',
-      };
-      final contentType = types[extension];
-      if (contentType == null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
-        );
-        return;
-      }
-      final bytes = await picked.readAsBytes();
+      final isVideo = MediaUploadPolicy.videoExtensions.contains(extension);
+      final normalized = MediaUploadPolicy.normalizeExtension(picked.name, isVideo: isVideo);
+      final contentType = MediaUploadPolicy.contentType(normalized);
+      final sizeBytes = await picked.length();
+      MediaUploadPolicy.validateSize(sizeBytes, isVideo: isVideo);
+      final previewBytes = isVideo ? null : await picked.readAsBytes();
       if (!mounted) return;
-      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Each image must be smaller than 20 MiB.')),
-        );
-        return;
-      }
-      setState(() => _media.add(_PostMediaDraft(
-        name: picked.name,
-        contentType: contentType,
-        bytes: bytes,
-      )));
+      setState(() => _media.add(_PostMediaDraft(file: picked, name: picked.name, contentType: contentType, sizeBytes: sizeBytes, isVideo: isVideo, previewBytes: previewBytes)));
+    } on FormatException catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.message)));
     } catch (error) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not select image: $error')),
-        );
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not select media: $error')));
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final count = _controller.text.runes.length;
@@ -479,18 +454,21 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(
-                              _media[index].bytes,
-                              width: 104,
-                              height: 104,
-                              fit: BoxFit.cover,
-                            ),
+                            child: _media[index].isVideo
+                                ? Container(
+                                    width: 104, height: 104, color: Colors.black54,
+                                    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                                      const Icon(Icons.play_circle_outline, size: 34),
+                                      Padding(padding: const EdgeInsets.symmetric(horizontal: 4), child: Text(_media[index].name, maxLines: 2, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 10))),
+                                    ]),
+                                  )
+                                : Image.memory(_media[index].previewBytes!, width: 104, height: 104, fit: BoxFit.cover),
                           ),
                           Positioned(
                             top: 2,
                             right: 2,
                             child: IconButton.filledTonal(
-                              tooltip: 'Remove image',
+                              tooltip: 'Remove media',
                               visualDensity: VisualDensity.compact,
                               onPressed: () => setState(() => _media.removeAt(index)),
                               icon: const Icon(Icons.close, size: 16),
@@ -505,15 +483,15 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
             Align(
               alignment: Alignment.centerLeft,
               child: TextButton.icon(
-                onPressed: _media.length >= 4 ? null : _pickImage,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text('Add photo (${_media.length}/4)'),
+                onPressed: _media.length >= 4 ? null : _pickMedia,
+                icon: const Icon(Icons.perm_media_outlined),
+                label: Text('Add media (${_media.length}/4)'),
               ),
             ),
             if (_media.isNotEmpty && _visibility != 'public') ...[
               const SizedBox(height: 8),
               const Text(
-                'Photo attachments are currently available on public posts only. Remove photos to publish to followers or privately.',
+                'Media attachments are currently available on public posts only. Remove media to publish to followers or privately.',
                 style: TextStyle(color: Colors.orange),
               ),
             ],
@@ -556,14 +534,20 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
 
 class _PostMediaDraft {
   const _PostMediaDraft({
+    required this.file,
     required this.name,
     required this.contentType,
-    required this.bytes,
+    required this.sizeBytes,
+    required this.isVideo,
+    required this.previewBytes,
   });
 
+  final XFile file;
   final String name;
   final String contentType;
-  final Uint8List bytes;
+  final int sizeBytes;
+  final bool isVideo;
+  final Uint8List? previewBytes;
 }
 
 class _PostCard extends StatelessWidget {
