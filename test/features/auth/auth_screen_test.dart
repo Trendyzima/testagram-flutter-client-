@@ -51,7 +51,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('registration form explains prerequisites and remains disabled',
+  testWidgets('registration is available and still requires identity-review consent',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(account: account, onSignedIn: () {}),
@@ -66,34 +66,19 @@ void main() {
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.text('Read Terms and Conditions'), findsOneWidget);
-    expect(find.text('Read Privacy Notice'), findsOneWidget);
-
     expect(find.text('Secure identity review'), findsOneWidget);
     expect(find.textContaining('An account is not created until verification'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
-        findsOneWidget);
-    expect(tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Registration not available yet'),
-    ).onPressed, isNull);
-  });
 
-  testWidgets('registration remains fail-closed until identity approval exists',
-      (tester) async {
-    await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}),
-    ));
+    final action = find.widgetWithText(FilledButton, 'Start secure identity review');
+    expect(action, findsOneWidget);
+    expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Secure identity review'), findsOneWidget);
-    expect(find.textContaining('An account is not created until verification'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
-        findsOneWidget);
-    expect(tester.widget<FilledButton>(
-      find.widgetWithText(FilledButton, 'Registration not available yet'),
-    ).onPressed, isNull);
+    // An incomplete form is rejected locally; no account or application is
+    // created until the required profile fields and consent are supplied.
+    await tapVisible(tester, action);
+    expect(find.text('Enter your name.'), findsOneWidget);
+    expect(find.text('Username must be 3–30 characters.'), findsOneWidget);
+    expect(find.text('Enter your email address.'), findsOneWidget);
   });
 
   testWidgets('legal documents can be read before consent', (tester) async {
