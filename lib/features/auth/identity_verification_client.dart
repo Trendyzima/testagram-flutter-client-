@@ -48,6 +48,23 @@ class IdentityApplicationStatus {
   }
 }
 
+class IdentityProvisioningAuthorization {
+  const IdentityProvisioningAuthorization({
+    required this.token,
+    required this.jti,
+  });
+
+  final String token;
+  final String jti;
+
+  factory IdentityProvisioningAuthorization.fromJson(Map<String, dynamic> json) {
+    return IdentityProvisioningAuthorization(
+      token: json['approval_token'] as String,
+      jti: json['jti'] as String,
+    );
+  }
+}
+
 class IdentityVerificationClient {
   IdentityVerificationClient({
     required Uri backendOrigin,
@@ -162,6 +179,39 @@ class IdentityVerificationClient {
       headers: {'X-Application-Token': application.applicationToken},
     );
     return IdentityApplicationStatus.fromJson(_decode(response));
+  }
+
+  Future<IdentityProvisioningAuthorization> requestProvisioningAuthorization(
+    IdentityApplication application,
+  ) async {
+    final response = await _client.post(
+      _endpoint(
+        '/api/identity/applications/${application.applicationId}/provisioning-token',
+      ),
+      headers: {
+        'Accept': 'application/json',
+        'X-Application-Token': application.applicationToken,
+      },
+    );
+    return IdentityProvisioningAuthorization.fromJson(_decode(response));
+  }
+
+  Future<Map<String, dynamic>> redeemProvisioningAuthorization({
+    required IdentityApplication application,
+    required IdentityProvisioningAuthorization authorization,
+    required String appwriteJwt,
+  }) async {
+    final response = await _client.post(
+      _endpoint('/api/identity/applications/${application.applicationId}/redeem'),
+      headers: {
+        'Accept': 'application/json',
+        'X-Application-Token': application.applicationToken,
+        'X-Identity-Approval-Token': authorization.token,
+        'X-Identity-Approval-JTI': authorization.jti,
+        'Authorization': 'Bearer $appwriteJwt',
+      },
+    );
+    return _decode(response);
   }
 
   void close() => _client.close();
