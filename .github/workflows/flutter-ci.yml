@@ -46,25 +46,29 @@ jobs:
           flutter build apk --debug \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Android release-mode QA APK (not production signed)
         run: |
           flutter build apk --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Android release-mode QA App Bundle (not production signed)
         run: |
           flutter build appbundle --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Flutter web
         run: |
           flutter build web --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
           install -D cloudflare-pages/_headers build/web/_headers
       - name: Verify versioned Flutter entry points
         shell: bash
@@ -79,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create your account'; do
+          for marker in 'Sign up' 'Reset password' 'Create your account' 'Start secure identity review'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1
