@@ -34,6 +34,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   IdentityApplication? _identityApplication;
+  String? _identityIdempotencyKey;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
 
@@ -268,7 +269,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     await _run(() async {
       final random = Random.secure();
-      final idempotencyKey = base64UrlEncode(
+      final idempotencyKey = _identityIdempotencyKey ??= base64UrlEncode(
         List<int>.generate(32, (_) => random.nextInt(256)),
       ).replaceAll('=', '');
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
@@ -285,6 +286,7 @@ class _AuthScreenState extends State<AuthScreen> {
         if (mounted) {
           setState(() {
             _identityApplication = application;
+            _identityIdempotencyKey = null;
             _identityStatus = null;
             _page = _Page.identity;
             _notice = 'Your application is created. Upload your evidence to submit it for manual review.';
