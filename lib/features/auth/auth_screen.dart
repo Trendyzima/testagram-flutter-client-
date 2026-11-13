@@ -34,6 +34,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   IdentityApplication? _identityApplication;
+  IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
   String? _identityIdempotencyKey;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
@@ -353,7 +354,11 @@ class _AuthScreenState extends State<AuthScreen> {
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        final authorization = await api.requestProvisioningAuthorization(application);
+        var authorization = _identityProvisioningAuthorization;
+        if (authorization == null) {
+          authorization = await api.requestProvisioningAuthorization(application);
+          _identityProvisioningAuthorization = authorization;
+        }
         try {
           await widget.account.create(
             userId: ID.unique(),
@@ -381,11 +386,30 @@ class _AuthScreenState extends State<AuthScreen> {
           }
         }
         final jwt = await widget.account.createJWT();
-        final result = await api.redeemProvisioningAuthorization(
-          application: application,
-          authorization: authorization,
-          appwriteJwt: jwt.jwt,
-        );
+        Map<String, dynamic> result;
+        try {
+          result = await api.redeemProvisioningAuthorization(
+            application: application,
+            authorization: authorization,
+            appwriteJwt: jwt.jwt,
+          );
+        } on IdentityVerificationException catch (error) {
+          if (error.statusCode != 409) rethrow;
+          final latest = await api.getStatus(application);
+          if (latest.status == 'approved') {
+            authorization = await api.requestProvisioningAuthorization(application);
+            _identityProvisioningAuthorization = authorization;
+          }
+          // If the first redemption committed but its response was lost, the
+          // Backend recognizes the same Appwrite identity and safely returns
+          // the existing canonical link without consuming a second grant.
+          result = await api.redeemProvisioningAuthorization(
+            application: application,
+            authorization: authorization,
+            appwriteJwt: jwt.jwt,
+          );
+        }
+        _identityProvisioningAuthorization = null;
         if (!mounted) return;
         _password.clear();
         _confirm.clear();
