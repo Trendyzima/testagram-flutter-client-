@@ -16,8 +16,8 @@ Map<String, String>? postDetailMediaHeadersForUrl(
   final authorization = raw[url]?.toString().trim() ?? '';
   if (!authorization.startsWith('Bearer v1.') ||
       authorization.length > 8192 ||
-      authorization.contains('\\r') ||
-      authorization.contains('\\n')) {
+      authorization.contains('\r') ||
+      authorization.contains('\n')) {
     return null;
   }
   return {'Authorization': authorization};
