@@ -19,7 +19,7 @@ void main() {
     final client = IdentityVerificationClient(
       backendOrigin: Uri.parse('https://api.testagram.site'),
       client: MockClient((request) async {
-        seen = request as http.Request;
+        seen = request;
         return http.Response(jsonEncode({
           'application_id': application.applicationId,
           'application_token': application.applicationToken,
