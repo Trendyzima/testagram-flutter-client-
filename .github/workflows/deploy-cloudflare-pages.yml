@@ -105,7 +105,8 @@ jobs:
           flutter build web --release --base-href / \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \\
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
           install -D cloudflare-pages/_headers build/web/_headers
           # Cloudflare's edge may retain an older response's cache metadata for
           # stable Flutter filenames. Version both JS entry points per commit.
