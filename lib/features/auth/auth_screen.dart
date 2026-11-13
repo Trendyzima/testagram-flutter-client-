@@ -84,6 +84,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
   Widget _modeNavigation() {
+    if (_page == _Page.identity) return const SizedBox.shrink();
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
       (_Page.signUp, 'Sign up'),
