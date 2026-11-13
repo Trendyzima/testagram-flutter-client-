@@ -20,6 +20,11 @@ class AppConfig {
     defaultValue: 'https://testagram.site',
   );
 
+  static const enableIdentityRegistrationUi = bool.fromEnvironment(
+    'TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED',
+    defaultValue: false,
+  );
+
   static const enableTvCatalogue = bool.fromEnvironment(
     'TESTAGRAM_TV_ENABLED',
     defaultValue: false,
