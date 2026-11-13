@@ -88,7 +88,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Secure identity review'), findsOneWidget);
-    expect(find.textContaining('your details are only sent after you start the secure review flow'), findsOneWidget);
+    expect(find.textContaining('An account is not created until verification'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
         findsOneWidget);
     expect(tester.widget<FilledButton>(
