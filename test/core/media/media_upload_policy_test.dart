@@ -5,7 +5,11 @@ void main() {
   group('MediaUploadPolicy', () {
     test('normalizes allowed extensions and rejects unsupported files', () {
       expect(MediaUploadPolicy.normalizeExtension('PHOTO.JPEG', isVideo: false), 'jpeg');
-      expect(MediaUploadPolicy.normalizeExtension('clip.MOV', isVideo: true), 'mov');
+      expect(MediaUploadPolicy.normalizeExtension('clip.WEBM', isVideo: true), 'webm');
+      expect(MediaUploadPolicy.normalizeExtension('animated.GIF', isVideo: false), 'gif');
+      expect(MediaUploadPolicy.normalizeExtension('photo.AVIF', isVideo: false), 'avif');
+      expect(() => MediaUploadPolicy.normalizeExtension('clip.MOV', isVideo: true), throwsFormatException);
+      expect(() => MediaUploadPolicy.normalizeExtension('photo.HEIC', isVideo: false), throwsFormatException);
       expect(() => MediaUploadPolicy.normalizeExtension('payload.exe', isVideo: false), throwsFormatException);
       expect(() => MediaUploadPolicy.normalizeExtension('no-extension', isVideo: true), throwsFormatException);
     });
@@ -18,6 +22,10 @@ void main() {
     test('maps supported extensions to MIME types', () {
       expect(MediaUploadPolicy.contentType('jpg'), 'image/jpeg');
       expect(MediaUploadPolicy.contentType('mp4'), 'video/mp4');
+      expect(MediaUploadPolicy.contentType('webm'), 'video/webm');
+      expect(MediaUploadPolicy.contentType('gif'), 'image/gif');
+      expect(MediaUploadPolicy.contentType('avif'), 'image/avif');
+      expect(() => MediaUploadPolicy.contentType('mov'), throwsFormatException);
       expect(() => MediaUploadPolicy.contentType('exe'), throwsFormatException);
     });
   });
