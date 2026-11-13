@@ -71,7 +71,7 @@ class IdentityVerificationClient {
           ? error['message'] as String?
           : null;
       throw IdentityVerificationException(
-        message ?? 'Identity verification request failed (\${response.statusCode}).',
+        message ?? 'Identity verification request failed (${response.statusCode}).',
         response.statusCode,
       );
     }
@@ -136,7 +136,7 @@ class IdentityVerificationClient {
     );
     if (put.statusCode < 200 || put.statusCode >= 300) {
       throw IdentityVerificationException(
-        'Private evidence upload failed (\${put.statusCode}).',
+        'Private evidence upload failed (${put.statusCode}).',
         put.statusCode,
       );
     }
