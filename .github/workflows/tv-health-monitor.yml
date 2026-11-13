@@ -1,0 +1,52 @@
+name: Testagram TV Health Monitor
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/tv-health-monitor.yml"
+      - "tool/tv_health_monitor.mjs"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: testagram-tv-health-monitor
+  cancel-in-progress: true
+
+jobs:
+  probe:
+    name: Probe Backend-owned TV catalogue
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Request GitHub OIDC token
+        id: oidc
+        run: |
+          node --input-type=module <<'NODE'
+          const endpoint = process.env.ACTIONS_ID_TOKEN_REQUEST_URL;
+          const requestToken = process.env.ACTIONS_ID_TOKEN_REQUEST_TOKEN;
+          if (!endpoint || !requestToken) throw new Error("GitHub Actions OIDC is unavailable");
+          const separator = endpoint.includes("?") ? "&" : "?";
+          const response = await fetch(endpoint + separator + "audience=testagram-tv-health", {
+            headers: { authorization: `bearer ${requestToken}` },
+            signal: AbortSignal.timeout(15000),
+          });
+          if (!response.ok) throw new Error(`OIDC request failed: HTTP ${response.status}`);
+          const payload = await response.json();
+          if (typeof payload.value !== "string" || !payload.value) throw new Error("OIDC response has no token");
+          const fs = await import("node:fs");
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `token=${payload.value}\n`);
+          NODE
+
+      - name: Probe catalogue and submit bounded health batches
+        env:
+          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+          GITHUB_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
+        run: node tool/tv_health_monitor.mjs
