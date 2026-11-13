@@ -75,8 +75,11 @@ async function probe(rawUrl) {
 }
 
 async function fetchCatalogue() {
-  const response = await fetch(`${apiOrigin}/api/tv/catalog`, {
-    headers: { accept: "application/json" },
+  const response = await fetch(`${apiOrigin}/internal/tv/catalog`, {
+    headers: {
+      accept: "application/json",
+      "x-github-oidc-token": oidcToken,
+    },
     signal: AbortSignal.timeout(30000),
   });
   if (!response.ok) throw new Error(`TV catalogue request failed: HTTP ${response.status}`);
@@ -103,7 +106,7 @@ async function mapConcurrent(items, limit, mapper) {
 
 const channels = await fetchCatalogue();
 if (channels.length === 0) {
-  console.log("Backend TV catalogue is empty; no health batches submitted.");
+  console.log("::warning::Backend TV catalogue is empty; no health batches were submitted. Seed the private channel catalogue before expecting live TV health coverage.");
   process.exit(0);
 }
 
