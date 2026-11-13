@@ -110,21 +110,52 @@ class BackendApi {
     }
 
     final checksum = sha256.convert(bytes).toString();
-    final completed = await _request(
-      'POST',
-      baseUri.resolve('/api/media/complete'),
-      body: {
-        'key': key,
-        'visibility': 'public',
-        'content_type': contentType.toLowerCase(),
-        'checksum_sha256': checksum,
-      },
-    );
-    final asset = completed['data'];
-    if (asset is! Map) {
-      throw const BackendApiException('The server did not confirm the uploaded image.');
+    // Backend may return 202 while Data Centre verifies the primary object
+    // and its independent replica. Do not expose a pending object as a ready
+    // asset: post attachment requires status=ready.
+    final deadline = DateTime.now().add(const Duration(minutes: 3));
+    while (true) {
+      late final Map<String, dynamic> completed;
+      try {
+        completed = await _request(
+          'POST',
+          baseUri.resolve('/api/media/complete'),
+          body: {
+            'key': key,
+            'visibility': 'public',
+            'content_type': contentType.toLowerCase(),
+            'checksum_sha256': checksum,
+          },
+        );
+      } on BackendApiException catch (error) {
+        // A transient replica failure is re-queued by the Backend when
+        // completion is retried. Keep retries bounded and never claim success.
+        if ((error.statusCode == 502 || error.statusCode == 503) &&
+            DateTime.now().isBefore(deadline)) {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          continue;
+        }
+        rethrow;
+      }
+
+      final asset = completed['data'];
+      if (asset is! Map) {
+        throw const BackendApiException('The server did not confirm the uploaded image.');
+      }
+      final result = Map<String, dynamic>.from(asset);
+      final state = (result['status'] ?? '').toString();
+      if (state == 'ready') return result;
+      if (state != 'replication_pending') {
+        throw const BackendApiException('The uploaded image did not reach a valid ready state.');
+      }
+      if (!DateTime.now().isBefore(deadline)) {
+        throw const BackendApiException(
+          'The image is still being replicated. Please retry; it has not been attached or published.',
+          statusCode: 503,
+        );
+      }
+      await Future<void>.delayed(const Duration(seconds: 1));
     }
-    return Map<String, dynamic>.from(asset);
   }
 
   /// Attaches an already verified public media asset to an owned main-feed post.
