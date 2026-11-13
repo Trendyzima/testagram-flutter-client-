@@ -64,13 +64,13 @@ void main() {
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
-    expect(find.text('I accept the Terms and Conditions and Privacy Notice.'),
-        findsOneWidget);
+    expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
+    expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
     expect(find.text('Read Terms and Conditions'), findsOneWidget);
     expect(find.text('Read Privacy Notice'), findsOneWidget);
 
-    expect(find.text('Registration is not open yet.'), findsOneWidget);
-    expect(find.textContaining('your details are not submitted'), findsOneWidget);
+    expect(find.text('Secure identity review'), findsOneWidget);
+    expect(find.textContaining('An account is not created until verification'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
         findsOneWidget);
     expect(tester.widget<FilledButton>(
