@@ -146,6 +146,12 @@ class IdentityVerificationClient {
     );
     final reservation = _decode(reserve);
     final uploadUrl = Uri.parse(reservation['upload_url'] as String);
+    if (uploadUrl.scheme != 'https' ||
+        uploadUrl.host.isEmpty ||
+        uploadUrl.userInfo.isNotEmpty ||
+        uploadUrl.hasFragment) {
+      throw const FormatException('The evidence service returned an unsafe upload URL.');
+    }
     final put = await _client.put(
       uploadUrl,
       headers: {'Content-Type': contentType},
