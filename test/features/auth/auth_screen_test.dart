@@ -87,8 +87,8 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Registration is not open yet.'), findsOneWidget);
-    expect(find.textContaining('your details are not submitted'), findsOneWidget);
+    expect(find.text('Secure identity review'), findsOneWidget);
+    expect(find.textContaining('your details are only sent after you start the secure review flow'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Registration not available yet'),
         findsOneWidget);
     expect(tester.widget<FilledButton>(
