@@ -140,6 +140,63 @@ void main() {
       api.close();
     });
 
+    test('waits for Data Centre replication before returning a ready upload', () async {
+      var completionAttempts = 0;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          if (request.method == 'POST' && request.url.path == '/api/media/upload-intent') {
+            return http.Response(jsonEncode({
+              'ok': true,
+              'data': {
+                'key': 'users/alice/0123456789abcdef0123456789abcdef',
+                'url': '/api/media/upload?key=users%2Falice%2F0123456789abcdef0123456789abcdef',
+              },
+            }), 201);
+          }
+          if (request.method == 'PUT' && request.url.path == '/api/media/upload') {
+            return http.Response('', 204);
+          }
+          if (request.method == 'POST' && request.url.path == '/api/media/complete') {
+            completionAttempts++;
+            if (completionAttempts == 1) {
+              return http.Response(jsonEncode({
+                'ok': true,
+                'data': {
+                  'key': 'users/alice/0123456789abcdef0123456789abcdef',
+                  'status': 'replication_pending',
+                  'retry_after_ms': 1000,
+                },
+              }), 202);
+            }
+            return http.Response(jsonEncode({
+              'ok': true,
+              'data': {
+                'key': 'users/alice/0123456789abcdef0123456789abcdef',
+                'status': 'ready',
+                'visibility': 'public',
+                'content_type': 'image/jpeg',
+                'size_bytes': 3,
+              },
+            }), 201);
+          }
+          return http.Response('{}', 404);
+        }),
+      );
+
+      final asset = await api.uploadPublicImage(
+        name: 'photo.jpg',
+        contentType: 'image/jpeg',
+        bytes: [1, 2, 3],
+      );
+
+      expect(completionAttempts, 2);
+      expect(asset['status'], 'ready');
+      expect(asset['size_bytes'], 3);
+      api.close();
+    });
+
     test('attaches a verified media asset to an owned main-feed post', () async {
       late http.Request captured;
       final api = BackendApi(
