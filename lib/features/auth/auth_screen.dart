@@ -338,6 +338,67 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  String? _identityPasswordValid(String? value) {
+    if (value == null || value.length < 12) return 'Use at least 12 characters.';
+    if (value.length > 128) return 'Password is too long.';
+    return null;
+  }
+
+  Future<void> _completeIdentityProvisioning() async {
+    final application = _identityApplication;
+    if (application == null || _identityStatus?.status != 'approved') return;
+    if (!_form.currentState!.validate()) return;
+    await _run(() async {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        final authorization = await api.requestProvisioningAuthorization(application);
+        try {
+          await widget.account.create(
+            userId: ID.unique(),
+            email: _email.text.trim().toLowerCase(),
+            password: _password.text,
+            name: _name.text.trim(),
+          );
+        } on AppwriteException catch (error) {
+          // A previous attempt may already have created the Appwrite identity.
+          // Sign in with the same credentials and safely retry the backend link.
+          if (error.code != 409) rethrow;
+        }
+        await widget.account.createEmailPasswordSession(
+          email: _email.text.trim().toLowerCase(),
+          password: _password.text,
+        );
+        final user = await widget.account.get();
+        if (!user.emailVerification) {
+          await widget.account.createVerification(
+            url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+          );
+        }
+        final jwt = await widget.account.createJWT();
+        final result = await api.redeemProvisioningAuthorization(
+          application: application,
+          authorization: authorization,
+          appwriteJwt: jwt.jwt,
+        );
+        if (!mounted) return;
+        _password.clear();
+        _confirm.clear();
+        if (user.emailVerification) {
+          widget.onSignedIn();
+        } else {
+          setState(() {
+            _page = _Page.verify;
+            _notice = result['email_verification_required'] == true
+                ? 'Your Appwrite identity is linked. Check your email and verify it before signing in to Testagram.'
+                : 'Your account is linked. Verify your email to continue.';
+          });
+        }
+      } finally {
+        api.close();
+      }
+    });
+  }
+
   Future<void> _refreshIdentityStatus() async {
     final application = _identityApplication;
     if (application == null) return;
@@ -498,8 +559,27 @@ class _AuthScreenState extends State<AuthScreen> {
                     icon: const Icon(Icons.refresh),
                     label: const Text('Refresh application status'),
                   ),
-                  if (_identityStatus?.status == 'approved')
-                    const Text('Your application is approved. Account activation will follow the secure provisioning step.'),
+                  if (_identityStatus?.status == 'approved') ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      decoration: const InputDecoration(labelText: 'Create password', border: OutlineInputBorder()),
+                      validator: _identityPasswordValid,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _confirm,
+                      obscureText: _obscure,
+                      decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
+                      validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _busy ? null : _completeIdentityProvisioning,
+                      child: _busy ? const CircularProgressIndicator() : const Text('Create and link my account'),
+                    ),
+                  ],
                 ]),
               ),
             ),
