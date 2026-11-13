@@ -1,9 +1,14 @@
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:appwrite/appwrite.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import '../../core/app_config.dart';
 import 'auth_entry.dart';
+import 'identity_verification_client.dart';
 
-enum _Page { signIn, signUp, forgot, verify, reset }
+enum _Page { signIn, signUp, forgot, verify, reset, identity }
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -27,7 +32,9 @@ class _AuthScreenState extends State<AuthScreen> {
   final _password = TextEditingController(), _confirm = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
-  bool _ageConfirmed = false, _termsAccepted = false;
+  bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
+  IdentityApplication? _identityApplication;
+  IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
 
   @override
@@ -77,6 +84,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
   Widget _modeNavigation() {
+    if (_page == _Page.identity) return const SizedBox.shrink();
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
       (_Page.signUp, 'Sign up'),
@@ -119,6 +127,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   String _friendly(Object e) {
+    if (e is IdentityVerificationException) return e.message;
     if (e is AppwriteException) {
       if (e.code == 401) {
         return 'The email or password is incorrect.';
@@ -251,6 +260,168 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  Future<void> _startIdentityApplication() async {
+    if (!_form.currentState!.validate()) return;
+    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
+      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
+      return;
+    }
+    await _run(() async {
+      final random = Random.secure();
+      final idempotencyKey = base64UrlEncode(
+        List<int>.generate(32, (_) => random.nextInt(256)),
+      ).replaceAll('=', '');
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        final application = await api.createApplication(
+          email: _email.text,
+          username: _username.text,
+          displayName: _name.text,
+          adultConfirmed: _ageConfirmed,
+          termsAccepted: _termsAccepted,
+          privacyAccepted: _privacyAccepted,
+          idempotencyKey: idempotencyKey,
+        );
+        if (mounted) {
+          setState(() {
+            _identityApplication = application;
+            _identityStatus = null;
+            _page = _Page.identity;
+            _notice = 'Your application is created. Upload your evidence to submit it for manual review.';
+          });
+        }
+      } finally {
+        api.close();
+      }
+    });
+  }
+
+  String _identityContentType(String filename) {
+    final name = filename.toLowerCase();
+    if (name.endsWith('.jpg') || name.endsWith('.jpeg')) return 'image/jpeg';
+    if (name.endsWith('.png')) return 'image/png';
+    if (name.endsWith('.webp')) return 'image/webp';
+    throw const FormatException('Choose a JPEG, PNG or WebP image.');
+  }
+
+  Future<void> _uploadIdentityEvidence() async {
+    final application = _identityApplication;
+    if (application == null) return;
+    final file = await ImagePicker().pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+    if (file == null) return;
+    await _run(() async {
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty || bytes.length > 15 * 1024 * 1024) {
+        throw const FormatException('Evidence must be between 1 byte and 15 MiB.');
+      }
+      final contentType = _identityContentType(file.name);
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        await api.uploadAndSubmitEvidence(
+          application: application,
+          bytes: bytes,
+          contentType: contentType,
+        );
+        final status = await api.getStatus(application);
+        if (mounted) {
+          setState(() {
+            _identityStatus = status;
+            _notice = 'Evidence was securely uploaded and submitted for manual review.';
+          });
+        }
+      } finally {
+        api.close();
+      }
+    });
+  }
+
+  String? _identityPasswordValid(String? value) {
+    if (value == null || value.length < 12) return 'Use at least 12 characters.';
+    if (value.length > 128) return 'Password is too long.';
+    return null;
+  }
+
+  Future<void> _completeIdentityProvisioning() async {
+    final application = _identityApplication;
+    if (application == null || _identityStatus?.status != 'approved') return;
+    if (!_form.currentState!.validate()) return;
+    await _run(() async {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        final authorization = await api.requestProvisioningAuthorization(application);
+        try {
+          await widget.account.create(
+            userId: ID.unique(),
+            email: _email.text.trim().toLowerCase(),
+            password: _password.text,
+            name: _name.text.trim(),
+          );
+        } on AppwriteException catch (error) {
+          // A previous attempt may already have created the Appwrite identity.
+          // Sign in with the same credentials and safely retry the backend link.
+          if (error.code != 409) rethrow;
+        }
+        await widget.account.createEmailPasswordSession(
+          email: _email.text.trim().toLowerCase(),
+          password: _password.text,
+        );
+        final user = await widget.account.get();
+        if (!user.emailVerification) {
+          try {
+            await widget.account.createVerification(
+              url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+            );
+          } on AppwriteException catch (error) {
+            if (error.code != 409) rethrow;
+          }
+        }
+        final jwt = await widget.account.createJWT();
+        final result = await api.redeemProvisioningAuthorization(
+          application: application,
+          authorization: authorization,
+          appwriteJwt: jwt.jwt,
+        );
+        if (!mounted) return;
+        _password.clear();
+        _confirm.clear();
+        if (user.emailVerification) {
+          widget.onSignedIn();
+        } else {
+          setState(() {
+            _page = _Page.verify;
+            _notice = result['email_verification_required'] == true
+                ? 'Your Appwrite identity is linked. Check your email and verify it before signing in to Testagram.'
+                : 'Your account is linked. Verify your email to continue.';
+          });
+        }
+      } finally {
+        api.close();
+      }
+    });
+  }
+
+  Future<void> _refreshIdentityStatus() async {
+    final application = _identityApplication;
+    if (application == null) return;
+    await _run(() async {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        final status = await api.getStatus(application);
+        if (mounted) {
+          setState(() {
+            _identityStatus = status;
+            _notice = 'Application status refreshed.';
+          });
+        }
+      } finally {
+        api.close();
+      }
+    });
+  }
+
   Future<void> _showLegalDocument(String title, String body) async {
     await showDialog<void>(context: context, builder: (context) => AlertDialog(
       title: Text(title),
@@ -268,6 +439,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.signIn => 'Welcome back', _Page.signUp => 'Create your account',
       _Page.forgot => 'Reset your password', _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
+      _Page.identity => 'Identity verification',
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to your Testagram account.',
@@ -275,6 +447,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.forgot => 'We will send a secure password reset link.',
       _Page.verify => 'Check your inbox and verify your email address.',
       _Page.reset => 'Choose a strong password you have not used before.',
+      _Page.identity => 'Submit private evidence and track your manual review.',
     };
     return Scaffold(body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(24), child: ConstrainedBox(
@@ -301,7 +474,7 @@ class _AuthScreenState extends State<AuthScreen> {
               autocorrect: false, autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
               validator: _emailValid),
-          if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
+          if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
             const SizedBox(height: 14),
             TextFormField(controller: _password, obscureText: _obscure,
               autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
@@ -312,7 +485,7 @@ class _AuthScreenState extends State<AuthScreen> {
               validator: _passwordValid,
               onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); }),
           ],
-          if (_page == _Page.signUp || _page == _Page.reset) ...[
+          if (_page == _Page.reset) ...[
             const SizedBox(height: 14),
             TextFormField(controller: _confirm, obscureText: _obscure,
               decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
@@ -325,18 +498,15 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(Icons.info_outline, color: Theme.of(context).colorScheme.primary),
+                    Icon(Icons.verified_user_outlined, color: Theme.of(context).colorScheme.primary),
                     const SizedBox(width: 10),
                     const Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Registration is not open yet.',
-                              style: TextStyle(fontWeight: FontWeight.w600)),
+                          Text('Secure identity review', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text(
-                            'This form is available for preview, but your details are not submitted and no account is created. Secure identity review and account provisioning must be completed first.',
-                          ),
+                          Text('Your application is reviewed by Testagram staff. An account is not created until verification and independent approval are complete.'),
                         ],
                       ),
                     ),
@@ -357,7 +527,14 @@ class _AuthScreenState extends State<AuthScreen> {
               value: _termsAccepted,
               onChanged: _busy ? null : (value) => setState(() => _termsAccepted = value ?? false),
               controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('I accept the Terms and Conditions and Privacy Notice.'),
+              title: const Text('I accept the Terms and Conditions.'),
+            ),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              value: _privacyAccepted,
+              onChanged: _busy ? null : (value) => setState(() => _privacyAccepted = value ?? false),
+              controlAffinity: ListTileControlAffinity.leading,
+              title: const Text('I accept the Privacy Notice.'),
             ),
             Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
               TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read Terms and Conditions')),
@@ -365,17 +542,69 @@ class _AuthScreenState extends State<AuthScreen> {
             ]),
             const SizedBox(height: 8),
           ],
-                    if (_error != null) ...[const SizedBox(height: 14),
+                    if (_page == _Page.identity) ...[
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  const Text('Application submitted', style: TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  Text('Application: ${_identityApplication?.applicationId ?? '—'}'),
+                  Text('Status: ${_identityStatus?.status ?? 'awaiting evidence'}'),
+                  Text('Age assurance: ${_identityStatus?.verificationStatus ?? 'pending'}'),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: _busy ? null : _uploadIdentityEvidence,
+                    icon: const Icon(Icons.upload_file),
+                    label: const Text('Choose and submit evidence'),
+                  ),
+                  OutlinedButton.icon(
+                    onPressed: _busy ? null : _refreshIdentityStatus,
+                    icon: const Icon(Icons.refresh),
+                    label: const Text('Refresh application status'),
+                  ),
+                  if (_identityStatus?.status == 'approved') ...[
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _password,
+                      obscureText: _obscure,
+                      decoration: const InputDecoration(labelText: 'Create password', border: OutlineInputBorder()),
+                      validator: _identityPasswordValid,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      controller: _confirm,
+                      obscureText: _obscure,
+                      decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
+                      validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton(
+                      onPressed: _busy ? null : _completeIdentityProvisioning,
+                      child: _busy ? const CircularProgressIndicator() : const Text('Create and link my account'),
+                    ),
+                  ],
+                ]),
+              ),
+            ),
+          ],
+          if (_error != null) ...[const SizedBox(height: 14),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
           if (_notice != null) ...[const SizedBox(height: 14),
             Text(_notice!, style: const TextStyle(color: Color(0xFF168A4B)))],
           const SizedBox(height: 20),
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
-          if (_page == _Page.signUp) const FilledButton(
-            onPressed: null,
-            child: Text('Registration not available yet'),
-          ),
+          if (_page == _Page.signUp)
+            AppConfig.enableIdentityRegistrationUi
+                ? FilledButton(
+                    onPressed: _busy ? null : _startIdentityApplication,
+                    child: _busy ? const CircularProgressIndicator() : const Text('Start secure identity review'),
+                  )
+                : const FilledButton(
+                    onPressed: null,
+                    child: Text('Registration not available yet'),
+                  ),
           if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
             child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
           if (_page == _Page.reset) FilledButton(onPressed: _busy ? null : _reset,
