@@ -737,7 +737,7 @@ void main() {
           if (request.url.path == '/api/media/complete') {
             return http.Response(jsonEncode({
               'ok': true,
-              'data': {'key': 'media/key-1', 'public_url': 'https://cdn.testagram.site/key-1'},
+              'data': {'key': 'media/key-1', 'status': 'ready', 'public_url': 'https://cdn.testagram.site/key-1'},
             }), 201);
           }
           return http.Response('unexpected request', 500);
