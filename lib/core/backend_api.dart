@@ -711,7 +711,7 @@ class BackendApiException implements Exception {
       final asset = completed['data'];
       if (asset is Map && (asset['status'] ?? '') == 'replication_pending') {
         final retryMs = int.tryParse((asset['retry_after_ms'] ?? 1000).toString()) ?? 1000;
-        await Future<void>.delayed(Duration(milliseconds: retryMs.clamp(250, 5000)));
+        await Future<void>.delayed(Duration(milliseconds: retryMs.clamp(250, 5000).toInt()));
         continue;
       }
       if (asset is! Map || (asset['key'] ?? '').toString() != key || (asset['status'] ?? '') != 'ready') {
