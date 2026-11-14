@@ -59,7 +59,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
   bool _requiresVerification = false;
-  bool _requiresRegistrationConsent = false;
+  bool _requiresIdentityReview = false;
   String? _restoreError;
   BackendApi? _api;
 
@@ -72,7 +72,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _restore() async {
     if (mounted) setState(() => _loading = true);
     _restoreError = null;
-    _requiresRegistrationConsent = false;
+    _requiresIdentityReview = false;
     try {
       final user = await widget.account.get();
       _requiresVerification = !user.emailVerification;
@@ -89,8 +89,10 @@ class _AuthGateState extends State<AuthGate> {
           api.close();
           if (error is BackendApiException &&
               error.statusCode == 403 &&
-              error.message.toLowerCase().contains('registration consent')) {
-            _requiresRegistrationConsent = true;
+              (error.message.toLowerCase().contains('identity review') ||
+               error.message.toLowerCase().contains('two-person account approval') ||
+               error.message.toLowerCase().contains('registration consent'))) {
+            _requiresIdentityReview = true;
             _restoreError = null;
           } else {
             _restoreError = error is BackendApiException
@@ -131,7 +133,7 @@ class _AuthGateState extends State<AuthGate> {
           _signedIn = false;
           _restoreError = null;
           _requiresVerification = false;
-          _requiresRegistrationConsent = false;
+          _requiresIdentityReview = false;
           _api = null;
         });
       }
@@ -191,7 +193,8 @@ class _AuthGateState extends State<AuthGate> {
         account: widget.account,
         onSignedIn: _onSignedIn,
         requireVerification: _requiresVerification,
-        requireRegistrationConsent: _requiresRegistrationConsent,
+        requireIdentityReview: _requiresIdentityReview,
+        enableIdentityRegistration: AppConfig.enableIdentityRegistrationUi,
       );
     }
     return MainShell(
