@@ -334,17 +334,57 @@ class _FeedScreenState extends State<FeedScreen> {
     floatingActionButton: FloatingActionButton(onPressed: _publishing ? null : _composePost, tooltip: 'Compose post', child: _publishing ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.edit)),
     body: Column(children: [
       Padding(
-        padding: const EdgeInsets.all(12),
-        child: SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: false, label: Text('For you')),
-            ButtonSegment(value: true, label: Text('Following')),
+        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
+        child: Row(
+          children: [
+            Expanded(child: _FeedTab(
+              label: 'For you',
+              selected: !_following,
+              onTap: () => _selectFeed(false),
+            )),
+            Expanded(child: _FeedTab(
+              label: 'Following',
+              selected: _following,
+              onTap: () => _selectFeed(true),
+            )),
           ],
-          selected: {_following},
-          onSelectionChanged: (v) { setState(() => _following = v.first); _load(reset: true); },
         ),
       ),
-      Expanded(child: RefreshIndicator(
+      Padding(
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+        child: InkWell(
+          onTap: _publishing ? null : _composePost,
+          borderRadius: BorderRadius.circular(16),
+          child: Container(
+            padding: const EdgeInsets.all(13),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surface,
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Theme.of(context).dividerColor),
+            ),
+            child: Row(
+              children: [
+                CircleAvatar(
+                  radius: 19,
+                  backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                  child: Icon(Icons.person_rounded, color: Theme.of(context).colorScheme.primary),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  child: Text("What's happening?", style: TextStyle(fontSize: 15)),
+                ),
+                FilledButton(
+                  onPressed: _publishing ? null : _composePost,
+                  child: const Text('Post'),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+      Expanded(child: LayoutBuilder(
+        builder: (context, constraints) {
+          final timeline = RefreshIndicator(
         onRefresh: () => _load(reset: true),
         child: _loading && _posts.isEmpty
           ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
@@ -381,9 +421,130 @@ class _FeedScreenState extends State<FeedScreen> {
                     );
                   },
                 ),
+          );
+          if (constraints.maxWidth < 1040) return timeline;
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: timeline),
+              const SizedBox(width: 24),
+              SizedBox(
+                width: 292,
+                child: _ConversationSidebar(posts: _posts),
+              ),
+            ],
+          );
+        },
       )),
     ]),
   );
+
+  void _selectFeed(bool following) {
+    if (_following == following) return;
+    setState(() => _following = following);
+    _load(reset: true);
+  }
+}
+
+class _FeedTab extends StatelessWidget {
+  const _FeedTab({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final primary = Theme.of(context).colorScheme.primary;
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        height: 54,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(
+              color: selected ? primary : Colors.transparent,
+              width: 3,
+            ),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color: selected ? Theme.of(context).colorScheme.onSurface : Theme.of(context).hintColor,
+            fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _ConversationSidebar extends StatelessWidget {
+  const _ConversationSidebar({required this.posts});
+
+  final List<Map<String, dynamic>> posts;
+
+  @override
+  Widget build(BuildContext context) {
+    final topics = <String, int>{};
+    final matcher = RegExp(r'#[A-Za-z0-9_]{2,30}');
+    for (final post in posts) {
+      final content = (post['content'] ?? '').toString();
+      for (final match in matcher.allMatches(content)) {
+        final topic = match.group(0)!.toLowerCase();
+        topics[topic] = (topics[topic] ?? 0) + 1;
+      }
+    }
+    final ranked = topics.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 16, right: 16),
+      child: Container(
+        padding: const EdgeInsets.all(18),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(color: Theme.of(context).dividerColor),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text("What's happening", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
+            const SizedBox(height: 6),
+            Text('Topics appearing in your timeline', style: Theme.of(context).textTheme.bodySmall),
+            const SizedBox(height: 14),
+            if (ranked.isEmpty)
+              Text('Hashtags from posts will appear here as conversations grow.', style: Theme.of(context).textTheme.bodyMedium)
+            else
+              for (final topic in ranked.take(6)) ...[
+                const Divider(height: 1),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Trending in your feed', style: Theme.of(context).textTheme.labelSmall),
+                      const SizedBox(height: 4),
+                      Text(topic.key, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
+                      const SizedBox(height: 3),
+                      Text('${topic.value} ${topic.value == 1 ? 'post' : 'posts'}', style: Theme.of(context).textTheme.bodySmall),
+                    ],
+                  ),
+                ),
+              ],
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _PostDraft {
@@ -682,6 +843,14 @@ class _PostCard extends StatelessWidget {
                   Row(
                     children: [
                       Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      if (author is Map && (author['is_verified'] == true || author['verified'] == true))
+                        Padding(
+                          padding: const EdgeInsets.only(left: 3),
+                          child: Tooltip(
+                            message: 'Verified account',
+                            child: Icon(Icons.verified_rounded, size: 15, color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
                       if (username.isNotEmpty) ...[
                         const SizedBox(width: 5),
                         Flexible(child: Text('@$username', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
