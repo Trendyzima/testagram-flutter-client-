@@ -51,7 +51,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('self-service registration is enabled without identity-review gate',
+  testWidgets('registration requires private identity evidence and dual approval before account creation',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(account: account, onSignedIn: () {}),
@@ -63,26 +63,26 @@ void main() {
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
-    expect(find.text('Password'), findsOneWidget);
-    expect(find.text('Confirm password'), findsOneWidget);
-    expect(find.text('Username'), findsNothing);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Password'), findsNothing);
+    expect(find.text('Confirm password'), findsNothing);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.text('Create your Testagram account'), findsOneWidget);
+    expect(find.textContaining('Two independent reviewers must approve'), findsOneWidget);
 
-    final action = find.widgetWithText(FilledButton, 'Create account');
+    final action = find.widgetWithText(FilledButton, 'Submit identity application');
     expect(action, findsOneWidget);
     expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
     // The form still validates locally before any Appwrite request is made.
     await tapVisible(tester, action);
     expect(find.text('Enter your name.'), findsOneWidget);
+    expect(find.text('Use 3–30 letters, numbers or underscores.'), findsOneWidget);
     expect(find.text('Enter your email address.'), findsOneWidget);
-    expect(find.text('Use at least 8 characters.'), findsOneWidget);
   });
 
-  testWidgets('restored verified accounts can complete Backend registration consent',
+  testWidgets('accounts without an approved identity link are routed to identity application',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
@@ -92,12 +92,13 @@ void main() {
       ),
     ));
 
-    expect(find.text('Finish setting up your account'), findsOneWidget);
-    expect(find.text('Accept and continue'), findsOneWidget);
+    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Submit identity application'), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.textContaining('This step records your current declarations with Testagram.'), findsOneWidget);
+    expect(find.textContaining('Complete identity verification and independent account approval'), findsOneWidget);
   });
 
   testWidgets('legal documents can be read before consent', (tester) async {
