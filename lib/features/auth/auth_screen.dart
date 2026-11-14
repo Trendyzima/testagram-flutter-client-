@@ -769,14 +769,16 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 12),
           if (_page == _Page.signIn) ...[
             TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?')),
-            const SizedBox(height: 4),
-            Text('New to Testagram?', style: Theme.of(context).textTheme.bodyMedium),
-            const SizedBox(height: 6),
-            FilledButton.tonalIcon(
-              onPressed: _busy ? null : () => _go(_Page.signUp),
-              icon: const Icon(Icons.person_add_alt_1),
-              label: const Text('Create account'),
-            ),
+            if (widget.enableIdentityRegistration) ...[
+              const SizedBox(height: 4),
+              Text('New to Testagram?', style: Theme.of(context).textTheme.bodyMedium),
+              const SizedBox(height: 6),
+              FilledButton.tonalIcon(
+                onPressed: _busy ? null : () => _go(_Page.signUp),
+                icon: const Icon(Icons.person_add_alt_1),
+                label: const Text('Create account'),
+              ),
+            ],
           ] else if (_page != _Page.verify)
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
