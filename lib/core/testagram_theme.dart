@@ -1,85 +1,133 @@
 import 'package:material_ui/material_ui.dart';
 
-/// Tokens mirror the live Testagram CSS variables in src/index.css.
-/// Keep these values shared across Flutter Web and native Android.
+/// Shared T social design tokens for Flutter mobile and web.
+/// The visual language is inspired by modern conversation-first social apps,
+/// while keeping Testagram's own name, iconography and product identity.
 class TestagramTheme {
   const TestagramTheme._();
 
-  static const green = Color(0xFF148F44); // hsl(142 76% 32%)
-  static const greenDark = Color(0xFF179F4B); // hsl(142 76% 36%)
+  static const blue = Color(0xFF1685F5);
+  static const blueDark = Color(0xFF4AA3FF);
   static const lightBackground = Color(0xFFFFFFFF);
   static const lightSurface = Color(0xFFFFFFFF);
-  static const lightRaised = Color(0xFFFCFCFC);
-  static const lightBorder = Color(0xFFE0E0E0);
-  static const darkBackground = Color(0xFF000000);
-  static const darkSurface = Color(0xFF121212);
-  static const darkRaised = Color(0xFF242424);
-  static const darkBorder = Color(0xFF262626);
+  static const lightRaised = Color(0xFFF5F8FA);
+  static const lightBorder = Color(0xFFE5EAF0);
+  static const darkBackground = Color(0xFF080B10);
+  static const darkSurface = Color(0xFF10151D);
+  static const darkRaised = Color(0xFF19212C);
+  static const darkBorder = Color(0xFF263241);
 
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
 
   static ThemeData _build(Brightness brightness) {
     final isDark = brightness == Brightness.dark;
+    final surface = isDark ? darkSurface : lightSurface;
+    final background = isDark ? darkBackground : lightBackground;
+    final raised = isDark ? darkRaised : lightRaised;
+    final border = isDark ? darkBorder : lightBorder;
+    final primary = isDark ? blueDark : blue;
     final scheme = ColorScheme.fromSeed(
-      seedColor: green,
+      seedColor: blue,
       brightness: brightness,
-      surface: isDark ? darkSurface : lightSurface,
-      primary: isDark ? greenDark : green,
-      secondary: isDark ? greenDark : green,
-      outline: isDark ? darkBorder : lightBorder,
+      surface: surface,
+      primary: primary,
+      secondary: primary,
+      outline: border,
     );
+
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: scheme,
-      scaffoldBackgroundColor: isDark ? darkBackground : lightBackground,
+      scaffoldBackgroundColor: background,
+      visualDensity: VisualDensity.standard,
       appBarTheme: AppBarTheme(
-        backgroundColor: (isDark ? darkBackground : lightBackground).withValues(alpha: 0.78),
-        foregroundColor: isDark ? Colors.white : const Color(0xFF0D0D0D),
+        backgroundColor: surface.withValues(alpha: 0.96),
+        foregroundColor: isDark ? const Color(0xFFF4F7FA) : const Color(0xFF15202B),
         elevation: 0,
+        scrolledUnderElevation: 0,
         centerTitle: false,
         surfaceTintColor: Colors.transparent,
+        titleTextStyle: TextStyle(
+          color: isDark ? const Color(0xFFF4F7FA) : const Color(0xFF15202B),
+          fontSize: 20,
+          fontWeight: FontWeight.w800,
+          letterSpacing: -0.55,
+        ),
       ),
       cardTheme: CardThemeData(
-        color: isDark ? darkSurface : lightSurface,
+        color: surface,
         elevation: 0,
         margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: (isDark ? darkBorder : lightBorder).withValues(alpha: 0.78)),
+          side: BorderSide(color: border),
         ),
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: isDark ? darkRaised : const Color(0xFFF2F2F2),
+        fillColor: raised,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(13),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: border),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(13),
-          borderSide: BorderSide(color: (isDark ? darkBorder : lightBorder).withValues(alpha: 0.8)),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: border),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(13),
-          borderSide: const BorderSide(color: green, width: 1.5),
+          borderRadius: BorderRadius.circular(16),
+          borderSide: BorderSide(color: primary, width: 1.6),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: isDark ? darkSurface : lightSurface,
-        indicatorColor: (isDark ? greenDark : green).withValues(alpha: 0.13),
+        backgroundColor: surface,
+        elevation: 0,
+        indicatorColor: primary.withValues(alpha: 0.12),
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
         labelTextStyle: WidgetStateProperty.resolveWith(
           (states) => TextStyle(
-            fontSize: 11,
-            fontWeight: states.contains(WidgetState.selected) ? FontWeight.w700 : FontWeight.w500,
+            fontSize: 10.5,
+            fontWeight: states.contains(WidgetState.selected)
+                ? FontWeight.w800
+                : FontWeight.w500,
           ),
         ),
       ),
-      dividerColor: isDark ? darkBorder : lightBorder,
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: surface,
+        indicatorColor: primary.withValues(alpha: 0.12),
+        selectedIconTheme: IconThemeData(color: primary),
+        unselectedIconTheme: IconThemeData(
+          color: isDark ? const Color(0xFF9AA8B7) : const Color(0xFF657786),
+        ),
+        selectedLabelTextStyle: TextStyle(
+          color: primary,
+          fontWeight: FontWeight.w800,
+        ),
+      ),
+      dividerColor: border,
       snackBarTheme: SnackBarThemeData(
         behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      ),
+      floatingActionButtonTheme: FloatingActionButtonThemeData(
+        backgroundColor: primary,
+        foregroundColor: Colors.white,
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      ),
+      chipTheme: ChipThemeData(
+        shape: const StadiumBorder(),
+        side: BorderSide(color: border),
+        backgroundColor: raised,
+        selectedColor: primary.withValues(alpha: 0.12),
+        labelStyle: TextStyle(
+          color: isDark ? const Color(0xFFE8EEF5) : const Color(0xFF243447),
+        ),
       ),
     );
   }
