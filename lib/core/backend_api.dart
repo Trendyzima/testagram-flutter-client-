@@ -599,7 +599,7 @@ class BackendApi {
     final headers = <String, String>{
       ...await _headers(),
       ...extraHeaders,
-      if (body != null) 'Content-Type': 'application/json',
+      if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
     };
     late final http.Response response;
     try {
