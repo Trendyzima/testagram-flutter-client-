@@ -1,4 +1,7 @@
 
+import 'dart:convert';
+import 'dart:math';
+
 import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -32,6 +35,7 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _form = GlobalKey<FormState>();
   final _name = TextEditingController(), _email = TextEditingController();
+  final _username = TextEditingController();
   final _password = TextEditingController(), _confirm = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
@@ -79,14 +83,14 @@ class _AuthScreenState extends State<AuthScreen> {
         break;
     }
     if (widget.requireRegistrationConsent) {
-      _page = _Page.consent;
-      _notice = 'Please confirm your age and accept the current Terms and Privacy Notice to finish setting up your account.';
+      _page = _Page.signUp;
+      _notice = 'Complete identity verification and independent account approval to finish setting up your account.';
     }
   }
 
   @override
   void dispose() {
-    _name.dispose(); _email.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
+    _name.dispose(); _email.dispose(); _username.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
   }
 
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
@@ -167,13 +171,27 @@ class _AuthScreenState extends State<AuthScreen> {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  Future<void> _signIn() async {
-    if (!_form.currentState!.validate()) {
-      return;
+  String _newIdentityIdempotencyKey() {
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
+    return base64Url.encode(bytes).replaceAll('=', '');
+  }
+
+  String? _usernameValid(String? value) {
+    final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
+    if (!RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(username)) {
+      return 'Use 3–30 letters, numbers or underscores.';
     }
+    return null;
+  }
+
+  Future<void> _signIn() async {
+    if (!_form.currentState!.validate()) return;
     await _run(() async {
       await widget.account.createEmailPasswordSession(
-        email: _email.text.trim().toLowerCase(), password: _password.text);
+        email: _email.text.trim().toLowerCase(),
+        password: _password.text,
+      );
       final user = await widget.account.get();
       if (!user.emailVerification) {
         if (mounted) {
@@ -185,9 +203,6 @@ class _AuthScreenState extends State<AuthScreen> {
         return;
       }
 
-      // Appwrite proves the credential/session. The Backend must independently
-      // validate that JWT and resolve the canonical Testagram account before
-      // the app opens product surfaces.
       final backend = BackendApi(
         baseUri: AppConfig.backendOrigin,
         getJwt: () async => (await widget.account.createJWT()).jwt,
@@ -195,12 +210,22 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         await backend.getMyProfile();
       } on BackendApiException catch (error) {
+        final message = error.message.toLowerCase();
         if (error.statusCode == 403 &&
-            error.message.toLowerCase().contains('registration consent')) {
+            (message.contains('identity review') ||
+             message.contains('two-person account approval') ||
+             message.contains('registration consent'))) {
           if (mounted) {
             setState(() {
-              _page = _Page.consent;
-              _notice = 'Confirm your age and accept the current Terms and Privacy Notice to finish account setup.';
+              _name.text = user.name;
+              _email.text = user.email;
+              _username.text = user.email.split('@').first
+                  .toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
+                  .replaceAll(RegExp(r'_+'), '_');
+              if (_username.text.length < 3) _username.text = 'user_account';
+              if (_username.text.length > 30) _username.text = _username.text.substring(0, 30);
+              _page = _Page.signUp;
+              _notice = 'Your Appwrite login is valid, but this account has not completed Testagram identity review and two-person approval. Submit an application to continue.';
             });
           }
           return;
@@ -220,60 +245,28 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     await _run(() async {
-      // A previous attempt may have created the Appwrite account but failed
-      // before consent persistence or verification delivery. Treat only 409
-      // as that recoverable case; the password must still authenticate below.
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        await widget.account.create(
-          userId: ID.unique(),
+        final application = await api.createApplication(
           email: _email.text.trim().toLowerCase(),
-          password: _password.text,
-          name: _name.text.trim(),
-        );
-      } on AppwriteException catch (error) {
-        if (error.code != 409) rethrow;
-      }
-
-      await widget.account.createEmailPasswordSession(
-        email: _email.text.trim().toLowerCase(),
-        password: _password.text,
-      );
-      final backend = BackendApi(
-        baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
-      );
-      try {
-        await backend.recordRegistrationConsent(
-          ageConfirmed: _ageConfirmed,
+          username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+          displayName: _name.text.trim(),
+          adultConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
-          termsVersion: AppConfig.termsVersion,
-          privacyVersion: AppConfig.privacyVersion,
+          idempotencyKey: _newIdentityIdempotencyKey(),
         );
-        final user = await widget.account.get();
-        if (user.emailVerification) {
-          // Existing verified accounts that were interrupted before their
-          // first Backend link can finish setup through this same path.
-          await backend.getMyProfile();
-          widget.onSignedIn();
-          return;
-        }
-        await widget.account.createVerification(
-          url: '${AppConfig.authCallbackOrigin}/?mode=verification',
-        );
-      } on AppwriteException catch (error) {
-        // Appwrite may report that a verification email is already pending.
-        if (error.code != 409) rethrow;
+        final status = await api.getStatus(application);
+        if (!mounted) return;
+        setState(() {
+          _identityApplication = application;
+          _identityStatus = status;
+          _page = _Page.identity;
+          _notice = 'Your application has been created. Submit the requested private evidence; account creation becomes available only after independent review and two-person approval.';
+        });
       } finally {
-        backend.close();
+        api.close();
       }
-      if (!mounted) return;
-      _password.clear();
-      _confirm.clear();
-      setState(() {
-        _page = _Page.verify;
-        _notice = 'Your account is ready. Check your email to verify it, then sign in.';
-      });
     });
   }
 
@@ -619,6 +612,16 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 14),
           ],
+          if (_page == _Page.signUp) ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _username,
+              autocorrect: false,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Username', prefixText: '@', border: OutlineInputBorder()),
+              validator: _usernameValid,
+            ),
+          ],
           if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
             TextFormField(
               controller: _email,
@@ -628,7 +631,7 @@ class _AuthScreenState extends State<AuthScreen> {
               decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
               validator: _emailValid,
             ),
-          if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
+          if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
             const SizedBox(height: 14),
             TextFormField(
               controller: _password,
@@ -646,7 +649,7 @@ class _AuthScreenState extends State<AuthScreen> {
               onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
             ),
           ],
-          if ({_Page.signUp, _Page.reset}.contains(_page)) ...[
+          if (_page == _Page.reset) ...[
             const SizedBox(height: 14),
             TextFormField(
               controller: _confirm,
@@ -670,7 +673,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         children: [
                           Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text('Your email and password are securely managed by Appwrite. We securely record your age and policy consent, then verify your email before linking your Testagram profile.'),
+                          Text('Submit your details and private age-assurance evidence. Two independent reviewers must approve your application before an Appwrite account and Testagram profile can be created.'),
                         ],
                       ),
                     ),
@@ -681,7 +684,7 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_page == _Page.consent)
               const Padding(
                 padding: EdgeInsets.only(bottom: 12),
-                child: Text('This step records your current declarations with Testagram. It does not require the separate high-assurance identity-review process.'),
+                child: Text('Your declarations are recorded with your application. Independent identity review and two-person approval are required before account creation.'),
               ),
             const SizedBox(height: 12),
             CheckboxListTile(
@@ -767,7 +770,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (_page == _Page.signUp)
             FilledButton(
               onPressed: _busy ? null : _signUp,
-              child: _busy ? const CircularProgressIndicator() : const Text('Create account'),
+              child: _busy ? const CircularProgressIndicator() : const Text('Submit identity application'),
             ),
           if (_page == _Page.consent)
             FilledButton(
