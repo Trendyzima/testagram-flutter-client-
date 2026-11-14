@@ -244,11 +244,9 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       try {
         await backend.recordRegistrationConsent(
-          ageConfirmed: _ageConfirmed,
+          adultConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
-          termsVersion: AppConfig.termsVersion,
-          privacyVersion: AppConfig.privacyVersion,
         );
         final user = await widget.account.get();
         if (user.emailVerification) {
@@ -289,11 +287,9 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       try {
         await backend.recordRegistrationConsent(
-          ageConfirmed: _ageConfirmed,
+          adultConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
-          termsVersion: AppConfig.termsVersion,
-          privacyVersion: AppConfig.privacyVersion,
         );
         await backend.getMyProfile();
       } finally {
