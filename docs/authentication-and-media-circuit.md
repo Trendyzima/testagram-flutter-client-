@@ -28,13 +28,15 @@ A persisted Appwrite session is checked against the Backend again at app startup
 
 ## Registration acceptance
 
-Registration is an approval workflow, not a client-created account shortcut:
+Normal self-service registration uses Appwrite directly for credentials and email verification:
 
-- The Backend accepts an application only when the registration feature is explicitly enabled, PostgreSQL and private evidence storage are available, replication is configured, and current Terms/Privacy versions are configured.
-- Evidence is uploaded through the Backend proxy and verified before manual review.
-- Approval requires the Backend's independent reviewer controls. The client cannot mark an application approved.
-- Only after the approved, short-lived provisioning authorization is redeemed against an Appwrite JWT may the Backend create the canonical account mapping.
-- Email verification remains required before product access.
+- Flutter validates the name, email, password confirmation, adult eligibility and policy acceptance, then creates the Appwrite account with the public Appwrite client SDK.
+- Flutter requests the Appwrite email-verification message. The user must redeem the one-time verification link before product access.
+- After verification, the user signs in. Flutter obtains an Appwrite JWT and calls the Backend profile endpoint.
+- The Backend validates the JWT and transactionally creates the canonical Testagram account and immutable Appwrite-user-ID mapping on first verified sign-in. Repeat sign-ins resolve the same mapping; email equality is never used to claim an existing account.
+- If the Backend cannot resolve or provision the canonical profile, Flutter must keep the authenticated product shell locked and show a retryable error.
+
+The separate identity-evidence and two-person approval workflow remains available for any future restricted/high-assurance registration policy. It is not a prerequisite for ordinary self-service accounts and must not be wired as a mandatory gate for the normal Create account action.
 
 ## Media acceptance
 
@@ -45,7 +47,7 @@ Registration is an approval workflow, not a client-created account shortcut:
 
 ## Production switches and release gates
 
-The current deployment workflow defaults both `TESTAGRAM_IDENTITY_REGISTRATION_ENABLED` and `MEDIA_REPLICATION_ENABLED` to `false`. The Flutter registration UI also defaults to disabled. These are deliberate fail-closed defaults, not cosmetic switches.
+The current deployment workflow defaults the separate identity-evidence workflow (`TESTAGRAM_IDENTITY_REGISTRATION_ENABLED`) and `MEDIA_REPLICATION_ENABLED` to `false`. Those switches do not disable Appwrite self-service account creation. Appwrite must still have public account creation enabled, the production project ID and endpoint configured in the Flutter build, and the canonical callback origin registered as a Web platform.
 
 Before enabling public registration, operators must verify in the production environment (without exposing values in logs):
 
