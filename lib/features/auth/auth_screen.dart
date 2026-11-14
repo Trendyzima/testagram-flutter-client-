@@ -145,8 +145,14 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
-      if (e.statusCode == 403 && e.message.toLowerCase().contains('registration consent')) {
-        return 'Confirm your age and accept the current Terms and Privacy Notice to finish account setup.';
+      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
+        return 'Identity review and two-person account approval are required before accessing Testagram.';
+      }
+      if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
+        return 'Verify your email address before accessing Testagram.';
+      }
+      if (e.code == 'AUTH_BACKEND_UNAVAILABLE') {
+        return 'Testagram authentication is temporarily unavailable. Please retry.';
       }
       if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
         return 'Your Appwrite sign-in succeeded, but Testagram could not resolve your canonical account. Retry or contact support.';
@@ -226,9 +232,9 @@ class _AuthScreenState extends State<AuthScreen> {
       } on BackendApiException catch (error) {
         final message = error.message.toLowerCase();
         if (error.statusCode == 403 &&
-            (message.contains('identity review') ||
-             message.contains('two-person account approval') ||
-             message.contains('registration consent'))) {
+            (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
+             message.contains('identity review') ||
+             message.contains('two-person account approval')))  {
           if (mounted) {
             setState(() {
               _name.text = user.name;
