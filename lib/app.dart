@@ -89,9 +89,9 @@ class _AuthGateState extends State<AuthGate> {
           api.close();
           if (error is BackendApiException &&
               error.statusCode == 403 &&
-              (error.message.toLowerCase().contains('identity review') ||
-               error.message.toLowerCase().contains('two-person account approval') ||
-               error.message.toLowerCase().contains('registration consent'))) {
+              (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
+               error.message.toLowerCase().contains('identity review') ||
+               error.message.toLowerCase().contains('two-person account approval'))) {
             _requiresIdentityReview = true;
             _restoreError = null;
           } else {
