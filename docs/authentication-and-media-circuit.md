@@ -2,6 +2,8 @@
 
 This document records the production trust boundaries for the Flutter authentication and media flows.
 
+> **Readiness note:** this describes the intended and source-implemented trust path, not a claim that all production providers are currently enabled or passing live acceptance. Backend deployment defaults keep media replication and public identity registration disabled until provider credentials, migrations, policy versions and live acceptance gates are verified.
+
 ## Ownership and request path
 
 1. **Cloudflare Pages** serves the Flutter web bundle and the approved HTTPS callback origin. It is a frontend host, not an identity or product-data authority.
