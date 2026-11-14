@@ -870,5 +870,65 @@ void main() {
       expect(response['user_id'], 'account-1');
       api.close();
     });
+
+    test('loads a single poll through the authenticated Backend route', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'id': '00000000-0000-4000-8000-000000000001',
+              'question': 'Which feature next?',
+              'options': [],
+              'has_voted': false,
+            },
+          }), 200);
+        }),
+      );
+
+      final response = await api.getPoll('00000000-0000-4000-8000-000000000001');
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/social/polls/00000000-0000-4000-8000-000000000001');
+      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect((response['data'] as Map)['question'], 'Which feature next?');
+      api.close();
+    });
+
+    test('toggles thread likes, reposts and bookmarks through authenticated routes', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'appwrite-session-jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'thread_id': '00000000-0000-4000-8000-000000000001'},
+          }), 200);
+        }),
+      );
+
+      const threadId = '00000000-0000-4000-8000-000000000001';
+      await api.toggleThreadLike(threadId);
+      await api.toggleThreadRepost(threadId);
+      await api.toggleThreadBookmark(threadId);
+
+      expect(requests, hasLength(3));
+      expect(requests.map((request) => request.method), everyElement('POST'));
+      expect(requests.map((request) => request.url.path), [
+        '/api/threads/$threadId/likes/toggle',
+        '/api/threads/$threadId/reposts/toggle',
+        '/api/threads/$threadId/bookmarks/toggle',
+      ]);
+      expect(requests.every((request) =>
+          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+      expect(requests.every((request) => request.body == '{}'), isTrue);
+      expect(requests.every((request) => request.headers['content-type'] == 'application/json'), isTrue);
+      api.close();
+    });
   });
 }
