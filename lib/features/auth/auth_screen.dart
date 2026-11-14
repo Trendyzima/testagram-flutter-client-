@@ -779,9 +779,7 @@ class _AuthScreenState extends State<AuthScreen> {
               icon: const Icon(Icons.person_add_alt_1),
               label: const Text('Create account'),
             ),
-          ] else if (_page != _Page.verify)
-            TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))
-          else
+          ] else if (_page != _Page.verify && _page != _Page.consent)
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
           Text(
