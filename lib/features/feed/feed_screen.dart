@@ -658,10 +658,8 @@ class _PostCard extends StatelessWidget {
       if (legacyUrl.startsWith('http')) mediaUrls.add(legacyUrl);
     }
 
-    return InkWell(
-      onTap: onOpen,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -695,7 +693,10 @@ class _PostCard extends StatelessWidget {
                   ),
                   if (body.isNotEmpty) ...[
                     const SizedBox(height: 7),
-                    Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
+                    InkWell(
+                      onTap: onOpen,
+                      child: Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
+                    ),
                   ],
                   if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 11),
@@ -732,7 +733,6 @@ class _PostCard extends StatelessWidget {
             ),
           ],
         ),
-      ),
     );
   }
 }
