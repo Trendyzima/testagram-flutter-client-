@@ -420,6 +420,29 @@ class BackendApi {
         },
       );
 
+  /// Records age, Terms and Privacy acceptance for the currently authenticated
+  /// Appwrite account. The Backend resolves the account identity from the JWT
+  /// and timestamps the immutable consent records itself.
+  Future<Map<String, dynamic>> recordRegistrationConsent({
+    required bool ageConfirmed,
+    required bool termsAccepted,
+    required bool privacyAccepted,
+    required String termsVersion,
+    required String privacyVersion,
+  }) {
+    return _request(
+      'POST',
+      baseUri.resolve('/api/auth/registration-consent'),
+      body: {
+        'age_confirmed': ageConfirmed,
+        'terms_accepted': termsAccepted,
+        'privacy_accepted': privacyAccepted,
+        'terms_version': termsVersion,
+        'privacy_version': privacyVersion,
+      },
+    );
+  }
+
   /// Resolves the caller's canonical Testagram profile from the verified session.
   /// Appwrite user IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
