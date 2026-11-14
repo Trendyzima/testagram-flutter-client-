@@ -35,20 +35,23 @@ class TvChannelCachePolicy {
     if (host == 'localhost' ||
         host.endsWith('.localhost') ||
         host.endsWith('.local') ||
-        host.endsWith('.internal') ||
-        host == '::' ||
-        host == '::1' ||
-        host.startsWith('fc') ||
-        host.startsWith('fd') ||
-        host.startsWith('fe80:') ||
-        host.startsWith('ff')) {
+        host.endsWith('.internal')) {
+      return true;
+    }
+    if (host.contains(':') &&
+        (host == '::' ||
+            host == '::1' ||
+            host.startsWith('fc') ||
+            host.startsWith('fd') ||
+            host.startsWith('fe80:') ||
+            host.startsWith('ff'))) {
       return true;
     }
 
     final parts = host.split('.');
     if (parts.length != 4) return false;
     final octets = parts.map(int.tryParse).toList(growable: false);
-    if (octets.any((value) => value == null || value! < 0 || value > 255)) {
+    if (octets.any((value) => value == null || value! < 0 || value! > 255)) {
       return false;
     }
 
