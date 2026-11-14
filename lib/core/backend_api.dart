@@ -404,22 +404,6 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
-  /// Records age self-declaration and the exact Terms/Privacy versions for
-  /// the authenticated Appwrite account before canonical account provisioning.
-  Future<Map<String, dynamic>> recordRegistrationConsent({
-    required bool adultConfirmed,
-    required bool termsAccepted,
-    required bool privacyAccepted,
-  }) => _request(
-        'POST',
-        baseUri.resolve('/api/auth/registration-consent'),
-        body: {
-          'adult_confirmed': adultConfirmed,
-          'terms_accepted': termsAccepted,
-          'privacy_accepted': privacyAccepted,
-        },
-      );
-
   /// Records age, Terms and Privacy acceptance for the currently authenticated
   /// Appwrite account. The Backend resolves the account identity from the JWT
   /// and timestamps the immutable consent records itself.
