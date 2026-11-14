@@ -17,28 +17,30 @@ void main() {
           captured = request;
           return http.Response(jsonEncode({
             'ok': true,
-            'consent_recorded': true,
-            'terms_version': '2026-11-11',
-            'privacy_version': '2026-11-11',
+            'data': {'recorded': true, 'email_verified': false},
           }), 200);
         }),
       );
 
       final result = await api.recordRegistrationConsent(
-        adultConfirmed: true,
+        ageConfirmed: true,
         termsAccepted: true,
         privacyAccepted: true,
+        termsVersion: '2026-11-11',
+        privacyVersion: '2026-11-11',
       );
 
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/auth/registration-consent');
       expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
       expect(jsonDecode(captured.body), {
-        'adult_confirmed': true,
+        'age_confirmed': true,
         'terms_accepted': true,
         'privacy_accepted': true,
+        'terms_version': '2026-11-11',
+        'privacy_version': '2026-11-11',
       });
-      expect(result['consent_recorded'], isTrue);
+      expect((result['data'] as Map)['recorded'], isTrue);
       api.close();
     });
 
