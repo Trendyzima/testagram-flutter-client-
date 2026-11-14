@@ -28,8 +28,11 @@ class TvChannelCachePolicy {
   ];
 
   static bool _isLocalOrPrivateHost(String rawHost) {
-    final host = rawHost.toLowerCase().replaceAll(RegExp(r'^\\[|\\]$'), '');
-    if (host.startsWith('::ffff:') && _isLocalOrPrivateHost(host.substring(7))) {\n      return true;\n    }\n    if (host == 'localhost' ||
+    final host = rawHost.toLowerCase().replaceAll('[', '').replaceAll(']', '');
+    if (host.startsWith('::ffff:')) {
+      return _isLocalOrPrivateHost(host.substring(7));
+    }
+    if (host == 'localhost' ||
         host.endsWith('.localhost') ||
         host.endsWith('.local') ||
         host.endsWith('.internal') ||
@@ -37,31 +40,32 @@ class TvChannelCachePolicy {
         host == '::1' ||
         host.startsWith('fc') ||
         host.startsWith('fd') ||
-        host.startsWith('fe80:') ||\n        host.startsWith('ff') ||
-        host.startsWith('::ffff:127.') ||
-        host.startsWith('::ffff:10.') ||
-        host.startsWith('::ffff:192.168.')) {
+        host.startsWith('fe80:') ||
+        host.startsWith('ff')) {
       return true;
     }
 
     final parts = host.split('.');
     if (parts.length != 4) return false;
     final octets = parts.map(int.tryParse).toList(growable: false);
-    if (octets.any((value) => value == null || value < 0 || value > 255)) {
+    if (octets.any((value) => value == null || value! < 0 || value > 255)) {
       return false;
     }
 
     final a = octets[0]!;
     final b = octets[1]!;
+    final c = octets[2]!;
     return a == 0 ||
         a == 10 ||
         a == 127 ||
         a >= 224 ||
+        (a == 100 && b >= 64 && b <= 127) ||
         (a == 169 && b == 254) ||
         (a == 172 && b >= 16 && b <= 31) ||
-        (a == 192 && b == 168);
+        (a == 192 && (b == 0 || b == 2 || b == 168)) ||
+        (a == 198 && (b == 18 || b == 19 || b == 51)) ||
+        (a == 203 && b == 0 && c == 113);
   }
-
   static bool isPublicCacheUrl(Object? raw) {
     if (raw is! String || raw.trim().isEmpty) return false;
     final uri = Uri.tryParse(raw.trim());
