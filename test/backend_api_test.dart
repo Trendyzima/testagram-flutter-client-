@@ -854,15 +854,16 @@ void main() {
         baseUri: Uri.parse('https://api.testagram.site'),
         getJwt: () async => 'jwt',
         client: MockClient((_) async => http.Response(
-          jsonEncode({'error': {'code': 'AUTH_REQUIRED', 'message': 'Sign in again'}}),
-          401,
+          jsonEncode({'error': {'code': 'IDENTITY_APPROVAL_REQUIRED', 'message': 'Identity review is required'}}),
+          403,
         )),
       );
       await expectLater(
         api.getHomeFeed(),
         throwsA(isA<BackendApiException>()
-            .having((e) => e.statusCode, 'statusCode', 401)
-            .having((e) => e.message, 'message', 'Sign in again')),
+            .having((e) => e.statusCode, 'statusCode', 403)
+            .having((e) => e.code, 'code', 'IDENTITY_APPROVAL_REQUIRED')
+            .having((e) => e.message, 'message', 'Identity review is required')),
       );
       api.close();
     });
