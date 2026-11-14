@@ -23,7 +23,7 @@ class _TestagramAppState extends State<TestagramApp> {
   Widget build(BuildContext context) {
     final configured = AppConfig.isConfigured && widget.account != null;
     return MaterialApp(
-      title: 'Testagram',
+      title: 'T social',
       debugShowCheckedModeBanner: false,
       theme: TestagramTheme.light(),
       darkTheme: TestagramTheme.dark(),

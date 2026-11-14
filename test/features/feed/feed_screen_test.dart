@@ -8,6 +8,63 @@ import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/feed/feed_screen.dart';
 
 void main() {
+  testWidgets('X-inspired feed tabs query Following and desktop topics come from real posts', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final requestedUris = <Uri>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'jwt',
+      client: MockClient((request) async {
+        requestedUris.add(request.url);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'topic-post',
+                'content': 'Building in public #KenyaTech #BuildInPublic',
+                'created_at': '2026-11-14T09:00:00Z',
+                'author': {'username': 'builder', 'display_name': 'Builder'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'likes': 2, 'replies': 1, 'reposts': 0},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('For you'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
+    expect(find.text("What's happening?"), findsOneWidget);
+    expect(find.text("What's happening"), findsOneWidget);
+    expect(find.text('#kenyatech'), findsOneWidget);
+    expect(find.text('#buildinpublic'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.text('Following'));
+    await tester.pumpAndSettle();
+    expect(requestedUris.any((uri) => uri.queryParameters['following_only'] == 'true'), isTrue);
+    expect(tester.takeException(), isNull);
+    api.close();
+  });
+
   testWidgets('main-feed composer exposes privacy and image attachment controls', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),

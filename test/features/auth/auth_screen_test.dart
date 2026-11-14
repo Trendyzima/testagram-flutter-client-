@@ -51,10 +51,10 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('registration is available and still requires identity-review consent',
+  testWidgets('self-service registration is enabled without identity-review gate',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
+      home: AuthScreen(account: account, onSignedIn: () {}),
     ));
 
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
@@ -62,23 +62,24 @@ void main() {
 
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Password'), findsOneWidget);
+    expect(find.text('Confirm password'), findsOneWidget);
+    expect(find.text('Username'), findsNothing);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.text('Secure identity review'), findsOneWidget);
-    expect(find.textContaining('An account is not created until verification'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
 
-    final action = find.widgetWithText(FilledButton, 'Start secure identity review');
+    final action = find.widgetWithText(FilledButton, 'Create account');
     expect(action, findsOneWidget);
     expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
-    // An incomplete form is rejected locally. No application or account is
-    // created until the required profile fields and consent are supplied.
+    // The form still validates locally before any Appwrite request is made.
     await tapVisible(tester, action);
     expect(find.text('Enter your name.'), findsOneWidget);
-    expect(find.text('Username must be 3–30 characters.'), findsOneWidget);
     expect(find.text('Enter your email address.'), findsOneWidget);
+    expect(find.text('Use at least 8 characters.'), findsOneWidget);
   });
 
   testWidgets('legal documents can be read before consent', (tester) async {

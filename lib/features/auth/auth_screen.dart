@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:math';
 
 import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,14 +29,13 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController(), _username = TextEditingController(), _email = TextEditingController();
+  final _name = TextEditingController(), _email = TextEditingController();
   final _password = TextEditingController(), _confirm = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   IdentityApplication? _identityApplication;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
-  String? _identityIdempotencyKey;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
 
@@ -83,7 +80,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
-    _name.dispose(); _username.dispose(); _email.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
+    _name.dispose(); _email.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
   }
 
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
@@ -120,16 +117,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
   String? _passwordValid(String? v) =>
       v == null || v.length < 8 ? 'Use at least 8 characters.' : v.length > 256 ? 'Password is too long.' : null;
-
-  String? _usernameValid(String? value) {
-    final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
-    if (username.length < 3 || username.length > 30) {
-      return 'Username must be 3–30 characters.';
-    }
-    return RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)
-        ? null
-        : 'Use letters, numbers and underscores only.';
-  }
 
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
@@ -202,6 +189,38 @@ class _AuthScreenState extends State<AuthScreen> {
         backend.close();
       }
       widget.onSignedIn();
+    });
+  }
+
+  Future<void> _signUp() async {
+    if (!_form.currentState!.validate()) return;
+    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
+      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
+      return;
+    }
+    await _run(() async {
+      await widget.account.create(
+        userId: ID.unique(),
+        email: _email.text.trim().toLowerCase(),
+        password: _password.text,
+        name: _name.text.trim(),
+      );
+      try {
+        await widget.account.createVerification(
+          url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+        );
+      } on AppwriteException catch (error) {
+        // The account is already created. Do not report a false account-creation
+        // failure if only the verification-email request needs to be retried.
+        if (error.code != 409) rethrow;
+      }
+      if (!mounted) return;
+      _password.clear();
+      _confirm.clear();
+      setState(() {
+        _page = _Page.verify;
+        _notice = 'Your Testagram account has been created. Check your email to verify it, then sign in.';
+      });
     });
   }
 
@@ -280,43 +299,6 @@ class _AuthScreenState extends State<AuthScreen> {
           _recoverySecret = null;
         _notice = 'Password changed. Sign in with your new password.';
         });
-      }
-    });
-  }
-
-  Future<void> _startIdentityApplication() async {
-    if (!_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
-      return;
-    }
-    await _run(() async {
-      final random = Random.secure();
-      final idempotencyKey = _identityIdempotencyKey ??= base64UrlEncode(
-        List<int>.generate(32, (_) => random.nextInt(256)),
-      ).replaceAll('=', '');
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        final application = await api.createApplication(
-          email: _email.text,
-          username: _username.text,
-          displayName: _name.text,
-          adultConfirmed: _ageConfirmed,
-          termsAccepted: _termsAccepted,
-          privacyAccepted: _privacyAccepted,
-          idempotencyKey: idempotencyKey,
-        );
-        if (mounted) {
-          setState(() {
-            _identityApplication = application;
-            _identityIdempotencyKey = null;
-            _identityStatus = null;
-            _page = _Page.identity;
-            _notice = 'Your application is created. Upload your evidence to submit it for manual review.';
-          });
-        }
-      } finally {
-        api.close();
       }
     });
   }
@@ -515,17 +497,22 @@ class _AuthScreenState extends State<AuthScreen> {
                     color: Theme.of(context).colorScheme.primary, size: 30),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Testagram',
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('T social',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
                           )),
-                  Text('Connect. Share. Belong.',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ],
+                    Text(
+                      'Your world, in the conversation.',
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -542,38 +529,50 @@ class _AuthScreenState extends State<AuthScreen> {
           Text(subtitle, textAlign: TextAlign.center),
           const SizedBox(height: 28),
           if (_page == _Page.signUp) ...[
-            TextFormField(controller: _name, textCapitalization: TextCapitalization.words,
+            TextFormField(
+              controller: _name,
+              textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
-              validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
-            const SizedBox(height: 14),
-            TextFormField(controller: _username, autocorrect: false,
-              textCapitalization: TextCapitalization.none,
-              decoration: const InputDecoration(labelText: 'Username', prefixText: '@', border: OutlineInputBorder()),
-              validator: _usernameValid),
+              validator: (value) => value == null || value.trim().length < 2 ? 'Enter your name.' : null,
+            ),
             const SizedBox(height: 14),
           ],
-                    if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
-            TextFormField(controller: _email, keyboardType: TextInputType.emailAddress,
-              autocorrect: false, autofillHints: const [AutofillHints.email],
+          if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              autofillHints: const [AutofillHints.email],
               decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-              validator: _emailValid),
-          if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
+              validator: _emailValid,
+            ),
+          if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
             const SizedBox(height: 14),
-            TextFormField(controller: _password, obscureText: _obscure,
+            TextFormField(
+              controller: _password,
+              obscureText: _obscure,
               autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
-              decoration: InputDecoration(labelText: _page == _Page.reset ? 'New password' : 'Password',
-                border: const OutlineInputBorder(), suffixIcon: IconButton(
+              decoration: InputDecoration(
+                labelText: _page == _Page.reset ? 'New password' : 'Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
                   onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined))),
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                ),
+              ),
               validator: _passwordValid,
-              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); }),
+              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
+            ),
           ],
-          if (_page == _Page.reset) ...[
+          if ({_Page.signUp, _Page.reset}.contains(_page)) ...[
             const SizedBox(height: 14),
-            TextFormField(controller: _confirm, obscureText: _obscure,
+            TextFormField(
+              controller: _confirm,
+              obscureText: _obscure,
               decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
-              validator: (v) => v != _password.text ? 'Passwords do not match.' : null),
+              validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
+            ),
           ],
           if (_page == _Page.signUp) ...[
             Card(
@@ -588,9 +587,9 @@ class _AuthScreenState extends State<AuthScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Secure identity review', style: TextStyle(fontWeight: FontWeight.w600)),
+                          Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text('Your application is reviewed by Testagram staff. An account is not created until verification and independent approval are complete.'),
+                          Text('Your email and password are securely managed by Appwrite. Verify your email before signing in. Testagram links your verified identity to your profile on first sign-in.'),
                         ],
                       ),
                     ),
@@ -626,7 +625,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ]),
             const SizedBox(height: 8),
           ],
-                    if (_page == _Page.identity) ...[
+          if (_page == _Page.identity) ...[
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
@@ -675,20 +674,15 @@ class _AuthScreenState extends State<AuthScreen> {
           if (_error != null) ...[const SizedBox(height: 14),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
           if (_notice != null) ...[const SizedBox(height: 14),
-            Text(_notice!, style: const TextStyle(color: Color(0xFF168A4B)))],
+            Text(_notice!, style: TextStyle(color: Theme.of(context).colorScheme.primary))],
           const SizedBox(height: 20),
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
           if (_page == _Page.signUp)
-            (widget.enableIdentityRegistration ?? AppConfig.enableIdentityRegistrationUi)
-                ? FilledButton(
-                    onPressed: _busy ? null : _startIdentityApplication,
-                    child: _busy ? const CircularProgressIndicator() : const Text('Start secure identity review'),
-                  )
-                : const FilledButton(
-                    onPressed: null,
-                    child: Text('Registration not available yet'),
-                  ),
+            FilledButton(
+              onPressed: _busy ? null : _signUp,
+              child: _busy ? const CircularProgressIndicator() : const Text('Create account'),
+            ),
           if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
             child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
           if (_page == _Page.reset) FilledButton(onPressed: _busy ? null : _reset,
@@ -711,8 +705,11 @@ class _AuthScreenState extends State<AuthScreen> {
           else
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
-          const Text('Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.black54)),
+          Text(
+            'Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+          ),
         ])),
       ),
     ))));

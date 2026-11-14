@@ -83,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create your account' 'Start secure identity review'; do
+          for marker in 'Sign up' 'Reset password' 'Create your account' 'Identity verification'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1
