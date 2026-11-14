@@ -500,12 +500,12 @@ class _AuthScreenState extends State<AuthScreen> {
               Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Testagram',
+                  Text('T social',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
                           )),
-                  Text('Connect. Share. Belong.',
+                  Text('Your world, in the conversation.',
                       style: Theme.of(context).textTheme.bodySmall),
                 ],
               ),
