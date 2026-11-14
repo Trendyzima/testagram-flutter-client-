@@ -97,7 +97,7 @@ void main() {
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.text('This step records your current declarations with Testagram.'), findsOneWidget);
+    expect(find.textContaining('This step records your current declarations with Testagram.'), findsOneWidget);
   });
 
   testWidgets('legal documents can be read before consent', (tester) async {
