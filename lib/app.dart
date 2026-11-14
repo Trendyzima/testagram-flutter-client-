@@ -59,6 +59,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
   bool _requiresVerification = false;
+  bool _requiresRegistrationConsent = false;
   String? _restoreError;
   BackendApi? _api;
 
@@ -71,6 +72,7 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _restore() async {
     if (mounted) setState(() => _loading = true);
     _restoreError = null;
+    _requiresRegistrationConsent = false;
     try {
       final user = await widget.account.get();
       _requiresVerification = !user.emailVerification;
@@ -85,9 +87,16 @@ class _AuthGateState extends State<AuthGate> {
           _signedIn = true;
         } catch (error) {
           api.close();
-          _restoreError = error is BackendApiException
-              ? error.message
-              : 'Testagram could not verify your account with the Backend. Check your connection and retry.';
+          if (error is BackendApiException &&
+              error.statusCode == 403 &&
+              error.message.toLowerCase().contains('registration consent')) {
+            _requiresRegistrationConsent = true;
+            _restoreError = null;
+          } else {
+            _restoreError = error is BackendApiException
+                ? error.message
+                : 'Testagram could not verify your account with the Backend. Check your connection and retry.';
+          }
         }
       }
     } catch (_) {
@@ -122,6 +131,7 @@ class _AuthGateState extends State<AuthGate> {
           _signedIn = false;
           _restoreError = null;
           _requiresVerification = false;
+          _requiresRegistrationConsent = false;
           _api = null;
         });
       }
@@ -181,6 +191,7 @@ class _AuthGateState extends State<AuthGate> {
         account: widget.account,
         onSignedIn: _onSignedIn,
         requireVerification: _requiresVerification,
+        requireRegistrationConsent: _requiresRegistrationConsent,
       );
     }
     return MainShell(
