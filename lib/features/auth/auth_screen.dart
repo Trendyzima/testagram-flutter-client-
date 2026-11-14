@@ -882,7 +882,7 @@ class _AuthScreenState extends State<AuthScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
           ),
-                    ]))),
+                  ])),
                   ),
                 ),
               ),
