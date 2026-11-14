@@ -106,8 +106,7 @@ async function mapConcurrent(items, limit, mapper) {
 
 const channels = await fetchCatalogue();
 if (channels.length === 0) {
-  console.log("::warning::Backend TV catalogue is empty; no health batches were submitted. Seed the private channel catalogue before expecting live TV health coverage.");
-  process.exit(0);
+  throw new Error("Backend TV catalogue is empty; refusing to report a successful health-monitor run without any provisioned channels. Provision verified channels before enabling production monitoring.");
 }
 
 let checked = 0;
