@@ -41,6 +41,7 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   IdentityApplication? _identityApplication;
+  String? _identityApplicationIdempotencyKey;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
@@ -254,16 +255,21 @@ class _AuthScreenState extends State<AuthScreen> {
           adultConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
-          idempotencyKey: _newIdentityIdempotencyKey(),
+          idempotencyKey: _identityApplicationIdempotencyKey ??= _newIdentityIdempotencyKey(),
         );
-        final status = await api.getStatus(application);
+        // Keep the application credentials in memory before the follow-up
+        // status request. If status polling fails, the applicant can retry it
+        // without accidentally submitting a second application.
+        _identityApplicationIdempotencyKey = null;
         if (!mounted) return;
         setState(() {
           _identityApplication = application;
-          _identityStatus = status;
+          _identityStatus = null;
           _page = _Page.identity;
           _notice = 'Your application has been created. Submit the requested private evidence; account creation becomes available only after independent review and two-person approval.';
         });
+        final status = await api.getStatus(application);
+        if (mounted) setState(() => _identityStatus = status);
       } finally {
         api.close();
       }
