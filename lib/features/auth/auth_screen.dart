@@ -18,16 +18,16 @@ class AuthScreen extends StatefulWidget {
     required this.account,
     required this.onSignedIn,
     this.requireVerification = false,
-    this.requireRegistrationConsent = false,
+    this.requireIdentityReview = false,
     this.initialEmail,
-    this.enableIdentityRegistration,
+    this.enableIdentityRegistration = false,
   });
   final Account account;
   final VoidCallback onSignedIn;
   final bool requireVerification;
-  final bool requireRegistrationConsent;
+  final bool requireIdentityReview;
   final String? initialEmail;
-  final bool? enableIdentityRegistration;
+  final bool enableIdentityRegistration;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -71,7 +71,12 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
       case AuthEntryMode.signUp:
-        _page = _Page.signUp;
+        if (widget.enableIdentityRegistration) {
+          _page = _Page.signUp;
+        } else {
+          _page = _Page.signIn;
+          _notice = 'Registration is temporarily unavailable. Please try again later.';
+        }
         break;
       case AuthEntryMode.forgotPassword:
         _page = _Page.forgot;
@@ -83,9 +88,14 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
-    if (widget.requireRegistrationConsent) {
-      _page = _Page.signUp;
-      _notice = 'Complete identity verification and independent account approval to finish setting up your account.';
+    if (widget.requireIdentityReview) {
+      if (widget.enableIdentityRegistration) {
+        _page = _Page.signUp;
+        _notice = 'Complete identity verification and independent account approval to finish setting up your account.';
+      } else {
+        _page = _Page.signIn;
+        _notice = 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
+      }
     }
   }
 
@@ -94,13 +104,16 @@ class _AuthScreenState extends State<AuthScreen> {
     _name.dispose(); _email.dispose(); _username.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
   }
 
-  void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
+  void _go(_Page p) {
+    if (p == _Page.signUp && !widget.enableIdentityRegistration) return;
+    setState(() { _page = p; _error = null; _notice = null; });
+  }
 
   Widget _modeNavigation() {
     if (_page == _Page.identity) return const SizedBox.shrink();
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
-      (_Page.signUp, 'Sign up'),
+      if (widget.enableIdentityRegistration) (_Page.signUp, 'Sign up'),
       (_Page.forgot, 'Reset password'),
     ];
     return Wrap(
@@ -225,8 +238,10 @@ class _AuthScreenState extends State<AuthScreen> {
                   .replaceAll(RegExp(r'_+'), '_');
               if (_username.text.length < 3) _username.text = 'user_account';
               if (_username.text.length > 30) _username.text = _username.text.substring(0, 30);
-              _page = _Page.signUp;
-              _notice = 'Your Appwrite login is valid, but this account has not completed Testagram identity review and two-person approval. Submit an application to continue.';
+              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
+              _notice = widget.enableIdentityRegistration
+                  ? 'Your Appwrite login is valid, but this account has not completed Testagram identity review and two-person approval. Submit an application to continue.'
+                  : 'Your Appwrite login is valid, but this account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
             });
           }
           return;
