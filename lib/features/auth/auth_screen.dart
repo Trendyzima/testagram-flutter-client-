@@ -10,7 +10,7 @@ import '../../core/backend_api.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 
-enum _Page { signIn, signUp, forgot, verify, reset, identity, consent }
+enum _Page { signIn, signUp, forgot, verify, reset, identity }
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -96,7 +96,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
   Widget _modeNavigation() {
-    if (_page == _Page.identity || _page == _Page.consent) return const SizedBox.shrink();
+    if (_page == _Page.identity) return const SizedBox.shrink();
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
       (_Page.signUp, 'Sign up'),
@@ -267,32 +267,6 @@ class _AuthScreenState extends State<AuthScreen> {
       } finally {
         api.close();
       }
-    });
-  }
-
-  Future<void> _acceptRegistrationConsent() async {
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
-      return;
-    }
-    await _run(() async {
-      final backend = BackendApi(
-        baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
-      );
-      try {
-        await backend.recordRegistrationConsent(
-          ageConfirmed: _ageConfirmed,
-          termsAccepted: _termsAccepted,
-          privacyAccepted: _privacyAccepted,
-          termsVersion: AppConfig.termsVersion,
-          privacyVersion: AppConfig.privacyVersion,
-        );
-        await backend.getMyProfile();
-      } finally {
-        backend.close();
-      }
-      widget.onSignedIn();
     });
   }
 
@@ -542,7 +516,6 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.forgot => 'Reset your password', _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
       _Page.identity => 'Identity verification',
-      _Page.consent => 'Finish setting up your account',
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to your Testagram account.',
@@ -551,7 +524,6 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.verify => 'Check your inbox and verify your email address.',
       _Page.reset => 'Choose a strong password you have not used before.',
       _Page.identity => 'Submit private evidence and track your manual review.',
-      _Page.consent => 'Your verified Appwrite account needs registration consent before Testagram can create its canonical profile.',
     };
     return Scaffold(body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(24), child: ConstrainedBox(
@@ -658,7 +630,7 @@ class _AuthScreenState extends State<AuthScreen> {
               validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
             ),
           ],
-          if ({_Page.signUp, _Page.consent}.contains(_page)) ...[
+          if (_page == _Page.signUp) ...[
             if (_page == _Page.signUp) Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
@@ -681,11 +653,6 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             ),
-            if (_page == _Page.consent)
-              const Padding(
-                padding: EdgeInsets.only(bottom: 12),
-                child: Text('Your declarations are recorded with your application. Independent identity review and two-person approval are required before account creation.'),
-              ),
             const SizedBox(height: 12),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
@@ -771,11 +738,6 @@ class _AuthScreenState extends State<AuthScreen> {
             FilledButton(
               onPressed: _busy ? null : _signUp,
               child: _busy ? const CircularProgressIndicator() : const Text('Submit identity application'),
-            ),
-          if (_page == _Page.consent)
-            FilledButton(
-              onPressed: _busy ? null : _acceptRegistrationConsent,
-              child: _busy ? const CircularProgressIndicator() : const Text('Accept and continue'),
             ),
           if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
             child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
