@@ -669,7 +669,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (_error != null) ...[const SizedBox(height: 14),
             Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
           if (_notice != null) ...[const SizedBox(height: 14),
-            Text(_notice!, style: const TextStyle(color: Color(0xFF168A4B)))],
+            Text(_notice!, style: TextStyle(color: Theme.of(context).colorScheme.primary))],
           const SizedBox(height: 20),
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
@@ -700,8 +700,11 @@ class _AuthScreenState extends State<AuthScreen> {
           else
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
-          const Text('Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
-            textAlign: TextAlign.center, style: TextStyle(fontSize: 12, color: Colors.black54)),
+          Text(
+            'Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
+          ),
         ])),
       ),
     ))));
