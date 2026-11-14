@@ -657,9 +657,11 @@ class BackendApi {
       final message = decoded is Map
           ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
           : null;
+      final errorCode = error is Map ? error['code']?.toString() : null;
       throw BackendApiException(
         message?.isNotEmpty == true ? message! : 'Request failed. Please try again.',
         statusCode: response.statusCode,
+        code: errorCode,
       );
     }
     if (decoded is Map<String, dynamic>) return decoded;
@@ -670,9 +672,11 @@ class BackendApi {
 }
 
 class BackendApiException implements Exception {
-  const BackendApiException(this.message, {this.statusCode});
+  const BackendApiException(this.message, {this.statusCode, this.code});
   final String message;
   final int? statusCode;
+  /// Stable machine-readable Backend error code, when supplied by the API.
+  final String? code;
 
   @override
   String toString() => message;
