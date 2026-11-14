@@ -552,22 +552,73 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.reset => 'Choose a strong password you have not used before.',
       _Page.identity => 'Submit private evidence and track your manual review.',
     };
-    return Scaffold(body: SafeArea(child: Center(child: SingleChildScrollView(
-      padding: const EdgeInsets.all(24), child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 440),
-        child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+    final scheme = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [const Color(0xFF080B10), const Color(0xFF101B2A), const Color(0xFF080B10)]
+                : [const Color(0xFFF2F7FC), const Color(0xFFFFFFFF), const Color(0xFFEAF3FC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 500),
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: scheme.surface,
+                    borderRadius: BorderRadius.circular(28),
+                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
+                        blurRadius: 36,
+                        offset: const Offset(0, 18),
+                      ),
+                    ],
+                  ),
+                  padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
+                  child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Container(
-                width: 52,
-                height: 52,
+                width: 54,
+                height: 54,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(16),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [scheme.primary, scheme.primary.withValues(alpha: 0.78)],
+                  ),
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: scheme.primary.withValues(alpha: 0.22),
+                      blurRadius: 16,
+                      offset: const Offset(0, 7),
+                    ),
+                  ],
                 ),
-                child: Icon(Icons.hub_rounded,
-                    color: Theme.of(context).colorScheme.primary, size: 30),
+                child: const Center(
+                  child: Text(
+                    'T',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 31,
+                      fontWeight: FontWeight.w900,
+                      letterSpacing: -1.8,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 12),
               Flexible(
@@ -576,8 +627,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   children: [
                     Text('T social',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: -0.4,
+                            fontWeight: FontWeight.w900,
+                            letterSpacing: -0.7,
                           )),
                     Text(
                       'Your world, in the conversation.',
@@ -589,14 +640,15 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ],
           ),
-          const SizedBox(height: 28),
+          const SizedBox(height: 30),
           _modeNavigation(),
-          const SizedBox(height: 24),
+          const SizedBox(height: 28),
           Text(title,
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: -0.5,
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: -0.8,
+                    height: 1.12,
                   )),
           const SizedBox(height: 8),
           Text(subtitle, textAlign: TextAlign.center),
@@ -754,10 +806,44 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ],
-          if (_error != null) ...[const SizedBox(height: 14),
-            Text(_error!, style: TextStyle(color: Theme.of(context).colorScheme.error))],
-          if (_notice != null) ...[const SizedBox(height: 14),
-            Text(_notice!, style: TextStyle(color: Theme.of(context).colorScheme.primary))],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: scheme.errorContainer,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: scheme.error.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
+                ],
+              ),
+            ),
+          ],
+          if (_notice != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(13),
+              decoration: BoxDecoration(
+                color: scheme.primaryContainer.withValues(alpha: 0.58),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline_rounded, color: scheme.primary, size: 20),
+                  const SizedBox(width: 10),
+                  Expanded(child: Text(_notice!, style: TextStyle(color: scheme.onSurface))),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 20),
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
@@ -793,8 +879,13 @@ class _AuthScreenState extends State<AuthScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
           ),
-        ])),
+                  ])),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
-    ))));
+    );
   }
 }
