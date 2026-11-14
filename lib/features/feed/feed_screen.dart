@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
+import 'feed_request_policy.dart';
 import '../posts/post_detail_screen.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -49,8 +50,17 @@ class _FeedScreenState extends State<FeedScreen> {
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (!reset && (_loading || !_hasMore)) return;
-    final generation = reset ? ++_loadGeneration : _loadGeneration;
+    if (!FeedRequestPolicy.shouldStart(
+      loading: _loading,
+      hasMore: _hasMore,
+      reset: reset,
+    )) {
+      return;
+    }
+    final generation = reset
+        ? FeedRequestPolicy.nextGeneration(_loadGeneration)
+        : _loadGeneration;
+    _loadGeneration = generation;
     final requestedFollowing = _following;
     final pageCursor = reset ? null : _cursor;
     setState(() {
@@ -93,7 +103,10 @@ class _FeedScreenState extends State<FeedScreen> {
         rows[i]['reposts_count'] = summary['reposts'] ?? rows[i]['reposts_count'];
       }
       if (!mounted ||
-          generation != _loadGeneration ||
+          !FeedRequestPolicy.isCurrent(
+            requestGeneration: generation,
+            currentGeneration: _loadGeneration,
+          ) ||
           requestedFollowing != _following) {
         return;
       }
@@ -106,7 +119,10 @@ class _FeedScreenState extends State<FeedScreen> {
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
     } catch (e) {
-      if (mounted && generation == _loadGeneration) {
+      if (mounted && FeedRequestPolicy.isCurrent(
+            requestGeneration: generation,
+            currentGeneration: _loadGeneration,
+          )) {
         setState(() => _error = e.toString());
       }
     } finally {
