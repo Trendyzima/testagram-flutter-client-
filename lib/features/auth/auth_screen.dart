@@ -220,12 +220,20 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     await _run(() async {
-      await widget.account.create(
-        userId: ID.unique(),
-        email: _email.text.trim().toLowerCase(),
-        password: _password.text,
-        name: _name.text.trim(),
-      );
+      // A previous attempt may have created the Appwrite account but failed
+      // before consent persistence or verification delivery. Treat only 409
+      // as that recoverable case; the password must still authenticate below.
+      try {
+        await widget.account.create(
+          userId: ID.unique(),
+          email: _email.text.trim().toLowerCase(),
+          password: _password.text,
+          name: _name.text.trim(),
+        );
+      } on AppwriteException catch (error) {
+        if (error.code != 409) rethrow;
+      }
+
       await widget.account.createEmailPasswordSession(
         email: _email.text.trim().toLowerCase(),
         password: _password.text,
@@ -236,33 +244,35 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       try {
         await backend.recordRegistrationConsent(
-          adultConfirmed: _ageConfirmed,
+          ageConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
+          termsVersion: AppConfig.termsVersion,
+          privacyVersion: AppConfig.privacyVersion,
         );
-        try {
-          await widget.account.createVerification(
-            url: '${AppConfig.authCallbackOrigin}/?mode=verification',
-          );
-        } on AppwriteException catch (error) {
-          // The account is already created. Do not report a false account-creation
-          // failure if only the verification-email request needs to be retried.
-          if (error.code != 409) rethrow;
+        final user = await widget.account.get();
+        if (user.emailVerification) {
+          // Existing verified accounts that were interrupted before their
+          // first Backend link can finish setup through this same path.
+          await backend.getMyProfile();
+          widget.onSignedIn();
+          return;
         }
+        await widget.account.createVerification(
+          url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+        );
+      } on AppwriteException catch (error) {
+        // Appwrite may report that a verification email is already pending.
+        if (error.code != 409) rethrow;
       } finally {
         backend.close();
-        try {
-          await widget.account.deleteSession(sessionId: 'current');
-        } on AppwriteException {
-          // Consent is already durable; a cleanup failure must not erase it.
-        }
       }
       if (!mounted) return;
       _password.clear();
       _confirm.clear();
       setState(() {
         _page = _Page.verify;
-        _notice = 'Your Testagram account has been created. Check your email to verify it, then sign in.';
+        _notice = 'Your account is ready. Check your email to verify it, then sign in.';
       });
     });
   }
@@ -279,9 +289,11 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       try {
         await backend.recordRegistrationConsent(
-          adultConfirmed: _ageConfirmed,
+          ageConfirmed: _ageConfirmed,
           termsAccepted: _termsAccepted,
           privacyAccepted: _privacyAccepted,
+          termsVersion: AppConfig.termsVersion,
+          privacyVersion: AppConfig.privacyVersion,
         );
         await backend.getMyProfile();
       } finally {
@@ -658,7 +670,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         children: [
                           Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text('Your email and password are securely managed by Appwrite. Verify your email before signing in. Testagram links your verified identity to your profile on first sign-in.'),
+                          Text('Your email and password are securely managed by Appwrite. We securely record your age and policy consent, then verify your email before linking your Testagram profile.'),
                         ],
                       ),
                     ),
