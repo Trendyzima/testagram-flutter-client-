@@ -497,17 +497,22 @@ class _AuthScreenState extends State<AuthScreen> {
                     color: Theme.of(context).colorScheme.primary, size: 30),
               ),
               const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('T social',
+              Flexible(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('T social',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w800,
                             letterSpacing: -0.4,
                           )),
-                  Text('Your world, in the conversation.',
-                      style: Theme.of(context).textTheme.bodySmall),
-                ],
+                    Text(
+                      'Your world, in the conversation.',
+                      softWrap: true,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
