@@ -8,42 +8,6 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
-    test('records registration consent through the authenticated Backend', () async {
-      late http.Request captured;
-      final api = BackendApi(
-        baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
-        client: MockClient((request) async {
-          captured = request;
-          return http.Response(jsonEncode({
-            'ok': true,
-            'data': {'recorded': true, 'email_verified': false},
-          }), 200);
-        }),
-      );
-
-      final result = await api.recordRegistrationConsent(
-        ageConfirmed: true,
-        termsAccepted: true,
-        privacyAccepted: true,
-        termsVersion: '2026-11-11',
-        privacyVersion: '2026-11-11',
-      );
-
-      expect(captured.method, 'POST');
-      expect(captured.url.path, '/api/auth/registration-consent');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
-      expect(jsonDecode(captured.body), {
-        'age_confirmed': true,
-        'terms_accepted': true,
-        'privacy_accepted': true,
-        'terms_version': '2026-11-11',
-        'privacy_version': '2026-11-11',
-      });
-      expect((result['data'] as Map)['recorded'], isTrue);
-      api.close();
-    });
-
     test('loads trending hashtags and a cursor-paginated hashtag timeline', () async {
       final requests = <http.Request>[];
       final api = BackendApi(
@@ -890,15 +854,16 @@ void main() {
         baseUri: Uri.parse('https://api.testagram.site'),
         getJwt: () async => 'jwt',
         client: MockClient((_) async => http.Response(
-          jsonEncode({'error': {'code': 'AUTH_REQUIRED', 'message': 'Sign in again'}}),
-          401,
+          jsonEncode({'error': {'code': 'IDENTITY_APPROVAL_REQUIRED', 'message': 'Identity review is required'}}),
+          403,
         )),
       );
       await expectLater(
         api.getHomeFeed(),
         throwsA(isA<BackendApiException>()
-            .having((e) => e.statusCode, 'statusCode', 401)
-            .having((e) => e.message, 'message', 'Sign in again')),
+            .having((e) => e.statusCode, 'statusCode', 403)
+            .having((e) => e.code, 'code', 'IDENTITY_APPROVAL_REQUIRED')
+            .having((e) => e.message, 'message', 'Identity review is required')),
       );
       api.close();
     });

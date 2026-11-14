@@ -18,25 +18,27 @@ This document records the production trust boundaries for the Flutter authentica
 
 A successful product sign-in requires all of the following:
 
-- Appwrite accepts the email/password credentials.
-- Appwrite reports the email as verified.
-- Flutter obtains an Appwrite JWT.
-- The Backend accepts that JWT and successfully resolves `GET /api/me/profile` to the caller's canonical account.
+- Appwrite accepts the email/password credentials and reports the email as verified.
+- Flutter obtains an Appwrite session JWT.
+- The Backend validates that JWT against Appwrite and resolves an existing Appwrite-to-canonical mapping created by the approved provisioning saga.
+- The associated provisioning record is completed and the identity application has reached the verified state.
 - Only then does Flutter open the authenticated application shell.
 
-A persisted Appwrite session is checked against the Backend again at app startup. If the Backend is unreachable or the identity mapping is missing, the app keeps the product shell locked and offers retry or sign-out. It must not silently treat an unverified or unlinked identity as an authenticated Testagram account.
+A persisted Appwrite session is checked against the Backend again at app startup. A valid Appwrite session by itself is not a Testagram account. Missing approval, a missing canonical mapping, an inactive account or an unverified email keeps product APIs and the authenticated shell locked.
 
 ## Registration acceptance
 
-Normal self-service registration uses Appwrite directly for credentials and email verification:
+Registration is an identity application first; Appwrite account creation is deliberately delayed until approval:
 
-- Flutter validates the name, email, password confirmation, adult eligibility and policy acceptance, then creates the Appwrite account with the public Appwrite client SDK.
-- Flutter requests the Appwrite email-verification message. The user must redeem the one-time verification link before product access.
-- After verification, the user signs in. Flutter obtains an Appwrite JWT and calls the Backend profile endpoint.
-- The Backend validates the JWT and transactionally creates the canonical Testagram account and immutable Appwrite-user-ID mapping on first verified sign-in. Repeat sign-ins resolve the same mapping; email equality is never used to claim an existing account.
-- If the Backend cannot resolve or provision the canonical profile, Flutter must keep the authenticated product shell locked and show a retryable error.
+1. Flutter collects the applicant's name, desired username, email, 18+ declaration and acceptance of the current Terms and Privacy versions.
+2. Flutter creates a pre-authentication identity application with a 256-bit random idempotency key. The Backend records the versioned consent evidence and issues an applicant-scoped application token and age-assurance session token.
+3. The applicant uploads private evidence through the Backend proxy. The Backend validates type, size and SHA-256 and requires the private evidence to be verified across the configured storage providers before it enters manual review.
+4. Two independent reviewers record the required matching review decisions. A separate two-person account-approval action must then be completed; one reviewer cannot approve their own application.
+5. Only after both approval stages does Flutter create the Appwrite credential account, obtain an Appwrite session and redeem the short-lived provisioning authorization.
+6. The Backend transactionally creates the canonical PostgreSQL account, Appwrite mapping and completed provisioning record. If email verification is still pending, the account remains blocked from product APIs until Appwrite confirms verification.
+7. Repeat provisioning attempts must resolve to the same canonical account; they must not create duplicate accounts or consume a second approval.
 
-The separate identity-evidence and two-person approval workflow remains available for any future restricted/high-assurance registration policy. It is not a prerequisite for ordinary self-service accounts and must not be wired as a mandatory gate for the normal Create account action.
+Direct Appwrite account creation is not an alternate registration route. An Appwrite user without the approved provisioning mapping cannot access Testagram product APIs, even with a valid and verified Appwrite session.
 
 ## Media acceptance
 
@@ -47,19 +49,18 @@ The separate identity-evidence and two-person approval workflow remains availabl
 
 ## Production switches and release gates
 
-The current deployment workflow defaults the separate identity-evidence workflow (`TESTAGRAM_IDENTITY_REGISTRATION_ENABLED`) and `MEDIA_REPLICATION_ENABLED` to `false`. Those switches do not disable Appwrite self-service account creation. Appwrite must still have public account creation enabled, the production project ID and endpoint configured in the Flutter build, and the canonical callback origin registered as a Web platform.
+Both registration gates default to `false` and must remain aligned:
 
-Before enabling public registration, operators must verify in the production environment (without exposing values in logs):
+- `TESTAGRAM_IDENTITY_REGISTRATION_ENABLED=false` in the Backend environment.
+- `TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=false` in the Flutter build by default. Set it to `true` with `--dart-define` only after the Backend gate is ready.
+- `MEDIA_REPLICATION_ENABLED=true` is required for acceptance, with the Instabox storage path and both R2 and B2 private buckets configured and credentials verified.
+- `TESTAGRAM_TERMS_VERSION` and `TESTAGRAM_PRIVACY_VERSION` must match the published policy versions in Backend and Flutter builds.
+- Appwrite's production platform and verification/recovery callback origins must include the canonical Testagram domains.
+- `ONSPACE_AI_API_KEY` and `ONSPACE_AI_BASE_URL` must be configured in the Backend secret environment; post creation fails closed when moderation is unavailable.
 
-- `TESTAGRAM_IDENTITY_REGISTRATION_ENABLED=true` in the Backend deployment configuration.
-- `MEDIA_REPLICATION_ENABLED=true`, with the Instabox storage path and both R2 and B2 private buckets configured and credentials valid.
-- `TESTAGRAM_TERMS_VERSION` and `TESTAGRAM_PRIVACY_VERSION` set to the published policy versions.
-- `TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true` in the Cloudflare Pages build configuration.
-- Appwrite's production web platform and email verification/recovery callback origins include the canonical Testagram domains.
-- A real, approved test application can upload evidence, pass three-provider integrity verification, complete the two-person review, redeem provisioning exactly once, verify email, sign in, and resolve its canonical profile.
-- A real authenticated user can upload a media asset, wait for verified replication, publish a post with the ready asset, and read it back through the Backend/CDN path.
+Before enabling registration, run a real approved test application through private evidence replication, two independent review decisions, separate two-person account approval, Appwrite account creation, one-time provisioning redemption, email verification, sign-in and canonical profile resolution. Then prove a new authenticated account can create a moderated post, attach only ready media, and read the post back from the feed/CDN path.
 
-Do not enable registration merely by changing a frontend flag. If any storage, reviewer, Appwrite, Backend or callback gate is unavailable, keep registration closed and report the exact failed gate.
+Never enable only the frontend flag. If any storage, reviewer, Appwrite, moderation, Backend or callback gate is unavailable, keep registration closed and report the exact failed gate.
 
 ## Client security boundary
 

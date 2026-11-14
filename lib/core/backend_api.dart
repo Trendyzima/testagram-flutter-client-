@@ -404,26 +404,6 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
-  /// Records age self-declaration and the current Terms/Privacy versions
-  /// for the authenticated Appwrite account before canonical provisioning.
-  Future<Map<String, dynamic>> recordRegistrationConsent({
-    required bool ageConfirmed,
-    required bool termsAccepted,
-    required bool privacyAccepted,
-    required String termsVersion,
-    required String privacyVersion,
-  }) => _request(
-        'POST',
-        baseUri.resolve('/api/auth/registration-consent'),
-        body: {
-          'age_confirmed': ageConfirmed,
-          'terms_accepted': termsAccepted,
-          'privacy_accepted': privacyAccepted,
-          'terms_version': termsVersion,
-          'privacy_version': privacyVersion,
-        },
-      );
-
   /// Resolves the caller's canonical Testagram profile from the verified session.
   /// Appwrite user IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
@@ -677,9 +657,11 @@ class BackendApi {
       final message = decoded is Map
           ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
           : null;
+      final errorCode = error is Map ? error['code']?.toString() : null;
       throw BackendApiException(
         message?.isNotEmpty == true ? message! : 'Request failed. Please try again.',
         statusCode: response.statusCode,
+        code: errorCode,
       );
     }
     if (decoded is Map<String, dynamic>) return decoded;
@@ -690,9 +672,11 @@ class BackendApi {
 }
 
 class BackendApiException implements Exception {
-  const BackendApiException(this.message, {this.statusCode});
+  const BackendApiException(this.message, {this.statusCode, this.code});
   final String message;
   final int? statusCode;
+  /// Stable machine-readable Backend error code, when supplied by the API.
+  final String? code;
 
   @override
   String toString() => message;
