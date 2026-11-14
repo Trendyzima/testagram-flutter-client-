@@ -8,6 +8,9 @@ class TestagramTheme {
 
   static const blue = Color(0xFF1685F5);
   static const blueDark = Color(0xFF4AA3FF);
+  // Compatibility aliases used by existing decorative background widgets.
+  static const green = blue;
+  static const greenDark = blueDark;
   static const lightBackground = Color(0xFFFFFFFF);
   static const lightSurface = Color(0xFFFFFFFF);
   static const lightRaised = Color(0xFFF5F8FA);
