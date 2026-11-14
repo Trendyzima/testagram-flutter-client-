@@ -94,7 +94,7 @@ class _MainShellState extends State<MainShell> {
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 760),
+              constraints: const BoxConstraints(maxWidth: 1180),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),
