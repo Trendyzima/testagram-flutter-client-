@@ -82,6 +82,24 @@ void main() {
     expect(find.text('Use at least 8 characters.'), findsOneWidget);
   });
 
+  testWidgets('restored verified accounts can complete Backend registration consent',
+      (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        account: account,
+        onSignedIn: () {},
+        requireRegistrationConsent: true,
+      ),
+    ));
+
+    expect(find.text('Finish setting up your account'), findsOneWidget);
+    expect(find.text('Accept and continue'), findsOneWidget);
+    expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
+    expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
+    expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
+    expect(find.text('This step records your current declarations with Testagram.'), findsOneWidget);
+  });
+
   testWidgets('legal documents can be read before consent', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(account: account, onSignedIn: () {}),
