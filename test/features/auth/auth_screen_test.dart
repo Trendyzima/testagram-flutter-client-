@@ -54,7 +54,7 @@ void main() {
   testWidgets('registration is available and still requires identity-review consent',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}),
+      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
     ));
 
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
