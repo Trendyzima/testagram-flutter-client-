@@ -5,6 +5,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import '../../core/app_config.dart';
+import '../../core/backend_api.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 
@@ -132,6 +133,12 @@ class _AuthScreenState extends State<AuthScreen> {
 
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
+    if (e is BackendApiException) {
+      if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
+        return 'Your Appwrite sign-in succeeded, but Testagram could not find an approved, linked account. Complete identity registration or contact support.';
+      }
+      return e.message;
+    }
     if (e is AppwriteException) {
       if (e.code == 401) {
         return 'The email or password is incorrect.';
@@ -180,6 +187,19 @@ class _AuthScreenState extends State<AuthScreen> {
           });
         }
         return;
+      }
+
+      // Appwrite proves the credential/session. The Backend must independently
+      // validate that JWT and resolve the canonical Testagram account before
+      // the app opens product surfaces.
+      final backend = BackendApi(
+        baseUri: AppConfig.backendOrigin,
+        getJwt: () async => (await widget.account.createJWT()).jwt,
+      );
+      try {
+        await backend.getMyProfile();
+      } finally {
+        backend.close();
       }
       widget.onSignedIn();
     });
@@ -481,10 +501,46 @@ class _AuthScreenState extends State<AuthScreen> {
       padding: const EdgeInsets.all(24), child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 440),
         child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Icon(Icons.hub_rounded, color: Color(0xFF18A957), size: 58),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 52,
+                height: 52,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Icon(Icons.hub_rounded,
+                    color: Theme.of(context).colorScheme.primary, size: 30),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Testagram',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.4,
+                          )),
+                  Text('Connect. Share. Belong.',
+                      style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 28),
           _modeNavigation(),
-          const SizedBox(height: 22), Text(title, style: Theme.of(context).textTheme.headlineMedium),
-          const SizedBox(height: 8), Text(subtitle), const SizedBox(height: 28),
+          const SizedBox(height: 24),
+          Text(title,
+              textAlign: TextAlign.center,
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: -0.5,
+                  )),
+          const SizedBox(height: 8),
+          Text(subtitle, textAlign: TextAlign.center),
+          const SizedBox(height: 28),
           if (_page == _Page.signUp) ...[
             TextFormField(controller: _name, textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
