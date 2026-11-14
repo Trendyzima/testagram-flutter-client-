@@ -5,8 +5,8 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
-import 'feed_request_policy.dart';
 import '../posts/post_detail_screen.dart';
+import 'feed_request_policy.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key, required this.api, required this.onSignOut});
@@ -119,7 +119,8 @@ class _FeedScreenState extends State<FeedScreen> {
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
     } catch (e) {
-      if (mounted && FeedRequestPolicy.isCurrent(
+      if (mounted &&
+          FeedRequestPolicy.isCurrent(
             requestGeneration: generation,
             currentGeneration: _loadGeneration,
           )) {
