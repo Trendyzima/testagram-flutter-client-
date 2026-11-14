@@ -29,7 +29,7 @@ class TvChannelCachePolicy {
 
   static bool _isLocalOrPrivateHost(String rawHost) {
     final host = rawHost.toLowerCase().replaceAll(RegExp(r'^\\[|\\]$'), '');
-    if (host == 'localhost' ||
+    if (host.startsWith('::ffff:') && _isLocalOrPrivateHost(host.substring(7))) {\n      return true;\n    }\n    if (host == 'localhost' ||
         host.endsWith('.localhost') ||
         host.endsWith('.local') ||
         host.endsWith('.internal') ||
@@ -37,7 +37,7 @@ class TvChannelCachePolicy {
         host == '::1' ||
         host.startsWith('fc') ||
         host.startsWith('fd') ||
-        host.startsWith('fe80:') ||
+        host.startsWith('fe80:') ||\n        host.startsWith('ff') ||
         host.startsWith('::ffff:127.') ||
         host.startsWith('::ffff:10.') ||
         host.startsWith('::ffff:192.168.')) {
