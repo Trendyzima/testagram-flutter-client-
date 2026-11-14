@@ -11,6 +11,15 @@ class AppConfig {
     'APPWRITE_PROJECT_ID',
     defaultValue: '6af01d97002875d6d7bd',
   );
+  static const termsVersion = String.fromEnvironment(
+    'TESTAGRAM_TERMS_VERSION',
+    defaultValue: '2026-11-11',
+  );
+  static const privacyVersion = String.fromEnvironment(
+    'TESTAGRAM_PRIVACY_VERSION',
+    defaultValue: '2026-11-11',
+  );
+
   static const backendApiUrl = String.fromEnvironment(
     'TESTAGRAM_API_URL',
     defaultValue: 'https://api.testagram.site',
