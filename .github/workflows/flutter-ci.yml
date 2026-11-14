@@ -21,7 +21,7 @@ jobs:
     env:
       APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
       APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID || '6af01d97002875d6d7bd' }}
-      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://api.testagram.site' }}
     steps:
       - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
