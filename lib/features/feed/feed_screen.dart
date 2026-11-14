@@ -618,10 +618,10 @@ class _PostCard extends StatelessWidget {
     if (date == null) return '';
     final difference = DateTime.now().difference(date);
     if (difference.isNegative || difference.inMinutes < 1) return 'now';
-    if (difference.inMinutes < 60) return difference.inMinutes.toString() + 'm';
-    if (difference.inHours < 24) return difference.inHours.toString() + 'h';
-    if (difference.inDays < 7) return difference.inDays.toString() + 'd';
-    return date.day.toString() + '/' + date.month.toString() + '/' + date.year.toString();
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays < 7) return '${difference.inDays}d';
+    return '${date.day}/${date.month}/${date.year}';
   }
 
   @override
@@ -684,9 +684,9 @@ class _PostCard extends StatelessWidget {
                       Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
                       if (username.isNotEmpty) ...[
                         const SizedBox(width: 5),
-                        Flexible(child: Text('@' + username, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
+                        Flexible(child: Text('@$username', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
                       ],
-                      if (created.isNotEmpty) Text(' · ' + created, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                      if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
                       const Spacer(),
                       Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
                     ],
