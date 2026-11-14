@@ -7,7 +7,7 @@ import '../../core/backend_api.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 
-enum _Page { signIn, signUp, forgot, verify, reset, identity }
+enum _Page { signIn, signUp, forgot, verify, reset, identity, consent }
 
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
@@ -15,12 +15,14 @@ class AuthScreen extends StatefulWidget {
     required this.account,
     required this.onSignedIn,
     this.requireVerification = false,
+    this.requireRegistrationConsent = false,
     this.initialEmail,
     this.enableIdentityRegistration,
   });
   final Account account;
   final VoidCallback onSignedIn;
   final bool requireVerification;
+  final bool requireRegistrationConsent;
   final String? initialEmail;
   final bool? enableIdentityRegistration;
   @override
@@ -76,6 +78,10 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
+    if (widget.requireRegistrationConsent) {
+      _page = _Page.consent;
+      _notice = 'Please confirm your age and accept the current Terms and Privacy Notice to finish setting up your account.';
+    }
   }
 
   @override
@@ -86,7 +92,7 @@ class _AuthScreenState extends State<AuthScreen> {
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
 
   Widget _modeNavigation() {
-    if (_page == _Page.identity) return const SizedBox.shrink();
+    if (_page == _Page.identity || _page == _Page.consent) return const SizedBox.shrink();
     final modes = <(_Page, String)>[
       (_Page.signIn, 'Sign in'),
       (_Page.signUp, 'Sign up'),
@@ -121,8 +127,11 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
+      if (e.statusCode == 403 && e.message.toLowerCase().contains('registration consent')) {
+        return 'Confirm your age and accept the current Terms and Privacy Notice to finish account setup.';
+      }
       if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
-        return 'Your Appwrite sign-in succeeded, but Testagram could not find an approved, linked account. Complete identity registration or contact support.';
+        return 'Your Appwrite sign-in succeeded, but Testagram could not resolve your canonical account. Retry or contact support.';
       }
       return e.message;
     }
@@ -185,6 +194,18 @@ class _AuthScreenState extends State<AuthScreen> {
       );
       try {
         await backend.getMyProfile();
+      } on BackendApiException catch (error) {
+        if (error.statusCode == 403 &&
+            error.message.toLowerCase().contains('registration consent')) {
+          if (mounted) {
+            setState(() {
+              _page = _Page.consent;
+              _notice = 'Confirm your age and accept the current Terms and Privacy Notice to finish account setup.';
+            });
+          }
+          return;
+        }
+        rethrow;
       } finally {
         backend.close();
       }
@@ -205,14 +226,36 @@ class _AuthScreenState extends State<AuthScreen> {
         password: _password.text,
         name: _name.text.trim(),
       );
+      await widget.account.createEmailPasswordSession(
+        email: _email.text.trim().toLowerCase(),
+        password: _password.text,
+      );
+      final backend = BackendApi(
+        baseUri: AppConfig.backendOrigin,
+        getJwt: () async => (await widget.account.createJWT()).jwt,
+      );
       try {
-        await widget.account.createVerification(
-          url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+        await backend.recordRegistrationConsent(
+          adultConfirmed: _ageConfirmed,
+          termsAccepted: _termsAccepted,
+          privacyAccepted: _privacyAccepted,
         );
-      } on AppwriteException catch (error) {
-        // The account is already created. Do not report a false account-creation
-        // failure if only the verification-email request needs to be retried.
-        if (error.code != 409) rethrow;
+        try {
+          await widget.account.createVerification(
+            url: '${AppConfig.authCallbackOrigin}/?mode=verification',
+          );
+        } on AppwriteException catch (error) {
+          // The account is already created. Do not report a false account-creation
+          // failure if only the verification-email request needs to be retried.
+          if (error.code != 409) rethrow;
+        }
+      } finally {
+        backend.close();
+        try {
+          await widget.account.deleteSession(sessionId: 'current');
+        } on AppwriteException {
+          // Consent is already durable; a cleanup failure must not erase it.
+        }
       }
       if (!mounted) return;
       _password.clear();
@@ -221,6 +264,30 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         _notice = 'Your Testagram account has been created. Check your email to verify it, then sign in.';
       });
+    });
+  }
+
+  Future<void> _acceptRegistrationConsent() async {
+    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
+      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
+      return;
+    }
+    await _run(() async {
+      final backend = BackendApi(
+        baseUri: AppConfig.backendOrigin,
+        getJwt: () async => (await widget.account.createJWT()).jwt,
+      );
+      try {
+        await backend.recordRegistrationConsent(
+          adultConfirmed: _ageConfirmed,
+          termsAccepted: _termsAccepted,
+          privacyAccepted: _privacyAccepted,
+        );
+        await backend.getMyProfile();
+      } finally {
+        backend.close();
+      }
+      widget.onSignedIn();
     });
   }
 
@@ -470,6 +537,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.forgot => 'Reset your password', _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
       _Page.identity => 'Identity verification',
+      _Page.consent => 'Finish setting up your account',
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to your Testagram account.',
@@ -478,6 +546,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.verify => 'Check your inbox and verify your email address.',
       _Page.reset => 'Choose a strong password you have not used before.',
       _Page.identity => 'Submit private evidence and track your manual review.',
+      _Page.consent => 'Your verified Appwrite account needs registration consent before Testagram can create its canonical profile.',
     };
     return Scaffold(body: SafeArea(child: Center(child: SingleChildScrollView(
       padding: const EdgeInsets.all(24), child: ConstrainedBox(
@@ -574,8 +643,8 @@ class _AuthScreenState extends State<AuthScreen> {
               validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
             ),
           ],
-          if (_page == _Page.signUp) ...[
-            Card(
+          if ({_Page.signUp, _Page.consent}.contains(_page)) ...[
+            if (_page == _Page.signUp) Card(
               child: Padding(
                 padding: const EdgeInsets.all(14),
                 child: Row(
@@ -597,6 +666,11 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
             ),
+            if (_page == _Page.consent)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: Text('This step records your current declarations with Testagram. It does not require the separate high-assurance identity-review process.'),
+              ),
             const SizedBox(height: 12),
             CheckboxListTile(
               contentPadding: EdgeInsets.zero,
@@ -682,6 +756,11 @@ class _AuthScreenState extends State<AuthScreen> {
             FilledButton(
               onPressed: _busy ? null : _signUp,
               child: _busy ? const CircularProgressIndicator() : const Text('Create account'),
+            ),
+          if (_page == _Page.consent)
+            FilledButton(
+              onPressed: _busy ? null : _acceptRegistrationConsent,
+              child: _busy ? const CircularProgressIndicator() : const Text('Accept and continue'),
             ),
           if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
             child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
