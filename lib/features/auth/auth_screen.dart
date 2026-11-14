@@ -1,5 +1,3 @@
-import 'dart:convert';
-import 'dart:math';
 
 import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
@@ -31,14 +29,13 @@ class AuthScreen extends StatefulWidget {
 
 class _AuthScreenState extends State<AuthScreen> {
   final _form = GlobalKey<FormState>();
-  final _name = TextEditingController(), _username = TextEditingController(), _email = TextEditingController();
+  final _name = TextEditingController(), _email = TextEditingController();
   final _password = TextEditingController(), _confirm = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   IdentityApplication? _identityApplication;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
-  String? _identityIdempotencyKey;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
 
@@ -83,7 +80,7 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   void dispose() {
-    _name.dispose(); _username.dispose(); _email.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
+    _name.dispose(); _email.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
   }
 
   void _go(_Page p) => setState(() { _page = p; _error = null; _notice = null; });
@@ -120,16 +117,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
   String? _passwordValid(String? v) =>
       v == null || v.length < 8 ? 'Use at least 8 characters.' : v.length > 256 ? 'Password is too long.' : null;
-
-  String? _usernameValid(String? value) {
-    final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
-    if (username.length < 3 || username.length > 30) {
-      return 'Username must be 3–30 characters.';
-    }
-    return RegExp(r'^[a-zA-Z0-9_]+$').hasMatch(username)
-        ? null
-        : 'Use letters, numbers and underscores only.';
-  }
 
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
@@ -312,43 +299,6 @@ class _AuthScreenState extends State<AuthScreen> {
           _recoverySecret = null;
         _notice = 'Password changed. Sign in with your new password.';
         });
-      }
-    });
-  }
-
-  Future<void> _startIdentityApplication() async {
-    if (!_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
-      return;
-    }
-    await _run(() async {
-      final random = Random.secure();
-      final idempotencyKey = _identityIdempotencyKey ??= base64UrlEncode(
-        List<int>.generate(32, (_) => random.nextInt(256)),
-      ).replaceAll('=', '');
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        final application = await api.createApplication(
-          email: _email.text,
-          username: _username.text,
-          displayName: _name.text,
-          adultConfirmed: _ageConfirmed,
-          termsAccepted: _termsAccepted,
-          privacyAccepted: _privacyAccepted,
-          idempotencyKey: idempotencyKey,
-        );
-        if (mounted) {
-          setState(() {
-            _identityApplication = application;
-            _identityIdempotencyKey = null;
-            _identityStatus = null;
-            _page = _Page.identity;
-            _notice = 'Your application is created. Upload your evidence to submit it for manual review.';
-          });
-        }
-      } finally {
-        api.close();
       }
     });
   }
@@ -573,6 +523,52 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 8),
           Text(subtitle, textAlign: TextAlign.center),
           const SizedBox(height: 28),
+          if (_page == _Page.signUp) ...[
+            TextFormField(
+              controller: _name,
+              textCapitalization: TextCapitalization.words,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
+              validator: (value) => value == null || value.trim().length < 2 ? 'Enter your name.' : null,
+            ),
+            const SizedBox(height: 14),
+          ],
+          if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
+            TextFormField(
+              controller: _email,
+              keyboardType: TextInputType.emailAddress,
+              autocorrect: false,
+              autofillHints: const [AutofillHints.email],
+              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
+              validator: _emailValid,
+            ),
+          if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _password,
+              obscureText: _obscure,
+              autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
+              decoration: InputDecoration(
+                labelText: _page == _Page.reset ? 'New password' : 'Password',
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
+                ),
+              ),
+              validator: _passwordValid,
+              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
+            ),
+          ],
+          if ({_Page.signUp, _Page.reset}.contains(_page)) ...[
+            const SizedBox(height: 14),
+            TextFormField(
+              controller: _confirm,
+              obscureText: _obscure,
+              decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
+              validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
+            ),
+          ],
           if (_page == _Page.signUp) ...[
             Card(
               child: Padding(
