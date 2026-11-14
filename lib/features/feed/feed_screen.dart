@@ -373,9 +373,19 @@ class _FeedScreenState extends State<FeedScreen> {
                 const Expanded(
                   child: Text("What's happening?", style: TextStyle(fontSize: 15)),
                 ),
-                FilledButton(
-                  onPressed: _publishing ? null : _composePost,
-                  child: const Text('Post'),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 9),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primary,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: Text(
+                    'Post',
+                    style: TextStyle(
+                      color: Theme.of(context).colorScheme.onPrimary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -426,7 +436,14 @@ class _FeedScreenState extends State<FeedScreen> {
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(child: timeline),
+              Expanded(
+                child: Center(
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 680),
+                    child: timeline,
+                  ),
+                ),
+              ),
               const SizedBox(width: 24),
               SizedBox(
                 width: 292,
@@ -875,16 +892,27 @@ class _PostCard extends StatelessWidget {
                         child: Image.network(mediaUrls.first, width: double.infinity, height: 250, fit: BoxFit.cover, headers: headersForMedia(mediaUrls.first), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
                       )
                     else
-                      Wrap(
-                        spacing: 6,
-                        runSpacing: 6,
-                        children: mediaUrls.map((url) => SizedBox(
-                          width: (MediaQuery.sizeOf(context).width - 112) / 2,
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(14),
-                            child: Image.network(url, height: 146, fit: BoxFit.cover, headers: headersForMedia(url), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
-                          ),
-                        )).toList(),
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final tileWidth = (constraints.maxWidth - 6) / 2;
+                          return Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: mediaUrls.map((url) => SizedBox(
+                              width: tileWidth,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.network(
+                                  url,
+                                  height: 146,
+                                  fit: BoxFit.cover,
+                                  headers: headersForMedia(url),
+                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            )).toList(),
+                          );
+                        },
                       ),
                   ],
                   const SizedBox(height: 8),
