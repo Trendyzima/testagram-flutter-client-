@@ -37,8 +37,9 @@ The current migration batch includes:
 - `lib/features/ads/ad_review_policy.dart`: ad-review control presentation rules; server authorization remains authoritative.
 - `lib/features/creator/podcast_analytics_policy.dart`: defensive creator analytics display parsing.
 - `lib/features/tv/tv_playback_policy.dart`: playback-surface, sponsored-ad eligibility, lifecycle pause/resume and validated YouTube URL policies.
+- `lib/features/feed/feed_request_policy.dart`: request concurrency and stale-response generation guards for the Backend-owned feed.
 
-Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated.
+Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated. Feed pagination deliberately does not copy the legacy PostgREST cursor builder: the canonical Backend returns an opaque next_cursor that the client passes through unchanged.
 
 The owned Testagram launcher/brand image from `mobile/assets/branding/testagram-icon.webp` is also copied to `assets/branding/testagram-icon.webp` for the standalone client. It is declared as a Flutter asset; platform launcher generation remains a separate release task.
 
