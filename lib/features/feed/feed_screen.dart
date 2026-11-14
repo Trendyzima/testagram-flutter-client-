@@ -311,10 +311,24 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Testagram', style: TextStyle(fontWeight: FontWeight.w800)),
+      title: Row(
+        children: [
+          Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
+          const SizedBox(width: 9),
+          const Text('T social'),
+        ],
+      ),
       actions: [
-        IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh'),
-        IconButton(onPressed: widget.onSignOut, icon: const Icon(Icons.logout), tooltip: 'Sign out'),
+        IconButton(
+          onPressed: _loading ? null : () => _load(reset: true),
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Refresh timeline',
+        ),
+        IconButton(
+          onPressed: widget.onSignOut,
+          icon: const Icon(Icons.logout_rounded),
+          tooltip: 'Sign out',
+        ),
       ],
     ),
     floatingActionButton: FloatingActionButton(onPressed: _publishing ? null : _composePost, tooltip: 'Compose post', child: _publishing ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.edit)),
@@ -584,18 +598,42 @@ class _PostMediaDraft {
 }
 
 class _PostCard extends StatelessWidget {
-  const _PostCard({required this.post, required this.busy, required this.onLike, required this.onRepost, required this.onBookmark, required this.onReplies, this.onOpen});
+  const _PostCard({
+    required this.post,
+    required this.busy,
+    required this.onLike,
+    required this.onRepost,
+    required this.onBookmark,
+    required this.onReplies,
+    this.onOpen,
+  });
+
   final Map<String, dynamic> post;
   final bool busy;
   final VoidCallback onLike, onRepost, onBookmark, onReplies;
   final VoidCallback? onOpen;
 
+  String _timeLabel(String value) {
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return '';
+    final difference = DateTime.now().difference(date);
+    if (difference.isNegative || difference.inMinutes < 1) return 'now';
+    if (difference.inMinutes < 60) return difference.inMinutes.toString() + 'm';
+    if (difference.inHours < 24) return difference.inHours.toString() + 'h';
+    if (difference.inDays < 7) return difference.inDays.toString() + 'd';
+    return date.day.toString() + '/' + date.month.toString() + '/' + date.year.toString();
+  }
+
   @override
   Widget build(BuildContext context) {
     final author = post['author'];
-    final name = author is Map ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString() : 'Testagram user';
+    final name = author is Map
+        ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
+        : 'Testagram user';
+    final username = author is Map ? (author['username'] ?? '').toString() : '';
+    final avatarUrl = author is Map ? (author['avatar_url'] ?? '').toString() : '';
     final body = (post['content'] ?? '').toString();
-    final created = (post['created_at'] ?? '').toString();
+    final created = _timeLabel((post['created_at'] ?? '').toString());
     final rawMedia = post['media_urls'];
     final mediaUrls = rawMedia is List
         ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
@@ -619,68 +657,85 @@ class _PostCard extends StatelessWidget {
       final legacyUrl = (post['media_url'] ?? '').toString();
       if (legacyUrl.startsWith('http')) mediaUrls.add(legacyUrl);
     }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        CircleAvatar(
-          backgroundColor: const Color(0xFF174A2D),
-          backgroundImage: author is Map && (author['avatar_url'] ?? '').toString().startsWith('http') ? NetworkImage(author['avatar_url'].toString()) : null,
-          child: author is Map && (author['avatar_url'] ?? '').toString().startsWith('http') ? null : Text(name.isEmpty ? 'T' : name[0].toUpperCase()),
-        ),
-        const SizedBox(width: 12),
-        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Row(children: [
-            Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w700), overflow: TextOverflow.ellipsis)),
-            if (created.isNotEmpty) Text('  ·  ${created.length > 10 ? created.substring(0, 10) : created}', style: const TextStyle(color: Colors.white54, fontSize: 12)),
-          ]),
-          const SizedBox(height: 7),
-          InkWell(onTap: onOpen, child: Text(body, style: const TextStyle(height: 1.4))),
-          if (mediaUrls.isNotEmpty) ...[
-            const SizedBox(height: 10),
-            if (mediaUrls.length == 1)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Image.network(
-                  mediaUrls.first,
-                  width: double.infinity,
-                  height: 230,
-                  fit: BoxFit.cover,
-                  headers: headersForMedia(mediaUrls.first),
-                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
-                ),
-              )
-            else
-              Wrap(
-                spacing: 6,
-                runSpacing: 6,
-                children: mediaUrls.map((url) => SizedBox(
-                  width: (MediaQuery.sizeOf(context).width - 96) / 2,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Image.network(
-                      url,
-                      height: 142,
-                      fit: BoxFit.cover,
-                      headers: headersForMedia(url),
-                      errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+
+    return InkWell(
+      onTap: onOpen,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
+              backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl.startsWith('http')
+                  ? null
+                  : Text(
+                      name.isEmpty ? 'T' : name[0].toUpperCase(),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800),
                     ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      if (username.isNotEmpty) ...[
+                        const SizedBox(width: 5),
+                        Flexible(child: Text('@' + username, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
+                      ],
+                      if (created.isNotEmpty) Text(' · ' + created, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                      const Spacer(),
+                      Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
+                    ],
                   ),
-                )).toList(),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
+                  ],
+                  if (mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    if (mediaUrls.length == 1)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(mediaUrls.first, width: double.infinity, height: 250, fit: BoxFit.cover, headers: headersForMedia(mediaUrls.first), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      )
+                    else
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 6,
+                        children: mediaUrls.map((url) => SizedBox(
+                          width: (MediaQuery.sizeOf(context).width - 112) / 2,
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(14),
+                            child: Image.network(url, height: 146, fit: BoxFit.cover, headers: headersForMedia(url), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                          ),
+                        )).toList(),
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
+                      _Action(icon: post['is_reposted'] == true ? Icons.repeat_on_rounded : Icons.repeat_rounded, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
+                      _Action(icon: post['is_liked'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
+                      _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
+                    ],
+                  ),
+                ],
               ),
+            ),
           ],
-          const SizedBox(height: 10),
-          Wrap(spacing: 2, children: [
-            _Action(icon: post['is_liked'] == true ? Icons.favorite : Icons.favorite_border, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
-            _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
-            _Action(icon: Icons.repeat, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
-            _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark : Icons.bookmark_border, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
-          ]),
-        ])),
-      ]),
+        ),
+      ),
     );
   }
 }
-
 class _Action extends StatelessWidget {
   const _Action({required this.icon, required this.label, required this.onTap, this.active = false});
   final IconData icon;
@@ -688,10 +743,24 @@ class _Action extends StatelessWidget {
   final VoidCallback? onTap;
   final bool active;
   @override
-  Widget build(BuildContext context) => TextButton.icon(
-    onPressed: onTap,
-    icon: Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.primary : null),
-    label: Text(label),
-    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor),
+          if (label.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+            )),
+          ],
+        ],
+      ),
+    ),
   );
 }
