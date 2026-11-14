@@ -78,7 +78,7 @@ void main() {
     // The form still validates locally before any Appwrite request is made.
     await tapVisible(tester, action);
     expect(find.text('Enter your name.'), findsOneWidget);
-    expect(find.text('Enter a valid email address.'), findsOneWidget);
+    expect(find.text('Enter your email address.'), findsOneWidget);
     expect(find.text('Use at least 8 characters.'), findsOneWidget);
   });
 
