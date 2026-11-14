@@ -586,7 +586,10 @@ class _AuthScreenState extends State<AuthScreen> {
                     ],
                   ),
                   padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
-                  child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  child: Material(
+                    color: scheme.surface,
+                    borderRadius: BorderRadius.circular(28),
+                    child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -879,7 +882,8 @@ class _AuthScreenState extends State<AuthScreen> {
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
           ),
-                  ])),
+                    ]))),
+                  ),
                 ),
               ),
             ),
