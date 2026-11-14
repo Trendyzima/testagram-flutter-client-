@@ -8,7 +8,7 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
-    test('records versioned registration consent through the authenticated Backend', () async {
+    test('records registration consent through the authenticated Backend', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
@@ -23,22 +23,18 @@ void main() {
       );
 
       final result = await api.recordRegistrationConsent(
-        ageConfirmed: true,
+        adultConfirmed: true,
         termsAccepted: true,
         privacyAccepted: true,
-        termsVersion: '2026-11-11',
-        privacyVersion: '2026-11-11',
       );
 
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/auth/registration-consent');
       expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
       expect(jsonDecode(captured.body), {
-        'age_confirmed': true,
+        'adult_confirmed': true,
         'terms_accepted': true,
         'privacy_accepted': true,
-        'terms_version': '2026-11-11',
-        'privacy_version': '2026-11-11',
       });
       expect((result['data'] as Map)['recorded'], isTrue);
       api.close();
