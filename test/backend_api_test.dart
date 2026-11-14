@@ -488,6 +488,31 @@ void main() {
       api.close();
     });
 
+    test('resolves the current Appwrite session to a canonical Backend account', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'verified-appwrite-jwt',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'id': '00000000-0000-4000-8000-000000000002',
+              'username': 'linked_member',
+            },
+          }), 200);
+        }),
+      );
+
+      final profile = await api.getMyProfile();
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/me/profile');
+      expect(captured.headers['authorization'], 'Bearer verified-appwrite-jwt');
+      expect((profile['data'] as Map)['username'], 'linked_member');
+      api.close();
+    });
+
     test('loads a profile through the authenticated Backend route', () async {
       late http.Request captured;
       final api = BackendApi(
