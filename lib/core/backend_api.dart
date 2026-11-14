@@ -404,26 +404,6 @@ class BackendApi {
   Future<Map<String, dynamic>> getProfile(String userId) =>
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
-  /// Records age self-declaration and the current Terms/Privacy versions
-  /// for the authenticated Appwrite account before canonical provisioning.
-  Future<Map<String, dynamic>> recordRegistrationConsent({
-    required bool ageConfirmed,
-    required bool termsAccepted,
-    required bool privacyAccepted,
-    required String termsVersion,
-    required String privacyVersion,
-  }) => _request(
-        'POST',
-        baseUri.resolve('/api/auth/registration-consent'),
-        body: {
-          'age_confirmed': ageConfirmed,
-          'terms_accepted': termsAccepted,
-          'privacy_accepted': privacyAccepted,
-          'terms_version': termsVersion,
-          'privacy_version': privacyVersion,
-        },
-      );
-
   /// Resolves the caller's canonical Testagram profile from the verified session.
   /// Appwrite user IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
