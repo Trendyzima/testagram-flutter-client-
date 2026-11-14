@@ -47,6 +47,6 @@ jobs:
 
       - name: Probe catalogue and submit bounded health batches
         env:
-          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+          TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://api.testagram.site' }}
           GITHUB_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
         run: node tool/tv_health_monitor.mjs

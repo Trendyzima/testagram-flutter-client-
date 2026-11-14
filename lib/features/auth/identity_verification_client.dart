@@ -145,16 +145,35 @@ class IdentityVerificationClient {
       }),
     );
     final reservation = _decode(reserve);
-    final uploadUrl = Uri.parse(reservation['upload_url'] as String);
-    if (uploadUrl.scheme != 'https' ||
-        uploadUrl.host.isEmpty ||
+    // Evidence bytes must travel through the authenticated Backend proxy.
+    // Never let the API redirect the client to an internal MinIO hostname or
+    // expose a raw object-store presigned capability to the mobile app.
+    final evidenceId = reservation['evidence_id'] as String;
+    final uploadPath = reservation['upload_url'] as String;
+    final uploadUrl = _backendOrigin.resolve(uploadPath);
+    final expectedPath =
+        '/api/identity/sessions/${application.sessionId}/evidence/$evidenceId/upload';
+    final expiresIn = reservation['expires_in_seconds'];
+    if (reservation['method'] != 'PUT' ||
+        reservation['content_type'] != contentType ||
+        reservation['size_bytes'] != bytes.length ||
+        expiresIn is! int ||
+        expiresIn < 1 ||
+        expiresIn > 300 ||
+        uploadUrl.scheme != 'https' ||
+        uploadUrl.origin != _backendOrigin.origin ||
         uploadUrl.userInfo.isNotEmpty ||
-        uploadUrl.hasFragment) {
-      throw const FormatException('The evidence service returned an unsafe upload URL.');
+        uploadUrl.hasFragment ||
+        uploadUrl.hasQuery ||
+        uploadUrl.path != expectedPath) {
+      throw const FormatException('The evidence service returned an unsafe or mismatched upload reservation.');
     }
     final put = await _client.put(
       uploadUrl,
-      headers: {'Content-Type': contentType},
+      headers: {
+        'Content-Type': contentType,
+        'X-Verification-Session-Token': application.sessionToken,
+      },
       body: bytes,
     );
     if (put.statusCode < 200 || put.statusCode >= 300) {

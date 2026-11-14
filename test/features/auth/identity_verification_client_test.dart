@@ -56,10 +56,14 @@ void main() {
         if (request.url.path.endsWith('/evidence/upload-url')) {
           return http.Response(jsonEncode({
             'evidence_id': '33333333-3333-4333-8333-333333333333',
-            'upload_url': 'https://private-bucket.example/upload?signature=temporary',
+            'upload_url': '/api/identity/sessions/${application.sessionId}/evidence/33333333-3333-4333-8333-333333333333/upload',
+            'method': 'PUT',
+            'content_type': 'image/jpeg',
+            'size_bytes': 11,
+            'expires_in_seconds': 300,
           }), 201, headers: {'content-type': 'application/json'});
         }
-        if (request.method == 'PUT') return http.Response('', 200);
+        if (request.method == 'PUT') return http.Response('', 204);
         if (request.url.path.endsWith('/evidence/submit')) {
           return http.Response(jsonEncode({'ok': true, 'status': 'manual_review'}), 202,
               headers: {'content-type': 'application/json'});
@@ -69,13 +73,16 @@ void main() {
     );
     await client.uploadAndSubmitEvidence(
       application: application,
-      bytes: Uint8List.fromList([1, 2, 3, 4]),
+      bytes: Uint8List.fromList([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10, 0x4a, 0x46, 0x49, 0x46, 0x00]),
       contentType: 'image/jpeg',
     );
     expect(seen, hasLength(3));
     expect(seen[0].headers['X-Verification-Session-Token'], application.sessionToken);
     expect(seen[1].url.scheme, 'https');
+    expect(seen[1].url.host, 'api.testagram.site');
+    expect(seen[1].url.path, '/api/identity/sessions/${application.sessionId}/evidence/33333333-3333-4333-8333-333333333333/upload');
     expect(seen[1].headers['Content-Type'], 'image/jpeg');
+    expect(seen[1].headers['X-Verification-Session-Token'], application.sessionToken);
     expect(seen[2].headers['X-Verification-Session-Token'], application.sessionToken);
     expect(jsonDecode((seen[2] as http.Request).body)['evidence_id'],
         '33333333-3333-4333-8333-333333333333');
@@ -88,6 +95,33 @@ void main() {
       client: MockClient((request) async => http.Response(jsonEncode({
         'evidence_id': '33333333-3333-4333-8333-333333333333',
         'upload_url': 'http://untrusted.example/upload',
+        'method': 'PUT',
+        'content_type': 'image/jpeg',
+        'size_bytes': 1,
+        'expires_in_seconds': 300,
+      }), 201, headers: {'content-type': 'application/json'})),
+    );
+    await expectLater(
+      client.uploadAndSubmitEvidence(
+        application: application,
+        bytes: Uint8List.fromList([1]),
+        contentType: 'image/jpeg',
+      ),
+      throwsA(isA<FormatException>()),
+    );
+    client.close();
+  });
+
+  test('rejects a cross-origin HTTPS evidence upload URL', () async {
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async => http.Response(jsonEncode({
+        'evidence_id': '33333333-3333-4333-8333-333333333333',
+        'upload_url': 'https://attacker.example/upload',
+        'method': 'PUT',
+        'content_type': 'image/jpeg',
+        'size_bytes': 1,
+        'expires_in_seconds': 300,
       }), 201, headers: {'content-type': 'application/json'})),
     );
     await expectLater(

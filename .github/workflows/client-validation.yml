@@ -42,6 +42,18 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Validate production TV health monitor contract
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          workflow = Path(".github/workflows/tv-health-monitor.yml").read_text()
+          monitor = Path("tool/tv_health_monitor.mjs").read_text()
+          assert "vars.TESTAGRAM_API_URL || 'https://api.testagram.site'" in workflow, "TV health monitor must default to the canonical production Backend API"
+          assert "8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech" not in workflow, "TV health monitor must not use an ephemeral development origin"
+          assert "audience=testagram-tv-health" in workflow, "TV health monitor must use the dedicated GitHub OIDC audience"
+          assert "/internal/tv/catalog" in monitor and "/internal/tv/health" in monitor, "TV monitor must use the protected Backend catalogue and health routes"
+          PY
+
       - name: Resolve dependencies
         run: flutter pub get
 
@@ -52,4 +64,4 @@ jobs:
         run: flutter analyze
 
       - name: Run Flutter tests
-        run: flutter test --reporter expanded
+        run: flutter test --reporter expanded --dart-define=TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true
