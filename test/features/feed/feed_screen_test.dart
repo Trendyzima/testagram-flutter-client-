@@ -128,4 +128,67 @@ void main() {
     expect(find.text('Your post was published.'), findsOneWidget);
     api.close();
   });
+
+  testWidgets('main-feed composer publishes and reads the created post back', (tester) async {
+    var created = false;
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'staging-shaped-appwrite-jwt',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': created ? [{
+                'id': 'post-read-back-1',
+                'content': 'Read-back verified from the Backend',
+                'created_at': '2026-11-14T12:00:00Z',
+                'author': {'username': 'staging_member', 'display_name': 'Staging Member'},
+              }] : [],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path == '/api/social/posts') {
+          created = true;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'id': 'post-read-back-1'},
+          }), 201);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'likes': 0, 'replies': 0, 'reposts': 0},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Compose post'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'Read-back verified from the Backend');
+    await tester.pumpAndSettle();
+    final publishButton = find.widgetWithText(FilledButton, 'Publish');
+    await tester.ensureVisible(publishButton);
+    await tester.tap(publishButton);
+    await tester.pumpAndSettle();
+
+    expect(find.text('Your post was published.'), findsOneWidget);
+    expect(find.text('Read-back verified from the Backend'), findsOneWidget);
+    expect(requests.where((r) => r.url.path == '/api/social/posts').length, 1);
+    expect(requests.where((r) => r.url.path == '/api/feed/home').length, greaterThanOrEqualTo(2));
+    expect(requests.firstWhere((r) => r.url.path == '/api/social/posts').headers['authorization'],
+        'Bearer staging-shaped-appwrite-jwt');
+    api.close();
+  });
+
 }
