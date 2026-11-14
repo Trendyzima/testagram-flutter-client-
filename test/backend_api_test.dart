@@ -927,6 +927,7 @@ void main() {
       expect(requests.every((request) =>
           request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
       expect(requests.every((request) => request.body == '{}'), isTrue);
+      expect(requests.every((request) => request.headers['content-type'] == 'application/json'), isTrue);
       api.close();
     });
   });
