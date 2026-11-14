@@ -38,6 +38,7 @@ The current migration batch includes:
 - `lib/features/creator/podcast_analytics_policy.dart`: defensive creator analytics display parsing.
 - `lib/features/tv/tv_playback_policy.dart`: playback-surface, sponsored-ad eligibility, lifecycle pause/resume and validated YouTube URL policies.
 - `lib/features/feed/feed_request_policy.dart`: request concurrency and stale-response generation guards for the Backend-owned feed.
+- `lib/features/tv/tv_channel_cache_policy.dart`: bounded, HTTPS-only public catalogue cache sanitization and expiry; no legacy persistence or Supabase access.
 
 Each migrated policy has focused tests. These utilities do not imply that their complete product screens, API integrations or backend capabilities have been migrated. Feed pagination deliberately does not copy the legacy PostgREST cursor builder: the canonical Backend returns an opaque next_cursor that the client passes through unchanged.
 
