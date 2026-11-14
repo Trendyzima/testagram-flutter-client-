@@ -21,9 +21,10 @@ jobs:
     timeout-minutes: 35
     environment: production
     env:
-      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
       APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID }}
-      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
+      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://api.testagram.site' }}
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'false' }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
@@ -52,6 +53,10 @@ jobs:
               *) echo "::error::$name must use HTTPS in production"; exit 1 ;;
             esac
           done
+          case "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" in
+            true|false) ;;
+            *) echo "::error::TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED must be true or false."; exit 1 ;;
+          esac
           echo "ready=true" >> "$GITHUB_OUTPUT"
 
       - name: Verify Cloudflare Pages API access
@@ -105,7 +110,8 @@ jobs:
           flutter build web --release --base-href / \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
           install -D cloudflare-pages/_headers build/web/_headers
           # Cloudflare's edge may retain an older response's cache metadata for
           # stable Flutter filenames. Version both JS entry points per commit.

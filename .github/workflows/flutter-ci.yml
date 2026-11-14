@@ -19,7 +19,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
-      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://cloud.appwrite.io/v1' }}
+      APPWRITE_ENDPOINT: ${{ vars.APPWRITE_ENDPOINT || 'https://fra.cloud.appwrite.io/v1' }}
       APPWRITE_PROJECT_ID: ${{ vars.APPWRITE_PROJECT_ID || '6af01d97002875d6d7bd' }}
       TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech' }}
     steps:
@@ -37,7 +37,7 @@ jobs:
       - name: Analyze
         run: flutter analyze
       - name: Unit and widget tests
-        run: flutter test --reporter expanded
+        run: flutter test --reporter expanded --dart-define=TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true
       - name: Report optional Appwrite configuration
         if: env.APPWRITE_PROJECT_ID == ''
         run: echo "::warning::APPWRITE_PROJECT_ID is not set; the app will show its configuration-required screen until it is added."
@@ -46,25 +46,29 @@ jobs:
           flutter build apk --debug \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Android release-mode QA APK (not production signed)
         run: |
           flutter build apk --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Android release-mode QA App Bundle (not production signed)
         run: |
           flutter build appbundle --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
       - name: Build Flutter web
         run: |
           flutter build web --release \
             --dart-define="APPWRITE_ENDPOINT=$APPWRITE_ENDPOINT" \
             --dart-define="APPWRITE_PROJECT_ID=$APPWRITE_PROJECT_ID" \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
           install -D cloudflare-pages/_headers build/web/_headers
       - name: Verify versioned Flutter entry points
         shell: bash
@@ -79,7 +83,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create your account'; do
+          for marker in 'Sign up' 'Reset password' 'Create your account' 'Start secure identity review'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1
