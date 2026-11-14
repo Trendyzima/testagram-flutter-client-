@@ -17,11 +17,13 @@ class AuthScreen extends StatefulWidget {
     required this.onSignedIn,
     this.requireVerification = false,
     this.initialEmail,
+    this.enableIdentityRegistration,
   });
   final Account account;
   final VoidCallback onSignedIn;
   final bool requireVerification;
   final String? initialEmail;
+  final bool? enableIdentityRegistration;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -622,7 +624,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
             child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
           if (_page == _Page.signUp)
-            AppConfig.enableIdentityRegistrationUi
+            (widget.enableIdentityRegistration ?? AppConfig.enableIdentityRegistrationUi)
                 ? FilledButton(
                     onPressed: _busy ? null : _startIdentityApplication,
                     child: _busy ? const CircularProgressIndicator() : const Text('Start secure identity review'),
