@@ -407,16 +407,20 @@ class BackendApi {
   /// Records age self-declaration and the current Terms/Privacy versions
   /// for the authenticated Appwrite account before canonical provisioning.
   Future<Map<String, dynamic>> recordRegistrationConsent({
-    required bool adultConfirmed,
+    required bool ageConfirmed,
     required bool termsAccepted,
     required bool privacyAccepted,
+    required String termsVersion,
+    required String privacyVersion,
   }) => _request(
         'POST',
         baseUri.resolve('/api/auth/registration-consent'),
         body: {
-          'adult_confirmed': adultConfirmed,
+          'age_confirmed': ageConfirmed,
           'terms_accepted': termsAccepted,
           'privacy_accepted': privacyAccepted,
+          'terms_version': termsVersion,
+          'privacy_version': privacyVersion,
         },
       );
 
