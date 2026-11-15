@@ -178,49 +178,60 @@ class _FeedScreenState extends State<FeedScreen> {
       useSafeArea: true,
       showDragHandle: true,
       builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setQuoteState) => Padding(
-        padding: EdgeInsets.fromLTRB(
-          18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text('Quote post', style: Theme.of(sheetContext).textTheme.titleLarge),
-            const SizedBox(height: 12),
-            Text(
-              (post['content'] ?? '').toString(),
-              maxLines: 4,
-              overflow: TextOverflow.ellipsis,
-              style: Theme.of(sheetContext).textTheme.bodyMedium,
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: controller,
-              autofocus: true,
-              minLines: 3,
-              maxLines: 7,
-              maxLength: 5000,
-              decoration: const InputDecoration(
-                hintText: 'Add your perspective…',
-                border: OutlineInputBorder(),
+        builder: (sheetContext, setQuoteState) {
+          final media = MediaQuery.of(sheetContext);
+          // Keyboard insets can exceed the test viewport (and occasionally
+          // transient webview viewport bounds). Cap them to keep the composer
+          // measurable, then let the content scroll on compact screens.
+          final keyboardInset = media.viewInsets.bottom
+              .clamp(0.0, media.size.height * 0.6);
+          return Padding(
+            padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text('Quote post', style: Theme.of(sheetContext).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    Text(
+                      (post['content'] ?? '').toString(),
+                      maxLines: 4,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(sheetContext).textTheme.bodyMedium,
+                    ),
+                    const SizedBox(height: 12),
+                    TextField(
+                      controller: controller,
+                      autofocus: true,
+                      minLines: 3,
+                      maxLines: 7,
+                      maxLength: 5000,
+                      decoration: const InputDecoration(
+                        hintText: 'Add your perspective…',
+                        border: OutlineInputBorder(),
+                      ),
+                      onChanged: (_) => setQuoteState(() {}),
+                    ),
+                    const SizedBox(height: 10),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: FilledButton.icon(
+                        onPressed: controller.text.trim().isEmpty
+                            ? null
+                            : () => Navigator.pop(sheetContext, controller.text.trim()),
+                        icon: const Icon(Icons.repeat_rounded),
+                        label: const Text('Publish quote'),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onChanged: (_) => setQuoteState(() {}),
             ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: controller.text.trim().isEmpty
-                    ? null
-                    : () => Navigator.pop(sheetContext, controller.text.trim()),
-                icon: const Icon(Icons.repeat_rounded),
-                label: const Text('Publish quote'),
-              ),
-            ),
-          ],
-        ),
-        ),
+          );
+        },
       ),
     );
     controller.dispose();
