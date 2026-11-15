@@ -304,11 +304,13 @@ class _AuthScreenState extends State<AuthScreen> {
     final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
     try {
       var currentDraft = restoredDraft;
-      var application = currentDraft.application;
-      if (application == null) {
+      late IdentityApplication application;
+      if (currentDraft.application == null) {
         application = await _submitIdentityDraft(api, currentDraft);
         currentDraft = currentDraft.copyWith(application: application);
         await _identityStore.save(currentDraft);
+      } else {
+        application = currentDraft.application!;
       }
       IdentityApplicationStatus status;
       try {
@@ -361,7 +363,7 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         var draft = _identityDraft;
         if (draft == null) {
-          draft = IdentityApplicationDraft(
+          final newDraft = IdentityApplicationDraft(
             email: _email.text.trim().toLowerCase(),
             username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
             displayName: _name.text.trim(),
@@ -370,15 +372,18 @@ class _AuthScreenState extends State<AuthScreen> {
           );
           // Persist the idempotency capability before the network request so
           // a lost response can be recovered after an app/browser restart.
-          await _identityStore.save(draft);
-          _identityDraft = draft;
+          await _identityStore.save(newDraft);
+          draft = newDraft;
+          _identityDraft = newDraft;
+          if (mounted) setState(() {});
         }
-        var application = await _submitIdentityDraft(api, draft);
-        draft = draft.copyWith(application: application);
-        await _identityStore.save(draft);
+        final submissionDraft = draft!;
+        final application = await _submitIdentityDraft(api, submissionDraft);
+        final savedDraft = submissionDraft.copyWith(application: application);
+        await _identityStore.save(savedDraft);
         if (!mounted) return;
         setState(() {
-          _identityDraft = draft;
+          _identityDraft = savedDraft;
           _identityApplication = application;
           _identityStatus = null;
           _page = _Page.identity;
