@@ -8,10 +8,10 @@ import '../posts/post_detail_screen.dart';
 import 'shorts_feed_policy.dart';
 
 class ShortsScreen extends StatefulWidget {
-  const ShortsScreen({super.key, required this.api, this.initialPostId});
+  const ShortsScreen({super.key, required this.api, this.initialPost});
 
   final BackendApi api;
-  final String? initialPostId;
+  final Map<String, dynamic>? initialPost;
 
   @override
   State<ShortsScreen> createState() => _ShortsScreenState();
@@ -77,6 +77,10 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
     if (reset) {
       await _disposePlayers();
       _items.clear();
+      final seed = widget.initialPost == null
+          ? null
+          : ShortsFeedPolicy.fromPost(widget.initialPost!);
+      if (seed != null) _items.add(seed);
       _playerErrors.clear();
       _cursor = null;
       _activeIndex = 0;
@@ -111,12 +115,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
 
       if (!mounted || generation != _generation) return;
       setState(() {
-        if (reset) {
-          final requestedIndex = widget.initialPostId == null
-              ? -1
-              : videos.indexWhere((item) => item.postId == widget.initialPostId);
-          _activeIndex = requestedIndex >= 0 ? requestedIndex : 0;
-        }
+        if (reset) _activeIndex = 0;
         final existing = _items.map((item) => item.postId).toSet();
         for (var index = 0; index < videos.length; index++) {
           final item = videos[index];
