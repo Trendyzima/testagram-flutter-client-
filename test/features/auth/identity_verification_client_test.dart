@@ -37,7 +37,8 @@ void main() {
       privacyAccepted: true,
       idempotencyKey: List<String>.filled(43, 'a').join(),
     );
-    expect(result.applicationId, application.applicationId);
+    expect(result.application?.applicationId, application.applicationId);
+    expect(result.hasApplication, isTrue);
     expect(seen.url.path, '/api/identity/applications');
     expect(seen.headers['Idempotency-Key'], List<String>.filled(43, 'a').join());
     final body = jsonDecode(seen.body) as Map<String, dynamic>;
