@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/media/media_upload_policy.dart';
 import '../posts/post_detail_screen.dart';
 import 'feed_request_policy.dart';
 
@@ -265,11 +266,17 @@ class _FeedScreenState extends State<FeedScreen> {
       }
 
       for (final media in draft.media) {
-        final asset = await widget.api.uploadPublicImage(
-          name: media.name,
-          contentType: media.contentType,
-          bytes: media.bytes,
-        );
+        final asset = media.contentType.startsWith('video/')
+            ? await widget.api.uploadPublicVideo(
+                name: media.name,
+                contentType: media.contentType,
+                bytes: media.bytes,
+              )
+            : await widget.api.uploadPublicImage(
+                name: media.name,
+                contentType: media.contentType,
+                bytes: media.bytes,
+              );
         final key = (asset['key'] ?? '').toString();
         if (key.isEmpty) {
           throw const BackendApiException('The server did not confirm an uploaded image key.');
@@ -285,7 +292,9 @@ class _FeedScreenState extends State<FeedScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(draft.media.isEmpty
               ? 'Your post was published.'
-              : 'Your post and ${attachedKeys.length} photo(s) were published.')),
+              : draft.media.any((media) => media.contentType.startsWith('video/'))
+                  ? 'Your post and video were published.'
+                  : 'Your post and ${attachedKeys.length} photo(s) were published.')),
         );
       }
     } catch (error) {
@@ -595,6 +604,13 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
   }
 
   Future<void> _pickImage() async {
+    if (_media.any((media) => media.contentType.startsWith('video/'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    if (_media.length >= 4) return;
     try {
       final picked = await ImagePicker().pickImage(
         source: ImageSource.gallery,
@@ -621,9 +637,9 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
       }
       final bytes = await picked.readAsBytes();
       if (!mounted) return;
-      if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
+      if (bytes.isEmpty || bytes.length > MediaUploadPolicy.imageMaxBytes) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Each image must be smaller than 20 MiB.')),
+          const SnackBar(content: Text('Each image must be 20 MiB or smaller.')),
         );
         return;
       }
@@ -641,12 +657,52 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
     }
   }
 
+  Future<void> _pickVideo() async {
+    if (_media.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 3),
+      );
+      if (!mounted || picked == null) return;
+      final extension = MediaUploadPolicy.normalizeExtension(picked.name, isVideo: true);
+      final contentType = MediaUploadPolicy.contentType(extension);
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      MediaUploadPolicy.validateSize(bytes.length, isVideo: true);
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select video: $error')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final count = _controller.text.runes.length;
+    final hasVideo = _media.any((media) => media.contentType.startsWith('video/'));
     final canPublish = count > 0 &&
         count <= 5000 &&
         _media.length <= 4 &&
+        (!hasVideo || _media.length == 1) &&
         (_visibility == 'public' || _media.isEmpty);
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -688,18 +744,26 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                         children: [
                           ClipRRect(
                             borderRadius: BorderRadius.circular(10),
-                            child: Image.memory(
-                              _media[index].bytes,
-                              width: 104,
-                              height: 104,
-                              fit: BoxFit.cover,
-                            ),
+                            child: _media[index].contentType.startsWith('video/')
+                                ? Container(
+                                    width: 104,
+                                    height: 104,
+                                    color: Colors.black87,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.play_circle_fill, color: Colors.white, size: 38),
+                                  )
+                                : Image.memory(
+                                    _media[index].bytes,
+                                    width: 104,
+                                    height: 104,
+                                    fit: BoxFit.cover,
+                                  ),
                           ),
                           Positioned(
                             top: 2,
                             right: 2,
                             child: IconButton.filledTonal(
-                              tooltip: 'Remove image',
+                              tooltip: _media[index].contentType.startsWith('video/') ? 'Remove video' : 'Remove image',
                               visualDensity: VisualDensity.compact,
                               onPressed: () => setState(() => _media.removeAt(index)),
                               icon: const Icon(Icons.close, size: 16),
@@ -711,18 +775,25 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
                 ],
               ),
             ],
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                onPressed: _media.length >= 4 ? null : _pickImage,
-                icon: const Icon(Icons.add_photo_alternate_outlined),
-                label: Text('Add photo (${_media.length}/4)'),
-              ),
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: _media.length >= 4 || hasVideo ? null : _pickImage,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text('Add photo (${_media.where((media) => media.contentType.startsWith('image/')).length}/4)'),
+                ),
+                TextButton.icon(
+                  onPressed: _media.isNotEmpty ? null : _pickVideo,
+                  icon: const Icon(Icons.video_library_outlined),
+                  label: Text('Add video (${hasVideo ? 1 : 0}/1)'),
+                ),
+              ],
             ),
             if (_media.isNotEmpty && _visibility != 'public') ...[
               const SizedBox(height: 8),
               const Text(
-                'Photo attachments are currently available on public posts only. Remove photos to publish to followers or privately.',
+                'Media attachments are currently available on public posts only. Remove media to publish to followers or privately.',
                 style: TextStyle(color: Colors.orange),
               ),
             ],
