@@ -42,6 +42,25 @@ void main() {
     api.close();
   });
 
+  testWidgets('inactive Shorts tab does not fetch or initialize playback', (tester) async {
+    var requestCount = 0;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getJwt: () async => 'session-jwt',
+      client: MockClient((request) async {
+        requestCount++;
+        return http.Response(jsonEncode({'ok': true, 'data': {'posts': []}}), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: ShortsScreen(api: api, isActive: false)));
+    await tester.pump();
+
+    expect(requestCount, 0);
+    expect(tester.takeException(), isNull);
+    api.close();
+  });
+
   testWidgets('Shorts offers a retry state when the Backend feed is unavailable', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
