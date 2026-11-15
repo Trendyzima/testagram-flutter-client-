@@ -87,6 +87,7 @@ void main() {
     expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Only me'), findsOneWidget);
     expect(find.text('Add photo (0/4)'), findsOneWidget);
+    expect(find.text('Add video (0/1)'), findsOneWidget);
     expect(find.text('Publish'), findsOneWidget);
     api.close();
   });
