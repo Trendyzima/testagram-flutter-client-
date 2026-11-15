@@ -64,8 +64,7 @@ class NativeAuthSession {
   static const _refreshKey = 'testagram.native.refresh.v1';
   static const _expiryKey = 'testagram.native.expiry.v1';
 
-  Future<String?> _refreshInFlight = Future<String?>.value(null);
-  bool _refreshing = false;
+  Future<String>? _refreshInFlight;
 
   Future<void> signIn({required String email, required String password}) async {
     final result = await _post('/api/auth/login', {
@@ -94,28 +93,28 @@ class NativeAuthSession {
     return _refresh(refresh);
   }
 
-  Future<String> _refresh(String refreshToken) async {
-    if (_refreshing) {
-      final pending = await _refreshInFlight;
-      if (pending != null && pending.isNotEmpty) return pending;
-    }
-    _refreshing = true;
-    final completer = Completer<String?>();
-    _refreshInFlight = completer.future;
+  Future<String> _refresh(String refreshToken) {
+    final existing = _refreshInFlight;
+    if (existing != null) return existing;
+    final pending = _refreshOnce(refreshToken);
+    _refreshInFlight = pending;
+    return pending.whenComplete(() {
+      if (identical(_refreshInFlight, pending)) _refreshInFlight = null;
+    });
+  }
+
+  Future<String> _refreshOnce(String refreshToken) async {
     try {
       final result = await _post('/api/auth/refresh', {
         'refresh_token': refreshToken,
       });
       await _persist(result);
-      final token = result['access_token'] as String;
-      completer.complete(token);
-      return token;
-    } catch (error) {
+      return result['access_token'] as String;
+    } catch (_) {
+      // An ambiguous rotation must not leave the old refresh credential
+      // available for reuse: the server may already have consumed it.
       await clear();
-      completer.completeError(error);
       rethrow;
-    } finally {
-      _refreshing = false;
     }
   }
 
