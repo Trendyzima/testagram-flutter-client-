@@ -77,7 +77,6 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
       await _disposePlayers();
       _items.clear();
       _playerErrors.clear();
-      _viewedPostIds.clear();
       _cursor = null;
       _activeIndex = 0;
       _hasMore = true;
@@ -223,7 +222,15 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
 
   void _recordView(ShortsFeedItem item) {
     if (item.postId.isEmpty || !_viewedPostIds.add(item.postId)) return;
-    unawaited(widget.api.recordPostView(item.postId).catchError((_) => <String, dynamic>{}));
+    unawaited(_recordViewRequest(item.postId));
+  }
+
+  Future<void> _recordViewRequest(String postId) async {
+    try {
+      await widget.api.recordPostView(postId);
+    } catch (_) {
+      // View recording is best-effort; playback must not be blocked by analytics.
+    }
   }
 
   Future<void> _toggleMute() async {
@@ -554,6 +561,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
                   return _buildVideoPage(index);
                 },
               ),
+      ),
     );
   }
 }
@@ -641,13 +649,6 @@ class _VideoCaption extends StatelessWidget {
             style: const TextStyle(color: Colors.white, fontSize: 14, height: 1.25),
           ),
           const SizedBox(height: 6),
-          const Row(
-            children: [
-              Icon(Icons.music_note_rounded, color: Colors.white70, size: 14),
-              SizedBox(width: 4),
-              Text('Original sound', style: TextStyle(color: Colors.white70, fontSize: 11)),
-            ],
-          ),
         ],
       );
 }
