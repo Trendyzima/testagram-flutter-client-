@@ -159,6 +159,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
       return;
     }
 
+    final generation = _generation;
     final item = _items[index];
     final controller = VideoPlayerController.networkUrl(
       Uri.parse(item.mediaUrl),
@@ -168,9 +169,13 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
 
     try {
       await controller.initialize().timeout(const Duration(seconds: 25));
+      if (!mounted || generation != _generation ||
+          !identical(_players[index], controller)) {
+        await controller.dispose();
+        return;
+      }
       await controller.setLooping(true);
       await controller.setVolume(_muted ? 0 : 1);
-      if (!mounted) return;
       if (index == _activeIndex && _appResumed) {
         await controller.play();
       } else {
@@ -178,12 +183,12 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
       }
       if (mounted) setState(() {});
     } catch (error) {
-      if (identical(_players[index], controller)) {
+      if (generation == _generation && identical(_players[index], controller)) {
         _players.remove(index);
+        _playerErrors[index] = error.toString();
+        if (mounted) setState(() {});
       }
-      _playerErrors[index] = error.toString();
       await controller.dispose();
-      if (mounted) setState(() {});
     }
   }
 
