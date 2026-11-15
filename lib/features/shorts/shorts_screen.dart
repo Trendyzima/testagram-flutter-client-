@@ -464,7 +464,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
           bottom: 28,
           child: _VideoCaption(
             item: item,
-            onFollow: item.isFollowing ? null : () => _toggleFollow(item),
+            onFollow: () => _toggleFollow(item),
           ),
         ),
         Positioned(
@@ -636,7 +636,7 @@ class _VideoCaption extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
                     minimumSize: const Size(0, 28),
                   ),
-                  child: const Text('Follow', style: TextStyle(fontSize: 11)),
+                  child: Text(item.isFollowing ? 'Following' : 'Follow', style: const TextStyle(fontSize: 11)),
                 ),
               ],
             ],
