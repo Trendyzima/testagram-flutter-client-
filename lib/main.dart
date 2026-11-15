@@ -2,6 +2,7 @@ import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'app.dart';
+import 'core/native_auth_session.dart';
 import 'core/app_config.dart';
 
 Future<void> main() async {
@@ -9,6 +10,12 @@ Future<void> main() async {
 
   if (!AppConfig.isConfigured) {
     runApp(const TestagramApp());
+    return;
+  }
+
+  if (AppConfig.useNativeAuth) {
+    final session = NativeAuthSession(backendOrigin: AppConfig.backendOrigin);
+    runApp(TestagramApp(nativeAuthSession: session));
     return;
   }
 
