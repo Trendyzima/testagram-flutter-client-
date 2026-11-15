@@ -266,11 +266,11 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  Future<IdentityApplication> _submitIdentityDraft(
+  Future<IdentityApplication?> _submitIdentityDraft(
     IdentityVerificationClient api,
     IdentityApplicationDraft draft,
-  ) {
-    return api.createApplication(
+  ) async {
+    final result = await api.createApplication(
       email: draft.email,
       username: draft.username,
       displayName: draft.displayName,
@@ -279,6 +279,25 @@ class _AuthScreenState extends State<AuthScreen> {
       privacyAccepted: true,
       idempotencyKey: draft.idempotencyKey,
     );
+    final application = result.application;
+    if (application != null) return application;
+
+    // A generic 202 is intentionally indistinguishable from an ineligible or
+    // already-existing address. It is not an application capability and must
+    // never be shown as a created application or retried after app restart.
+    await _identityStore.clear();
+    if (mounted) {
+      setState(() {
+        _identityDraft = null;
+        _identityApplication = null;
+        _identityStatus = null;
+        _identityProvisioningAuthorization = null;
+        _page = _Page.signIn;
+        _notice = result.message;
+        _error = null;
+      });
+    }
+    return null;
   }
 
   Future<void> _restoreSavedIdentityApplication() async {
@@ -306,7 +325,9 @@ class _AuthScreenState extends State<AuthScreen> {
       var currentDraft = restoredDraft;
       late IdentityApplication application;
       if (currentDraft.application == null) {
-        application = await _submitIdentityDraft(api, currentDraft);
+        final created = await _submitIdentityDraft(api, currentDraft);
+        if (created == null) return;
+        application = created;
         currentDraft = currentDraft.copyWith(application: application);
         await _identityStore.save(currentDraft);
       } else {
@@ -327,7 +348,9 @@ class _AuthScreenState extends State<AuthScreen> {
           await api.getSessionExpiry(application);
         } on IdentityVerificationException catch (error) {
           if (error.statusCode != 404) rethrow;
-          application = await _submitIdentityDraft(api, currentDraft);
+          final created = await _submitIdentityDraft(api, currentDraft);
+          if (created == null) return;
+          application = created;
           currentDraft = currentDraft.copyWith(application: application);
           await _identityStore.save(currentDraft);
           status = await api.getStatus(application);
@@ -379,6 +402,7 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         final submissionDraft = draft;
         final application = await _submitIdentityDraft(api, submissionDraft);
+        if (application == null) return;
         final savedDraft = submissionDraft.copyWith(application: application);
         await _identityStore.save(savedDraft);
         if (!mounted) return;
