@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../core/backend_api.dart';
+import '../core/app_config.dart';
 import '../core/testagram_background.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
@@ -8,8 +9,9 @@ import '../features/notifications/notifications_screen.dart';
 import '../features/polls/polls_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/threads/threads_screen.dart';
-import '../features/shorts/shorts_screen.dart';
 import '../features/wallet/wallet_screen.dart';
+import '../features/video/video_feed_screen.dart';
+import '../features/shorts/shorts_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -39,14 +41,19 @@ class _MainShellState extends State<MainShell> {
       label: 'Home',
     ),
     NavigationDestination(
-      icon: Icon(Icons.search_rounded),
-      selectedIcon: Icon(Icons.travel_explore_rounded),
-      label: 'Explore',
+      icon: Icon(Icons.video_library_outlined),
+      selectedIcon: Icon(Icons.video_library_rounded),
+      label: 'Video',
     ),
     NavigationDestination(
       icon: Icon(Icons.play_circle_outline_rounded),
       selectedIcon: Icon(Icons.play_circle_fill_rounded),
       label: 'Shorts',
+    ),
+    NavigationDestination(
+      icon: Icon(Icons.search_rounded),
+      selectedIcon: Icon(Icons.travel_explore_rounded),
+      label: 'Explore',
     ),
     NavigationDestination(
       icon: Icon(Icons.notifications_none_rounded),
@@ -77,8 +84,9 @@ class _MainShellState extends State<MainShell> {
 
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
-        ExploreScreen(api: widget.api),
+        VideoFeedScreen(api: widget.api, videoApiBaseUri: AppConfig.videoApiOrigin, isActive: _index == 1),
         ShortsScreen(api: widget.api, isActive: _index == 2),
+        ExploreScreen(api: widget.api),
         NotificationsScreen(api: widget.api),
         ThreadsScreen(api: widget.api),
         PollsScreen(api: widget.api),
@@ -155,14 +163,19 @@ class _MainShellState extends State<MainShell> {
                             label: Text('Home'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.search_rounded),
-                            selectedIcon: Icon(Icons.travel_explore_rounded),
-                            label: Text('Explore'),
+                            icon: Icon(Icons.video_library_outlined),
+                            selectedIcon: Icon(Icons.video_library_rounded),
+                            label: Text('Video'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.play_circle_outline_rounded),
                             selectedIcon: Icon(Icons.play_circle_fill_rounded),
                             label: Text('Shorts'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.search_rounded),
+                            selectedIcon: Icon(Icons.travel_explore_rounded),
+                            label: Text('Explore'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.notifications_none_rounded),
