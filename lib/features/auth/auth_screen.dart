@@ -377,7 +377,7 @@ class _AuthScreenState extends State<AuthScreen> {
           _identityDraft = newDraft;
           if (mounted) setState(() {});
         }
-        final submissionDraft = draft!;
+        final submissionDraft = draft;
         final application = await _submitIdentityDraft(api, submissionDraft);
         final savedDraft = submissionDraft.copyWith(application: application);
         await _identityStore.save(savedDraft);
