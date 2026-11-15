@@ -12,6 +12,7 @@ import '../features/threads/threads_screen.dart';
 import '../features/wallet/wallet_screen.dart';
 import '../features/video/video_feed_screen.dart';
 import '../features/shorts/shorts_screen.dart';
+import '../features/profile/profile_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -81,6 +82,63 @@ class _MainShellState extends State<MainShell> {
       label: 'Settings',
     ),
   ];
+
+  int get _mobileSelectedIndex => switch (_index) {
+        0 => 0,
+        2 => 1,
+        3 => 2,
+        4 => 3,
+        _ => 4,
+      };
+
+  void _openMoreMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      useSafeArea: true,
+      builder: (sheetContext) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
+              child: Text('Your Testagram', style: Theme.of(context).textTheme.titleLarge),
+            ),
+            ListTile(
+              leading: const Icon(Icons.person_outline_rounded),
+              title: const Text('Your profile'),
+              subtitle: const Text('Posts, followers and profile details'),
+              onTap: () {
+                Navigator.pop(sheetContext);
+                Navigator.of(context).push(MaterialPageRoute<void>(
+                  builder: (_) => ProfileScreen.currentUser(api: widget.api),
+                ));
+              },
+            ),
+            const Divider(height: 1),
+            for (final item in const [
+              (1, Icons.video_library_outlined, 'Video'),
+              (5, Icons.forum_outlined, 'Threads'),
+              (6, Icons.poll_outlined, 'Polls'),
+              (7, Icons.account_balance_wallet_outlined, 'Wallet'),
+              (8, Icons.settings_outlined, 'Settings'),
+            ])
+              ListTile(
+                selected: _index == item.$1,
+                leading: Icon(item.$2),
+                title: Text(item.$3),
+                trailing: _index == item.$1 ? const Icon(Icons.check_rounded) : null,
+                onTap: () {
+                  Navigator.pop(sheetContext);
+                  if (mounted) setState(() => _index = item.$1);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
@@ -213,9 +271,42 @@ class _MainShellState extends State<MainShell> {
           bottomNavigationBar: desktop
               ? null
               : NavigationBar(
-                  selectedIndex: _index,
-                  onDestinationSelected: (value) => setState(() => _index = value),
-                  destinations: _destinations,
+                  selectedIndex: _mobileSelectedIndex,
+                  onDestinationSelected: (value) {
+                    const destinations = [0, 2, 3, 4];
+                    if (value == 4) {
+                      _openMoreMenu();
+                    } else {
+                      setState(() => _index = destinations[value]);
+                    }
+                  },
+                  destinations: const [
+                    NavigationDestination(
+                      icon: Icon(Icons.home_outlined),
+                      selectedIcon: Icon(Icons.home_rounded),
+                      label: 'Home',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.play_circle_outline_rounded),
+                      selectedIcon: Icon(Icons.play_circle_fill_rounded),
+                      label: 'Shorts',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.search_rounded),
+                      selectedIcon: Icon(Icons.travel_explore_rounded),
+                      label: 'Explore',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.notifications_none_rounded),
+                      selectedIcon: Icon(Icons.notifications_rounded),
+                      label: 'Alerts',
+                    ),
+                    NavigationDestination(
+                      icon: Icon(Icons.menu_rounded),
+                      selectedIcon: Icon(Icons.menu_open_rounded),
+                      label: 'More',
+                    ),
+                  ],
                 ),
         );
       },
