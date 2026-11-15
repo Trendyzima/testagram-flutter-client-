@@ -6,6 +6,7 @@ import 'core/backend_api.dart';
 import 'core/native_auth_session.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/auth/native_auth_screen.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
@@ -249,7 +250,9 @@ class _AuthGateState extends State<AuthGate> {
                         style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 10),
                     const Text(
-                      'Appwrite has an active session, but Testagram Backend has not confirmed the linked account yet. Your feed and posting stay locked until both checks succeed.',
+                      AppConfig.useNativeAuth
+                          ? 'Your native session is active, but Testagram Backend has not confirmed the canonical account yet. Product access stays locked until the Backend confirms it.'
+                          : 'Appwrite has an active session, but Testagram Backend has not confirmed the linked account yet. Your feed and posting stay locked until both checks succeed.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
