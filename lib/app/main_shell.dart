@@ -34,49 +34,6 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  static const _destinations = <NavigationDestination>[
-    NavigationDestination(
-      icon: Icon(Icons.home_outlined),
-      selectedIcon: Icon(Icons.home_rounded),
-      label: 'Home',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.video_library_outlined),
-      selectedIcon: Icon(Icons.video_library_rounded),
-      label: 'Video',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.search_rounded),
-      selectedIcon: Icon(Icons.travel_explore_rounded),
-      label: 'Explore',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.notifications_none_rounded),
-      selectedIcon: Icon(Icons.notifications_rounded),
-      label: 'Notifications',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.forum_outlined),
-      selectedIcon: Icon(Icons.forum_rounded),
-      label: 'Threads',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.poll_outlined),
-      selectedIcon: Icon(Icons.poll_rounded),
-      label: 'Polls',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.account_balance_wallet_outlined),
-      selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-      label: 'Wallet',
-    ),
-    NavigationDestination(
-      icon: Icon(Icons.settings_outlined),
-      selectedIcon: Icon(Icons.settings_rounded),
-      label: 'Settings',
-    ),
-  ];
-
   int get _mobileSelectedIndex => _index <= 3 ? _index : 4;
 
   void _openMoreMenu() {
