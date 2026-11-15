@@ -22,7 +22,8 @@ class _FeedScreenState extends State<FeedScreen> {
   final _scroll = ScrollController();
   final List<Map<String, dynamic>> _posts = [];
   final Set<String> _busy = {};
-  bool _loading = false, _hasMore = true, _following = false, _publishing = false;
+  bool _loading = false, _hasMore = true, _publishing = false;
+  String _feedMode = 'for_you';
   int _loadGeneration = 0;
   int _activeLoads = 0;
   String? _cursor, _error;
@@ -63,7 +64,7 @@ class _FeedScreenState extends State<FeedScreen> {
         ? FeedRequestPolicy.nextGeneration(_loadGeneration)
         : _loadGeneration;
     _loadGeneration = generation;
-    final requestedFollowing = _following;
+    final requestedFeed = _feedMode;
     final pageCursor = reset ? null : _cursor;
     setState(() {
       _activeLoads++;
@@ -79,7 +80,8 @@ class _FeedScreenState extends State<FeedScreen> {
       final payload = await widget.api.getHomeFeed(
         limit: 20,
         cursor: pageCursor,
-        followingOnly: requestedFollowing,
+        feed: requestedFeed,
+        followingOnly: requestedFeed == 'following',
       );
       final data = _data(payload);
       final raw = data['posts'];
@@ -109,7 +111,7 @@ class _FeedScreenState extends State<FeedScreen> {
             requestGeneration: generation,
             currentGeneration: _loadGeneration,
           ) ||
-          requestedFollowing != _following) {
+          requestedFeed != _feedMode) {
         return;
       }
       setState(() {
@@ -343,21 +345,29 @@ class _FeedScreenState extends State<FeedScreen> {
     ),
     floatingActionButton: FloatingActionButton(onPressed: _publishing ? null : _composePost, tooltip: 'Compose post', child: _publishing ? const SizedBox(width: 22, height: 22, child: CircularProgressIndicator(strokeWidth: 2)) : const Icon(Icons.edit)),
     body: Column(children: [
-      Padding(
-        padding: const EdgeInsets.fromLTRB(12, 0, 12, 0),
-        child: Row(
-          children: [
-            Expanded(child: _FeedTab(
-              label: 'For you',
-              selected: !_following,
-              onTap: () => _selectFeed(false),
-            )),
-            Expanded(child: _FeedTab(
-              label: 'Following',
-              selected: _following,
-              onTap: () => _selectFeed(true),
-            )),
-          ],
+      SizedBox(
+        height: 54,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (final lane in const [
+                ('for_you', 'For you'),
+                ('following', 'Following'),
+                ('latest', 'Latest'),
+                ('media', 'Media'),
+                ('discover', 'Discover'),
+              ])
+                SizedBox(
+                  width: 92,
+                  child: _FeedTab(
+                    label: lane.$2,
+                    selected: _feedMode == lane.$1,
+                    onTap: () => _selectFeed(lane.$1),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
       Padding(
@@ -476,9 +486,10 @@ class _FeedScreenState extends State<FeedScreen> {
     ]),
   );
 
-  void _selectFeed(bool following) {
-    if (_following == following) return;
-    setState(() => _following = following);
+  void _selectFeed(String feedMode) {
+    const allowed = {'for_you', 'following', 'latest', 'media', 'discover'};
+    if (!allowed.contains(feedMode) || _feedMode == feedMode) return;
+    setState(() => _feedMode = feedMode);
     _load(reset: true);
   }
 }
