@@ -25,11 +25,13 @@ class BackendApi {
     int limit = 20,
     String? cursor,
     bool followingOnly = false,
+    bool videoOnly = false,
   }) async {
     final uri = baseUri.resolve('/api/feed/home').replace(queryParameters: {
       'limit': '$limit',
       if (cursor != null && cursor.isNotEmpty) 'before': cursor,
       if (followingOnly) 'following_only': 'true',
+      if (videoOnly) 'video_only': 'true',
     });
     return _request('GET', uri);
   }
@@ -236,6 +238,11 @@ class BackendApi {
 
   Future<Map<String, dynamic>> getPost(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId'));
+
+  /// Records a view through the Backend's privacy-filtered social post route.
+  /// Callers should de-duplicate within a viewing session to avoid inflating counts.
+  Future<Map<String, dynamic>> recordPostView(String postId) =>
+      _request('POST', baseUri.resolve('/api/social/posts/$postId/view'));
 
   Future<Map<String, dynamic>> getPostInteractionSummary(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId/interaction-summary'));
