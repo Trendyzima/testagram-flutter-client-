@@ -3,14 +3,16 @@ import 'package:material_ui/material_ui.dart';
 
 import 'core/app_config.dart';
 import 'core/backend_api.dart';
+import 'core/native_auth_session.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
-  const TestagramApp({super.key, this.account});
+  const TestagramApp({super.key, this.account, this.nativeAuthSession});
 
   final Account? account;
+  final NativeAuthSession? nativeAuthSession;
 
   @override
   State<TestagramApp> createState() => _TestagramAppState();
@@ -21,7 +23,8 @@ class _TestagramAppState extends State<TestagramApp> {
 
   @override
   Widget build(BuildContext context) {
-    final configured = AppConfig.isConfigured && widget.account != null;
+    final configured = AppConfig.isConfigured &&
+        (AppConfig.useNativeAuth ? widget.nativeAuthSession != null : widget.account != null);
     return MaterialApp(
       title: 'T social',
       debugShowCheckedModeBanner: false,
@@ -30,7 +33,8 @@ class _TestagramAppState extends State<TestagramApp> {
       themeMode: _themeMode,
       home: configured
           ? AuthGate(
-              account: widget.account!,
+              account: widget.account,
+              nativeAuthSession: widget.nativeAuthSession,
               themeMode: _themeMode,
               onThemeModeChanged: (value) => setState(() => _themeMode = value),
             )
@@ -43,11 +47,13 @@ class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     required this.account,
+    required this.nativeAuthSession,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
-  final Account account;
+  final Account? account;
+  final NativeAuthSession? nativeAuthSession;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
@@ -73,15 +79,63 @@ class _AuthGateState extends State<AuthGate> {
     if (mounted) setState(() => _loading = true);
     _restoreError = null;
     _requiresIdentityReview = false;
+    if (AppConfig.useNativeAuth) {
+      final session = widget.nativeAuthSession!;
+      try {
+        if (!await session.hasStoredSession()) {
+          _signedIn = false;
+          _requiresVerification = false;
+        } else {
+          await session.getAccessToken();
+          final api = _createApi();
+          try {
+            await api.getMyProfile();
+            _api = api;
+            _signedIn = true;
+            _requiresVerification = false;
+          } catch (error) {
+            api.close();
+            if (error is BackendApiException && error.statusCode == 403 &&
+                (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
+                 error.message.toLowerCase().contains('identity review') ||
+                 error.message.toLowerCase().contains('two-person account approval'))) {
+              _requiresIdentityReview = true;
+              _signedIn = false;
+            } else if (error is BackendApiException && error.statusCode == 401) {
+              await session.clear();
+              _signedIn = false;
+            } else {
+              _restoreError = error is BackendApiException
+                  ? error.message
+                  : 'Testagram could not verify the native session. Check your connection and retry.';
+              _signedIn = false;
+            }
+          }
+        }
+      } on NativeAuthException catch (error) {
+        if (error.statusCode == 401 || !await session.hasStoredSession()) {
+          await session.clear();
+          _signedIn = false;
+        } else {
+          _restoreError = error.message;
+          _signedIn = false;
+        }
+      } catch (_) {
+        _restoreError = 'Testagram could not restore your secure session. Check your connection and retry.';
+        _signedIn = false;
+      }
+      if (mounted) setState(() => _loading = false);
+      return;
+    }
+
     try {
-      final user = await widget.account.get();
+      final account = widget.account!;
+      final user = await account.get();
       _requiresVerification = !user.emailVerification;
       _signedIn = false;
       if (user.emailVerification) {
         final api = _createApi();
         try {
-          // A persisted Appwrite session is not enough by itself: every
-          // product session must also resolve to a canonical Backend account.
           await api.getMyProfile();
           _api = api;
           _signedIn = true;
@@ -112,7 +166,12 @@ class _AuthGateState extends State<AuthGate> {
 
   BackendApi _createApi() => BackendApi(
         baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
+        getJwt: () async {
+          if (AppConfig.useNativeAuth) {
+            return widget.nativeAuthSession!.getAccessToken();
+          }
+          return (await widget.account!.createJWT()).jwt;
+        },
       );
 
   void _onSignedIn() {
@@ -123,9 +182,34 @@ class _AuthGateState extends State<AuthGate> {
     });
   }
 
+  Future<void> _onNativeSignedIn() async {
+    final api = _createApi();
+    try {
+      await api.getMyProfile();
+      if (!mounted) {
+        api.close();
+        return;
+      }
+      setState(() {
+        _signedIn = true;
+        _requiresVerification = false;
+        _requiresIdentityReview = false;
+        _restoreError = null;
+        _api = api;
+      });
+    } catch (_) {
+      api.close();
+      rethrow;
+    }
+  }
+
   Future<void> _signOut() async {
     try {
-      await widget.account.deleteSession(sessionId: 'current');
+      if (AppConfig.useNativeAuth) {
+        await widget.nativeAuthSession!.signOut();
+      } else {
+        await widget.account!.deleteSession(sessionId: 'current');
+      }
     } finally {
       _api?.close();
       if (mounted) {
@@ -189,8 +273,14 @@ class _AuthGateState extends State<AuthGate> {
       );
     }
     if (!_signedIn) {
+      if (AppConfig.useNativeAuth) {
+        return NativeAuthScreen(
+          session: widget.nativeAuthSession!,
+          onSignedIn: _onNativeSignedIn,
+        );
+      }
       return AuthScreen(
-        account: widget.account,
+        account: widget.account!,
         onSignedIn: _onSignedIn,
         requireVerification: _requiresVerification,
         requireIdentityReview: _requiresIdentityReview,
@@ -222,7 +312,9 @@ class _ConfigurationRequired extends StatelessWidget {
                 Text('Testagram', style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 10),
                 const Text(
-                  'This build needs an Appwrite endpoint, Appwrite project ID, and Testagram Backend API URL. Configure them with --dart-define before running.',
+                  AppConfig.useNativeAuth
+                      ? 'This native build needs the Testagram Backend API URL. Configure it with --dart-define before running.'
+                      : 'This migration build needs an Appwrite endpoint, Appwrite project ID, and Testagram Backend API URL. Configure them with --dart-define before running.',
                   textAlign: TextAlign.center,
                 ),
               ],
