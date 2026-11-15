@@ -37,13 +37,81 @@ void main() {
       privacyAccepted: true,
       idempotencyKey: List<String>.filled(43, 'a').join(),
     );
-    expect(result.applicationId, application.applicationId);
+    expect(result.application?.applicationId, application.applicationId);
+    expect(result.hasApplication, isTrue);
     expect(seen.url.path, '/api/identity/applications');
     expect(seen.headers['Idempotency-Key'], List<String>.filled(43, 'a').join());
     final body = jsonDecode(seen.body) as Map<String, dynamic>;
     expect(body['email'], 'user@example.com');
     expect(body['username'], 'test_user');
     expect(body['display_name'], 'Test User');
+    client.close();
+  });
+
+  test('handles privacy-preserving generic application acceptance', () async {
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async => http.Response(jsonEncode({
+        'ok': true,
+        'message': 'If the application is eligible, the next verification step will be sent.',
+      }), 202, headers: {'content-type': 'application/json'})),
+    );
+
+    final result = await client.createApplication(
+      email: 'user@example.com',
+      username: 'test_user',
+      displayName: 'Test User',
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAccepted: true,
+      idempotencyKey: List<String>.filled(43, 'a').join(),
+    );
+
+    expect(result.hasApplication, isFalse);
+    expect(result.application, isNull);
+    expect(result.message, contains('If the application is eligible'));
+    client.close();
+  });
+
+  test('reads the expiry of the active evidence session', () async {
+    late http.Request seen;
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async {
+        seen = request;
+        return http.Response(jsonEncode({
+          'session_id': application.sessionId,
+          'application_id': application.applicationId,
+          'purpose': 'age_assurance',
+          'status': 'in_progress',
+          'expires_at': '2026-11-16T12:00:00Z',
+        }), 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    final expiry = await client.getSessionExpiry(application);
+
+    expect(seen.url.path, '/api/identity/sessions/${application.sessionId}');
+    expect(seen.headers['X-Verification-Session-Token'], application.sessionToken);
+    expect(expiry, DateTime.utc(2026, 11, 16, 12));
+    client.close();
+  });
+
+  test('rejects an expired evidence session so the application can renew it', () async {
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async => http.Response(jsonEncode({
+        'ok': false,
+        'error': {'code': 'SESSION_NOT_FOUND', 'message': 'Verification session was not found'},
+      }), 404, headers: {'content-type': 'application/json'})),
+    );
+
+    await expectLater(
+      client.getSessionExpiry(application),
+      throwsA(
+        isA<IdentityVerificationException>().having((error) => error.statusCode, 'statusCode', 404),
+      ),
+    );
     client.close();
   });
 

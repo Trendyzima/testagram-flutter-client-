@@ -2,6 +2,24 @@ import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
+import 'package:testagram/features/auth/identity_application_store.dart';
+
+class _MemoryIdentityStorage implements IdentityApplicationSecureStorage {
+  final Map<String, String> values = {};
+
+  @override
+  Future<String?> read(String key) async => values[key];
+
+  @override
+  Future<void> write(String key, String value) async {
+    values[key] = value;
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    values.remove(key);
+  }
+}
 
 class _FakeAccount implements Account {
   @override
@@ -10,11 +28,13 @@ class _FakeAccount implements Account {
 
 void main() {
   late Account account;
+  late IdentityApplicationStore identityStore;
 
   setUp(() {
     // These screen tests exercise local navigation and registration consent gates;
     // no Appwrite network or platform implementation should be constructed.
     account = _FakeAccount();
+    identityStore = IdentityApplicationStore(storage: _MemoryIdentityStorage());
   });
 
   Future<void> tapVisible(WidgetTester tester, Finder finder) async {
@@ -29,6 +49,7 @@ void main() {
       home: AuthScreen(
         account: account,
         onSignedIn: () {},
+        identityApplicationStore: identityStore,
         requireIdentityReview: true,
       ),
     ));
@@ -42,7 +63,7 @@ void main() {
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
+      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
@@ -70,7 +91,7 @@ void main() {
   testWidgets('registration requires private identity evidence and dual approval before account creation',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
+      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
@@ -106,6 +127,7 @@ void main() {
         onSignedIn: () {},
         requireIdentityReview: true,
         enableIdentityRegistration: true,
+        identityApplicationStore: identityStore,
       ),
     ));
 
@@ -120,7 +142,7 @@ void main() {
 
   testWidgets('legal documents can be read before consent', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
+      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
@@ -138,7 +160,7 @@ void main() {
   testWidgets('forgot-password page is reachable from sign in',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true),
+      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.text('Forgot password?'));
