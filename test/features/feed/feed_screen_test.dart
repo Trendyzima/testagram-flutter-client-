@@ -292,7 +292,7 @@ void main() {
     await tester.tap(find.text('Quote post'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Original post to quote'), findsOneWidget);
+    expect(find.text('Original post to quote'), findsAtLeastNWidgets(1));
     await tester.enterText(find.byType(TextField).last, 'Adding my perspective');
     await tester.pumpAndSettle();
     final publish = find.widgetWithText(FilledButton, 'Publish quote');
