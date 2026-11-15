@@ -171,70 +171,13 @@ class _FeedScreenState extends State<FeedScreen> {
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
     if (id.isEmpty || _busy.contains(id)) return;
-    final controller = TextEditingController();
     final quote = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => StatefulBuilder(
-        builder: (sheetContext, setQuoteState) {
-          final media = MediaQuery.of(sheetContext);
-          // Keyboard insets can exceed the test viewport (and occasionally
-          // transient webview viewport bounds). Cap them to keep the composer
-          // measurable, then let the content scroll on compact screens.
-          final keyboardInset = media.viewInsets.bottom
-              .clamp(0.0, media.size.height * 0.6);
-          return Padding(
-            padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
-            child: ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Text('Quote post', style: Theme.of(sheetContext).textTheme.titleLarge),
-                    const SizedBox(height: 12),
-                    Text(
-                      (post['content'] ?? '').toString(),
-                      maxLines: 4,
-                      overflow: TextOverflow.ellipsis,
-                      style: Theme.of(sheetContext).textTheme.bodyMedium,
-                    ),
-                    const SizedBox(height: 12),
-                    TextField(
-                      controller: controller,
-                      autofocus: true,
-                      minLines: 3,
-                      maxLines: 7,
-                      maxLength: 5000,
-                      decoration: const InputDecoration(
-                        hintText: 'Add your perspective…',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setQuoteState(() {}),
-                    ),
-                    const SizedBox(height: 10),
-                    Align(
-                      alignment: Alignment.centerRight,
-                      child: FilledButton.icon(
-                        onPressed: controller.text.trim().isEmpty
-                            ? null
-                            : () => Navigator.pop(sheetContext, controller.text.trim()),
-                        icon: const Icon(Icons.repeat_rounded),
-                        label: const Text('Publish quote'),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      builder: (_) => _QuotePostComposer(post: post),
     );
-    controller.dispose();
     if (!mounted || quote == null || quote.trim().isEmpty) return;
 
     setState(() => _busy.add(id));
@@ -866,6 +809,81 @@ class _PostMediaDraft {
   final String name;
   final String contentType;
   final Uint8List bytes;
+}
+
+class _QuotePostComposer extends StatefulWidget {
+  const _QuotePostComposer({required this.post});
+
+  final Map<String, dynamic> post;
+
+  @override
+  State<_QuotePostComposer> createState() => _QuotePostComposerState();
+}
+
+class _QuotePostComposerState extends State<_QuotePostComposer> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // Keyboard insets can exceed the test viewport (and occasionally
+    // transient webview viewport bounds). Cap them and allow compact layouts
+    // to scroll instead of overflowing the modal sheet.
+    final keyboardInset =
+        media.viewInsets.bottom.clamp(0.0, media.size.height * 0.6);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Quote post', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                (widget.post['content'] ?? '').toString(),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 7,
+                maxLength: 5000,
+                decoration: const InputDecoration(
+                  hintText: 'Add your perspective…',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _controller.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(_controller.text.trim()),
+                  icon: const Icon(Icons.repeat_rounded),
+                  label: const Text('Publish quote'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PostCard extends StatelessWidget {
