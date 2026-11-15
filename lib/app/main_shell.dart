@@ -78,7 +78,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
         ExploreScreen(api: widget.api),
-        ShortsScreen(api: widget.api),
+        ShortsScreen(api: widget.api, isActive: _index == 2),
         NotificationsScreen(api: widget.api),
         ThreadsScreen(api: widget.api),
         PollsScreen(api: widget.api),
