@@ -14,11 +14,12 @@ class PrivateMediaAccess {
 }
 
 class BackendApi {
-  BackendApi({required this.baseUri, required this.getJwt, http.Client? client})
+  BackendApi({required this.baseUri, required this.getJwt, this.refreshJwt, http.Client? client})
       : _client = client ?? http.Client();
 
   final Uri baseUri;
   final Future<String> Function() getJwt;
+  final Future<String> Function()? refreshJwt;
   final http.Client _client;
 
   Future<Map<String, dynamic>> getHomeFeed({
@@ -596,30 +597,25 @@ class BackendApi {
     Map<String, dynamic>? body,
     Map<String, String> extraHeaders = const {},
   }) async {
-    final headers = <String, String>{
+    final hasBody = body != null || method == 'POST' || method == 'PUT';
+    var headers = <String, String>{
       ...await _headers(),
       ...extraHeaders,
-      if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
+      if (hasBody) 'Content-Type': 'application/json',
     };
-    late final http.Response response;
+    late http.Response response;
     try {
-      switch (method) {
-        case 'GET':
-          response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
-          break;
-        case 'POST':
-          response = await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
-              .timeout(const Duration(seconds: 20));
-          break;
-        case 'PUT':
-          response = await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
-              .timeout(const Duration(seconds: 20));
-          break;
-        case 'DELETE':
-          response = await _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
-          break;
-        default:
-          throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+      response = await _send(method, uri, headers, body);
+      // A server-side session revocation or clock boundary can invalidate an
+      // otherwise locally unexpired access token. Rotate once, then retry once.
+      // Never retry Appwrite requests or loop indefinitely.
+      if (response.statusCode == 401 && refreshJwt != null) {
+        headers = <String, String>{
+          ...await _headers(forceRefresh: true),
+          ...extraHeaders,
+          if (hasBody) 'Content-Type': 'application/json',
+        };
+        response = await _send(method, uri, headers, body);
       }
     } on TimeoutException {
       throw const BackendApiException(
@@ -633,8 +629,32 @@ class BackendApi {
     return _decodeObject(response);
   }
 
-  Future<Map<String, String>> _headers() async {
-    final jwt = await getJwt();
+  Future<http.Response> _send(
+    String method,
+    Uri uri,
+    Map<String, String> headers,
+    Map<String, dynamic>? body,
+  ) {
+    switch (method) {
+      case 'GET':
+        return _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+      case 'POST':
+        return _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .timeout(const Duration(seconds: 20));
+      case 'PUT':
+        return _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
+            .timeout(const Duration(seconds: 20));
+      case 'DELETE':
+        return _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
+      default:
+        throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+    }
+  }
+
+  Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
+    final jwt = forceRefresh && refreshJwt != null
+        ? await refreshJwt!()
+        : await getJwt();
     if (jwt.trim().isEmpty) {
       throw const BackendApiException('Your session has expired. Sign in again.', statusCode: 401);
     }
