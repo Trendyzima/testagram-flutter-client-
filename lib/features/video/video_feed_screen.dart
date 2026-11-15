@@ -50,8 +50,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         } else {
           final player = _player;
           if (player != null && player.value.isInitialized) {
-            player.play();
-            _recordActiveView();
+            _resumePlayer();
           }
         }
       } else {
@@ -111,6 +110,17 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted && _player == player) setState(() => _error = 'Unable to play this video: $e');
+    }
+  }
+
+  Future<void> _resumePlayer() async {
+    final player = _player;
+    if (!widget.isActive || player == null || !player.value.isInitialized) return;
+    try {
+      await player.play();
+      await _recordActiveView();
+    } catch (e) {
+      if (mounted) setState(() => _error = 'Unable to resume video: $e');
     }
   }
 
