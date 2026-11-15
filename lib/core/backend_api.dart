@@ -26,10 +26,13 @@ class BackendApi {
     String? cursor,
     bool followingOnly = false,
     bool videoOnly = false,
+    String? feed,
   }) async {
+    final normalizedFeed = feed?.trim().toLowerCase();
     final uri = baseUri.resolve('/api/feed/home').replace(queryParameters: {
       'limit': '$limit',
       if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+      if (normalizedFeed != null && normalizedFeed.isNotEmpty) 'feed': normalizedFeed,
       if (followingOnly) 'following_only': 'true',
       if (videoOnly) 'video_only': 'true',
     });
