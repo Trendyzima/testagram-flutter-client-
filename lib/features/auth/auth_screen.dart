@@ -291,18 +291,19 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     if (draft == null || !mounted) return;
+    final restoredDraft = draft;
     setState(() {
-      _identityDraft = draft;
-      _identityApplication = draft!.application;
-      _name.text = draft.displayName;
-      _email.text = draft.email;
-      _username.text = draft.username;
+      _identityDraft = restoredDraft;
+      _identityApplication = restoredDraft.application;
+      _name.text = restoredDraft.displayName;
+      _email.text = restoredDraft.email;
+      _username.text = restoredDraft.username;
       _page = _Page.identity;
       _notice = 'Your saved identity application was restored. Your password is never stored; create it only after approval.';
     });
     final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
     try {
-      var currentDraft = draft;
+      var currentDraft = restoredDraft;
       var application = currentDraft.application;
       if (application == null) {
         application = await _submitIdentityDraft(api, currentDraft);
@@ -603,9 +604,9 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _refreshIdentityStatus() async {
-    var application = _identityApplication;
-    final draft = _identityDraft;
-    if (application == null || draft == null) return;
+    if (_identityApplication == null || _identityDraft == null) return;
+    var application = _identityApplication!;
+    final draft = _identityDraft!;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
