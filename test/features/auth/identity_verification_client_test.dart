@@ -47,6 +47,31 @@ void main() {
     client.close();
   });
 
+  test('handles privacy-preserving generic application acceptance', () async {
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async => http.Response(jsonEncode({
+        'ok': true,
+        'message': 'If the application is eligible, the next verification step will be sent.',
+      }), 202, headers: {'content-type': 'application/json'})),
+    );
+
+    final result = await client.createApplication(
+      email: 'user@example.com',
+      username: 'test_user',
+      displayName: 'Test User',
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAccepted: true,
+      idempotencyKey: List<String>.filled(43, 'a').join(),
+    );
+
+    expect(result.hasApplication, isFalse);
+    expect(result.application, isNull);
+    expect(result.message, contains('If the application is eligible'));
+    client.close();
+  });
+
   test('reads the expiry of the active evidence session', () async {
     late http.Request seen;
     final client = IdentityVerificationClient(
