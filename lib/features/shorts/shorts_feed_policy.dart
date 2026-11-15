@@ -7,7 +7,6 @@ class ShortsFeedItem {
     required this.displayName,
     required this.avatarUrl,
     required this.caption,
-    required this.isFollowing,
   });
 
   final Map<String, dynamic> post;
@@ -17,7 +16,7 @@ class ShortsFeedItem {
   final String displayName;
   final String avatarUrl;
   final String caption;
-  final bool isFollowing;
+  bool get isFollowing => post['is_following'] == true;
 
   String get postId => (post['id'] ?? '').toString();
   int get likes => _count(post['likes_count']);
@@ -87,7 +86,6 @@ class ShortsFeedPolicy {
         displayName: (author['display_name'] ?? author['username'] ?? 'Testagram user').toString(),
         avatarUrl: (author['avatar_url'] ?? '').toString(),
         caption: (post['content'] ?? '').toString(),
-        isFollowing: post['is_following'] == true,
       );
     }
     return null;
