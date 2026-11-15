@@ -27,6 +27,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final Set<String> _viewedThisSession = {};
   int _active = 0;
   bool _loading = true;
+  bool _hasLoadedOnce = false;
   String? _error;
 
   @override
@@ -44,7 +45,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
-        if (_videoApi != null && _videos.isEmpty && !_loading) {
+        if (_videoApi != null && _videos.isEmpty && !_hasLoadedOnce) {
           _load();
         } else {
           final player = _player;
@@ -68,6 +69,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _load() async {
+    _hasLoadedOnce = true;
     if (_videoApi == null) {
       setState(() {
         _loading = false;
