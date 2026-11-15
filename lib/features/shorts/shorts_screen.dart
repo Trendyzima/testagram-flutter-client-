@@ -8,9 +8,10 @@ import '../posts/post_detail_screen.dart';
 import 'shorts_feed_policy.dart';
 
 class ShortsScreen extends StatefulWidget {
-  const ShortsScreen({super.key, required this.api});
+  const ShortsScreen({super.key, required this.api, this.initialPostId});
 
   final BackendApi api;
+  final String? initialPostId;
 
   @override
   State<ShortsScreen> createState() => _ShortsScreenState();
@@ -110,6 +111,12 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
 
       if (!mounted || generation != _generation) return;
       setState(() {
+        if (reset) {
+          final requestedIndex = widget.initialPostId == null
+              ? -1
+              : videos.indexWhere((item) => item.postId == widget.initialPostId);
+          _activeIndex = requestedIndex >= 0 ? requestedIndex : 0;
+        }
         final existing = _items.map((item) => item.postId).toSet();
         for (var index = 0; index < videos.length; index++) {
           final item = videos[index];
@@ -127,8 +134,13 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
 
-      if (reset && _pageController.hasClients) {
-        _pageController.jumpToPage(0);
+      if (reset) {
+        final requestedPage = _activeIndex;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted && _pageController.hasClients) {
+            _pageController.jumpToPage(requestedPage);
+          }
+        });
       }
       if (_items.isNotEmpty) {
         _recordView(_items[_activeIndex]);
