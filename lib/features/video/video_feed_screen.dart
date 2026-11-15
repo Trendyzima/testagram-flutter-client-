@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 
@@ -69,6 +70,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   Future<void> _load() async {
     _hasLoadedOnce = true;
+    if (kIsWeb) {
+      setState(() {
+        _loading = false;
+        _error = 'Web playback is not enabled yet. It needs a Backend video proxy with browser-safe HLS delivery; native mobile playback can use the dedicated video service.';
+      });
+      return;
+    }
     if (_videoApi == null) {
       setState(() {
         _loading = false;
