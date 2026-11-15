@@ -57,14 +57,6 @@ class NativeAuthClient {
     await clearSession();
   }
 
-  Future<void> resendVerification(String email) async {
-    await _post('resend-verification', {'email': email.trim().toLowerCase()});
-  }
-
-  Future<void> verifyEmail(String token) async {
-    await _post('verify-email', {'token': token});
-  }
-
   /// Returns a valid access token, rotating the refresh token when necessary.
   /// A null result means there is no stored session.
   Future<String?> accessToken() async {
