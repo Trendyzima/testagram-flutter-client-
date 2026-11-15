@@ -3,6 +3,12 @@ import 'package:flutter/foundation.dart';
 class AppConfig {
   const AppConfig._();
 
+  static const authProvider = String.fromEnvironment(
+    'TESTAGRAM_AUTH_PROVIDER',
+    defaultValue: 'appwrite',
+  );
+  static bool get useNativeAuth => authProvider.trim().toLowerCase() == 'native';
+
   static const appwriteEndpoint = String.fromEnvironment(
     'APPWRITE_ENDPOINT',
     defaultValue: 'https://fra.cloud.appwrite.io/v1',
@@ -50,10 +56,10 @@ class AppConfig {
       .toSet();
 
   static bool get isConfigured =>
-      _isHttpsUrl(appwriteEndpoint) &&
-      appwriteProjectId.trim().isNotEmpty &&
       _isHttpsUrl(backendApiUrl) &&
-      _isHttpsUrl(siteUrl);
+      _isHttpsUrl(siteUrl) &&
+      (useNativeAuth ||
+          (_isHttpsUrl(appwriteEndpoint) && appwriteProjectId.trim().isNotEmpty));
 
   static Uri get backendOrigin => Uri.parse(backendApiUrl);
 
