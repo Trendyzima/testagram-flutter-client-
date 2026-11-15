@@ -438,7 +438,10 @@ class _FeedScreenState extends State<FeedScreen> {
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => ShortsScreen(api: widget.api, initialPostId: id),
+                                  builder: (_) => ShortsScreen(
+                                    api: widget.api,
+                                    initialPost: Map<String, dynamic>.from(post),
+                                  ),
                                 ),
                               ),
                       onLike: () => _action(post, 'like'),
