@@ -338,7 +338,9 @@ class _AuthScreenState extends State<AuthScreen> {
         status = await api.getStatus(application);
       } on IdentityVerificationException catch (error) {
         if (error.statusCode != 404) rethrow;
-        application = await _submitIdentityDraft(api, currentDraft);
+        final created = await _submitIdentityDraft(api, currentDraft);
+        if (created == null) return;
+        application = created;
         currentDraft = currentDraft.copyWith(application: application);
         await _identityStore.save(currentDraft);
         status = await api.getStatus(application);
@@ -649,7 +651,9 @@ class _AuthScreenState extends State<AuthScreen> {
           status = await api.getStatus(application);
         } on IdentityVerificationException catch (error) {
           if (error.statusCode != 404) rethrow;
-          application = await _submitIdentityDraft(api, currentDraft);
+          final created = await _submitIdentityDraft(api, currentDraft);
+          if (created == null) return;
+          application = created;
           currentDraft = currentDraft.copyWith(application: application);
           await _identityStore.save(currentDraft);
           status = await api.getStatus(application);
@@ -659,7 +663,9 @@ class _AuthScreenState extends State<AuthScreen> {
             await api.getSessionExpiry(application);
           } on IdentityVerificationException catch (error) {
             if (error.statusCode != 404) rethrow;
-            application = await _submitIdentityDraft(api, currentDraft);
+            final created = await _submitIdentityDraft(api, currentDraft);
+            if (created == null) return;
+            application = created;
             currentDraft = currentDraft.copyWith(application: application);
             await _identityStore.save(currentDraft);
             status = await api.getStatus(application);
