@@ -47,6 +47,48 @@ void main() {
     client.close();
   });
 
+  test('reads the expiry of the active evidence session', () async {
+    late http.Request seen;
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async {
+        seen = request;
+        return http.Response(jsonEncode({
+          'session_id': application.sessionId,
+          'application_id': application.applicationId,
+          'purpose': 'age_assurance',
+          'status': 'in_progress',
+          'expires_at': '2026-11-16T12:00:00Z',
+        }), 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    final expiry = await client.getSessionExpiry(application);
+
+    expect(seen.url.path, '/api/identity/sessions/${application.sessionId}');
+    expect(seen.headers['X-Verification-Session-Token'], application.sessionToken);
+    expect(expiry, DateTime.utc(2026, 11, 16, 12));
+    client.close();
+  });
+
+  test('rejects an expired evidence session so the application can renew it', () async {
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async => http.Response(jsonEncode({
+        'ok': false,
+        'error': {'code': 'SESSION_NOT_FOUND', 'message': 'Verification session was not found'},
+      }), 404, headers: {'content-type': 'application/json'})),
+    );
+
+    await expectLater(
+      client.getSessionExpiry(application),
+      throwsA(
+        isA<IdentityVerificationException>().having((error) => error.statusCode, 'statusCode', 404),
+      ),
+    );
+    client.close();
+  });
+
   test('uploads evidence, then submits only its opaque evidence ID', () async {
     final seen = <http.BaseRequest>[];
     final client = IdentityVerificationClient(
