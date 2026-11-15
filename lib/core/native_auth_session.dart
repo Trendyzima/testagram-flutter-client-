@@ -66,6 +66,11 @@ class NativeAuthSession {
 
   Future<String>? _refreshInFlight;
 
+  Future<bool> hasStoredSession() async {
+    final refresh = await _store.read(_refreshKey);
+    return refresh != null && refresh.isNotEmpty;
+  }
+
   Future<void> signIn({required String email, required String password}) async {
     final result = await _post('/api/auth/login', {
       'email': email.trim().toLowerCase(),
