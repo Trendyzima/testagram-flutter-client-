@@ -587,7 +587,12 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
         _identityProvisioningAuthorization = null;
-        await _identityStore.clear();
+        try {
+          await _identityStore.clear();
+        } catch (_) {
+          // Provisioning has already committed; a local cache cleanup failure
+          // must not turn a successful account creation into a failed signup.
+        }
         _identityDraft = null;
         if (!mounted) return;
         _password.clear();
@@ -611,7 +616,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _refreshIdentityStatus() async {
     if (_identityApplication == null || _identityDraft == null) return;
     var application = _identityApplication!;
-    final draft = _identityDraft!;
+    var currentDraft = _identityDraft!;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
@@ -620,8 +625,9 @@ class _AuthScreenState extends State<AuthScreen> {
           status = await api.getStatus(application);
         } on IdentityVerificationException catch (error) {
           if (error.statusCode != 404) rethrow;
-          application = await _submitIdentityDraft(api, draft);
-          await _identityStore.save(draft.copyWith(application: application));
+          application = await _submitIdentityDraft(api, currentDraft);
+          currentDraft = currentDraft.copyWith(application: application);
+          await _identityStore.save(currentDraft);
           status = await api.getStatus(application);
         }
         if (application.sessionId.isNotEmpty && application.sessionToken.isNotEmpty) {
@@ -629,13 +635,15 @@ class _AuthScreenState extends State<AuthScreen> {
             await api.getSessionExpiry(application);
           } on IdentityVerificationException catch (error) {
             if (error.statusCode != 404) rethrow;
-            application = await _submitIdentityDraft(api, draft);
-            await _identityStore.save(draft.copyWith(application: application));
+            application = await _submitIdentityDraft(api, currentDraft);
+            currentDraft = currentDraft.copyWith(application: application);
+            await _identityStore.save(currentDraft);
             status = await api.getStatus(application);
           }
         }
         if (mounted) {
           setState(() {
+            _identityDraft = currentDraft;
             _identityApplication = application;
             _identityStatus = status;
             _notice = 'Application status refreshed.';
