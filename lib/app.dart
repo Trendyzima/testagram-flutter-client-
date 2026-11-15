@@ -173,6 +173,9 @@ class _AuthGateState extends State<AuthGate> {
           }
           return (await widget.account!.createJWT()).jwt;
         },
+        refreshJwt: AppConfig.useNativeAuth
+            ? () => widget.nativeAuthSession!.getAccessToken(forceRefresh: true)
+            : null,
       );
 
   void _onSignedIn() {
