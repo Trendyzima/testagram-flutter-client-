@@ -9,6 +9,7 @@ import '../../core/app_config.dart';
 import '../../core/backend_api.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
+import 'identity_application_store.dart';
 
 enum _Page { signIn, signUp, forgot, verify, reset, identity }
 
@@ -21,6 +22,7 @@ class AuthScreen extends StatefulWidget {
     this.requireIdentityReview = false,
     this.initialEmail,
     this.enableIdentityRegistration = false,
+    this.identityApplicationStore,
   });
   final Account account;
   final VoidCallback onSignedIn;
@@ -28,6 +30,7 @@ class AuthScreen extends StatefulWidget {
   final bool requireIdentityReview;
   final String? initialEmail;
   final bool enableIdentityRegistration;
+  final IdentityApplicationStore? identityApplicationStore;
   @override
   State<AuthScreen> createState() => _AuthScreenState();
 }
@@ -40,8 +43,9 @@ class _AuthScreenState extends State<AuthScreen> {
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
   bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
+  late final IdentityApplicationStore _identityStore;
+  IdentityApplicationDraft? _identityDraft;
   IdentityApplication? _identityApplication;
-  String? _identityApplicationIdempotencyKey;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
   IdentityApplicationStatus? _identityStatus;
   String? _error, _notice, _recoveryUser, _recoverySecret;
@@ -49,6 +53,7 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   void initState() {
     super.initState();
+    _identityStore = widget.identityApplicationStore ?? IdentityApplicationStore();
     _email.text = widget.initialEmail ?? '';
     final entry = AuthEntry.fromUri(Uri.base);
     switch (entry.mode) {
@@ -97,6 +102,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _notice = 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
       }
     }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSavedIdentityApplication());
   }
 
   @override
@@ -260,6 +266,89 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
+  Future<IdentityApplication> _submitIdentityDraft(
+    IdentityVerificationClient api,
+    IdentityApplicationDraft draft,
+  ) {
+    return api.createApplication(
+      email: draft.email,
+      username: draft.username,
+      displayName: draft.displayName,
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAccepted: true,
+      idempotencyKey: draft.idempotencyKey,
+    );
+  }
+
+  Future<void> _restoreSavedIdentityApplication() async {
+    IdentityApplicationDraft? draft;
+    try {
+      draft = await _identityStore.load();
+    } catch (_) {
+      // Secure storage can be unavailable in an unsupported browser context.
+      // Do not submit a new application when its recovery key cannot be saved.
+      return;
+    }
+    if (draft == null || !mounted) return;
+    setState(() {
+      _identityDraft = draft;
+      _identityApplication = draft!.application;
+      _name.text = draft.displayName;
+      _email.text = draft.email;
+      _username.text = draft.username;
+      _page = _Page.identity;
+      _notice = 'Your saved identity application was restored. Your password is never stored; create it only after approval.';
+    });
+    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+    try {
+      var currentDraft = draft;
+      var application = currentDraft.application;
+      if (application == null) {
+        application = await _submitIdentityDraft(api, currentDraft);
+        currentDraft = currentDraft.copyWith(application: application);
+        await _identityStore.save(currentDraft);
+      }
+      IdentityApplicationStatus status;
+      try {
+        status = await api.getStatus(application);
+      } on IdentityVerificationException catch (error) {
+        if (error.statusCode != 404) rethrow;
+        application = await _submitIdentityDraft(api, currentDraft);
+        currentDraft = currentDraft.copyWith(application: application);
+        await _identityStore.save(currentDraft);
+        status = await api.getStatus(application);
+      }
+      if (application.sessionId.isNotEmpty && application.sessionToken.isNotEmpty) {
+        try {
+          await api.getSessionExpiry(application);
+        } on IdentityVerificationException catch (error) {
+          if (error.statusCode != 404) rethrow;
+          application = await _submitIdentityDraft(api, currentDraft);
+          currentDraft = currentDraft.copyWith(application: application);
+          await _identityStore.save(currentDraft);
+          status = await api.getStatus(application);
+        }
+      }
+      if (mounted) {
+        setState(() {
+          _identityDraft = currentDraft;
+          _identityApplication = application;
+          _identityStatus = status;
+          _notice = 'Your application is ready to continue. Refresh its status at any time.';
+        });
+      }
+    } catch (_) {
+      if (mounted) {
+        setState(() {
+          _error = 'Your saved application could not be refreshed. Check your connection and retry.';
+        });
+      }
+    } finally {
+      api.close();
+    }
+  }
+
   Future<void> _signUp() async {
     if (!_form.currentState!.validate()) return;
     if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
@@ -269,21 +358,26 @@ class _AuthScreenState extends State<AuthScreen> {
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        final application = await api.createApplication(
-          email: _email.text.trim().toLowerCase(),
-          username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-          displayName: _name.text.trim(),
-          adultConfirmed: _ageConfirmed,
-          termsAccepted: _termsAccepted,
-          privacyAccepted: _privacyAccepted,
-          idempotencyKey: _identityApplicationIdempotencyKey ??= _newIdentityIdempotencyKey(),
-        );
-        // Keep the application credentials in memory before the follow-up
-        // status request. If status polling fails, the applicant can retry it
-        // without accidentally submitting a second application.
-        _identityApplicationIdempotencyKey = null;
+        var draft = _identityDraft;
+        if (draft == null) {
+          draft = IdentityApplicationDraft(
+            email: _email.text.trim().toLowerCase(),
+            username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+            displayName: _name.text.trim(),
+            idempotencyKey: _newIdentityIdempotencyKey(),
+            createdAt: DateTime.now().toUtc(),
+          );
+          // Persist the idempotency capability before the network request so
+          // a lost response can be recovered after an app/browser restart.
+          await _identityStore.save(draft);
+          _identityDraft = draft;
+        }
+        var application = await _submitIdentityDraft(api, draft);
+        draft = draft.copyWith(application: application);
+        await _identityStore.save(draft);
         if (!mounted) return;
         setState(() {
+          _identityDraft = draft;
           _identityApplication = application;
           _identityStatus = null;
           _page = _Page.identity;
@@ -487,6 +581,8 @@ class _AuthScreenState extends State<AuthScreen> {
           );
         }
         _identityProvisioningAuthorization = null;
+        await _identityStore.clear();
+        _identityDraft = null;
         if (!mounted) return;
         _password.clear();
         _confirm.clear();
@@ -507,14 +603,34 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _refreshIdentityStatus() async {
-    final application = _identityApplication;
-    if (application == null) return;
+    var application = _identityApplication;
+    final draft = _identityDraft;
+    if (application == null || draft == null) return;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        final status = await api.getStatus(application);
+        IdentityApplicationStatus status;
+        try {
+          status = await api.getStatus(application);
+        } on IdentityVerificationException catch (error) {
+          if (error.statusCode != 404) rethrow;
+          application = await _submitIdentityDraft(api, draft);
+          await _identityStore.save(draft.copyWith(application: application));
+          status = await api.getStatus(application);
+        }
+        if (application.sessionId.isNotEmpty && application.sessionToken.isNotEmpty) {
+          try {
+            await api.getSessionExpiry(application);
+          } on IdentityVerificationException catch (error) {
+            if (error.statusCode != 404) rethrow;
+            application = await _submitIdentityDraft(api, draft);
+            await _identityStore.save(draft.copyWith(application: application));
+            status = await api.getStatus(application);
+          }
+        }
         if (mounted) {
           setState(() {
+            _identityApplication = application;
             _identityStatus = status;
             _notice = 'Application status refreshed.';
           });
@@ -522,6 +638,22 @@ class _AuthScreenState extends State<AuthScreen> {
       } finally {
         api.close();
       }
+    });
+  }
+
+  Future<void> _startNewIdentityApplication() async {
+    await _identityStore.clear();
+    if (!mounted) return;
+    setState(() {
+      _identityDraft = null;
+      _identityApplication = null;
+      _identityStatus = null;
+      _identityProvisioningAuthorization = null;
+      _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
+      _notice = widget.enableIdentityRegistration
+          ? 'You can submit a new application with updated details.'
+          : 'Registration is temporarily unavailable.';
+      _error = null;
     });
   }
 
@@ -659,6 +791,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (_page == _Page.signUp) ...[
             TextFormField(
               controller: _name,
+              readOnly: _identityDraft != null,
               textCapitalization: TextCapitalization.words,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
@@ -670,6 +803,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 14),
             TextFormField(
               controller: _username,
+              readOnly: _identityDraft != null,
               autocorrect: false,
               textInputAction: TextInputAction.next,
               decoration: const InputDecoration(labelText: 'Username', prefixText: '@', border: OutlineInputBorder()),
@@ -679,6 +813,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
             TextFormField(
               controller: _email,
+              readOnly: _identityDraft != null,
               keyboardType: TextInputType.emailAddress,
               autocorrect: false,
               autofillHints: const [AutofillHints.email],
@@ -774,16 +909,26 @@ class _AuthScreenState extends State<AuthScreen> {
                   Text('Status: ${_identityStatus?.status ?? 'awaiting evidence'}'),
                   Text('Age assurance: ${_identityStatus?.verificationStatus ?? 'pending'}'),
                   const SizedBox(height: 12),
-                  FilledButton.icon(
-                    onPressed: _busy ? null : _uploadIdentityEvidence,
-                    icon: const Icon(Icons.upload_file),
-                    label: const Text('Choose and submit evidence'),
-                  ),
+                  if (_identityApplication?.sessionId.isNotEmpty == true &&
+                      _identityApplication?.sessionToken.isNotEmpty == true &&
+                      _identityStatus?.status == 'verification_pending')
+                    FilledButton.icon(
+                      onPressed: _busy ? null : _uploadIdentityEvidence,
+                      icon: const Icon(Icons.upload_file),
+                      label: const Text('Choose and submit evidence'),
+                    ),
                   OutlinedButton.icon(
                     onPressed: _busy ? null : _refreshIdentityStatus,
                     icon: const Icon(Icons.refresh),
                     label: const Text('Refresh application status'),
                   ),
+                  if (const {'rejected', 'expired', 'cancelled'}.contains(_identityStatus?.status) &&
+                      widget.enableIdentityRegistration)
+                    OutlinedButton.icon(
+                      onPressed: _busy ? null : _startNewIdentityApplication,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Start a new application'),
+                    ),
                   if (_identityStatus?.status == 'approved') ...[
                     const SizedBox(height: 12),
                     TextFormField(
