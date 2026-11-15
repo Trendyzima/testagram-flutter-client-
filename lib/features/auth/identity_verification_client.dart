@@ -21,10 +21,17 @@ class IdentityApplication {
     return IdentityApplication(
       applicationId: json['application_id'] as String,
       applicationToken: json['application_token'] as String,
-      sessionId: json['verification_session_id'] as String,
-      sessionToken: json['verification_session_token'] as String,
+      sessionId: json['verification_session_id'] as String? ?? '',
+      sessionToken: json['verification_session_token'] as String? ?? '',
     );
   }
+
+  Map<String, dynamic> toJson() => {
+        'application_id': applicationId,
+        'application_token': applicationToken,
+        'verification_session_id': sessionId,
+        'verification_session_token': sessionToken,
+      };
 }
 
 class IdentityApplicationStatus {
@@ -128,6 +135,12 @@ class IdentityVerificationClient {
     required Uint8List bytes,
     required String contentType,
   }) async {
+    if (application.sessionId.isEmpty || application.sessionToken.isEmpty) {
+      throw const IdentityVerificationException(
+        'This application no longer has an active evidence session. Refresh its status before uploading.',
+        409,
+      );
+    }
     final digest = sha256.convert(bytes).toString();
     final reserve = await _client.post(
       _endpoint(
@@ -194,6 +207,29 @@ class IdentityVerificationClient {
       body: jsonEncode({'evidence_id': reservation['evidence_id']}),
     );
     _decode(submit);
+  }
+
+  Future<DateTime> getSessionExpiry(IdentityApplication application) async {
+    if (application.sessionId.isEmpty || application.sessionToken.isEmpty) {
+      throw const IdentityVerificationException(
+        'This application has no active verification session.',
+        404,
+      );
+    }
+    final response = await _client.get(
+      _endpoint('/api/identity/sessions/${application.sessionId}'),
+      headers: {'X-Verification-Session-Token': application.sessionToken},
+    );
+    final decoded = _decode(response);
+    final rawExpiry = decoded['expires_at'];
+    if (rawExpiry is! String) {
+      throw const FormatException('Identity session response omitted its expiry.');
+    }
+    final expiry = DateTime.tryParse(rawExpiry);
+    if (expiry == null) {
+      throw const FormatException('Identity session expiry is invalid.');
+    }
+    return expiry.toUtc();
   }
 
   Future<IdentityApplicationStatus> getStatus(
