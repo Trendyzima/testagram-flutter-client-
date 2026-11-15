@@ -8,10 +8,11 @@ import '../posts/post_detail_screen.dart';
 import 'shorts_feed_policy.dart';
 
 class ShortsScreen extends StatefulWidget {
-  const ShortsScreen({super.key, required this.api, this.initialPost});
+  const ShortsScreen({super.key, required this.api, this.initialPost, this.isActive = true});
 
   final BackendApi api;
   final Map<String, dynamic>? initialPost;
+  final bool isActive;
 
   @override
   State<ShortsScreen> createState() => _ShortsScreenState();
@@ -39,7 +40,22 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    unawaited(_load(reset: true));
+    if (widget.isActive) unawaited(_load(reset: true));
+  }
+
+  @override
+  void didUpdateWidget(covariant ShortsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.isActive == widget.isActive) return;
+    if (widget.isActive) {
+      if (_items.isEmpty) {
+        unawaited(_load(reset: true));
+      } else {
+        unawaited(_syncPlayers());
+      }
+    } else {
+      unawaited(_disposePlayers());
+    }
   }
 
   @override
@@ -71,7 +87,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
   }
 
   Future<void> _load({bool reset = false}) async {
-    if (_loading || (!reset && !_hasMore)) return;
+    if (!widget.isActive || _loading || (!reset && !_hasMore)) return;
     final generation = reset ? ++_generation : _generation;
 
     if (reset) {
@@ -165,7 +181,7 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
   }
 
   Future<void> _ensurePlayer(int index) async {
-    if (!mounted || index < 0 || index >= _items.length ||
+    if (!mounted || !widget.isActive || index < 0 || index >= _items.length ||
         _players.containsKey(index) || _playerErrors.containsKey(index)) {
       return;
     }
@@ -204,7 +220,12 @@ class _ShortsScreenState extends State<ShortsScreen> with WidgetsBindingObserver
   }
 
   Future<void> _syncPlayers() async {
-    if (!mounted || _items.isEmpty) return;
+    if (!mounted) return;
+    if (!widget.isActive) {
+      await _disposePlayers();
+      return;
+    }
+    if (_items.isEmpty) return;
     final keep = <int>{_activeIndex, _activeIndex + 1};
 
     for (final entry in _players.entries.toList()) {
