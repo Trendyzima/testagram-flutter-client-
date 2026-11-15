@@ -38,7 +38,7 @@ void main() {
             'ok': true,
             'data': {
               'access_token': 'access-1',
-              'refresh_token': 'r' * 43,
+              'refresh_token': List.filled(43, 'r').join(),
               'expires_in': 900,
               'token_type': 'Bearer',
             },
@@ -46,12 +46,12 @@ void main() {
         }
         if (request.url.path == '/api/auth/refresh') {
           refreshCalls++;
-          expect(jsonDecode(request.body), {'refresh_token': 'r' * 43});
+          expect(jsonDecode(request.body), {'refresh_token': List.filled(43, 'r').join()});
           return http.Response(jsonEncode({
             'ok': true,
             'data': {
               'access_token': 'access-2',
-              'refresh_token': 's' * 43,
+              'refresh_token': List.filled(43, 's').join(),
               'expires_in': 900,
               'token_type': 'Bearer',
             },
@@ -71,14 +71,14 @@ void main() {
       now = now.add(const Duration(minutes: 15));
       expect(await session.getAccessToken(), 'access-2');
       expect(refreshCalls, 1);
-      expect(store.values.values, contains('s' * 43));
-      expect(store.values.values, isNot(contains('r' * 43)));
+      expect(store.values.values, contains(List.filled(43, 's').join()));
+      expect(store.values.values, isNot(contains(List.filled(43, 'r').join())));
     });
 
     test('clears local session after refresh rejection to avoid reusing a rotated token', () async {
       final store = MemoryTokenStore()
         ..values['testagram.native.access.v1'] = 'expired'
-        ..values['testagram.native.refresh.v1'] = 'r' * 43
+        ..values['testagram.native.refresh.v1'] = List.filled(43, 'r').join()
         ..values['testagram.native.expiry.v1'] = DateTime.utc(2026, 1).toIso8601String();
       final session = NativeAuthSession(
         backendOrigin: Uri.parse('https://api.testagram.site'),
@@ -96,7 +96,7 @@ void main() {
     test('logout always clears secure storage after the backend request', () async {
       final store = MemoryTokenStore()
         ..values['testagram.native.access.v1'] = 'access'
-        ..values['testagram.native.refresh.v1'] = 'r' * 43
+        ..values['testagram.native.refresh.v1'] = List.filled(43, 'r').join()
         ..values['testagram.native.expiry.v1'] = DateTime.utc(2026, 12).toIso8601String();
       final session = NativeAuthSession(
         backendOrigin: Uri.parse('https://api.testagram.site'),
