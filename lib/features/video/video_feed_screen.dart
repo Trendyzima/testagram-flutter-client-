@@ -24,6 +24,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   List<Map<String, dynamic>> _videos = [];
   final Set<String> _liked = {};
   final Set<String> _busy = {};
+  final Set<String> _viewedThisSession = {};
   int _active = 0;
   bool _loading = true;
   String? _error;
@@ -35,16 +36,25 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     if (origin != null) {
       _videoApi = VideoApi(baseUri: origin, getJwt: () => widget.api.getJwt());
     }
-    _load();
+    if (widget.isActive) _load();
   }
 
   @override
   void didUpdateWidget(covariant VideoFeedScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
-      final player = _player;
-      if (player != null && player.value.isInitialized) {
-        if (widget.isActive) { player.play(); } else { player.pause(); }
+      if (widget.isActive) {
+        if (_videoApi != null && _videos.isEmpty && !_loading) {
+          _load();
+        } else {
+          final player = _player;
+          if (player != null && player.value.isInitialized) {
+            player.play();
+            _recordActiveView();
+          }
+        }
+      } else {
+        _player?.pause();
       }
     }
   }
@@ -93,12 +103,24 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
         await player.dispose();
         return;
       }
+      if (!widget.isActive) return;
       await player.play();
-      // Count only after playback has actually initialized and started.
-      await _videoApi!.recordView(id, _session);
+      await _recordActiveView();
       if (mounted) setState(() {});
     } catch (e) {
       if (mounted && _player == player) setState(() => _error = 'Unable to play this video: $e');
+    }
+  }
+
+  Future<void> _recordActiveView() async {
+    if (!widget.isActive || _videoApi == null || _active >= _videos.length) return;
+    final id = (_videos[_active]['id'] ?? '').toString();
+    if (id.isEmpty || !_viewedThisSession.add(id)) return;
+    try {
+      // Count only after the active controller has actually started playback.
+      await _videoApi!.recordView(id, _session);
+    } catch (_) {
+      _viewedThisSession.remove(id);
     }
   }
 
