@@ -49,6 +49,19 @@ class AppConfig {
       .where((host) => host.isNotEmpty)
       .toSet();
 
+  // Optional dedicated video origin. It stays unset until the video service
+  // has an approved HTTPS deployment and its auth path is compatible.
+  static const videoApiUrl = String.fromEnvironment(
+    'TESTAGRAM_VIDEO_API_URL',
+    defaultValue: '',
+  );
+
+  static Uri? get videoApiOrigin {
+    final value = videoApiUrl.trim();
+    if (value.isEmpty || !_isHttpsUrl(value)) return null;
+    return Uri.parse(value);
+  }
+
   static bool get isConfigured =>
       _isHttpsUrl(appwriteEndpoint) &&
       appwriteProjectId.trim().isNotEmpty &&
