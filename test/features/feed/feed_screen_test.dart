@@ -52,6 +52,9 @@ void main() {
 
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Latest'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Discover'), findsOneWidget);
     expect(find.text("What's happening?"), findsOneWidget);
     expect(find.text("What's happening"), findsOneWidget);
     expect(find.text('#kenyatech'), findsOneWidget);
@@ -60,7 +63,9 @@ void main() {
 
     await tester.tap(find.text('Following'));
     await tester.pumpAndSettle();
-    expect(requestedUris.any((uri) => uri.queryParameters['following_only'] == 'true'), isTrue);
+    expect(requestedUris.any((uri) =>
+        uri.queryParameters['following_only'] == 'true' &&
+        uri.queryParameters['feed'] == 'following'), isTrue);
     expect(tester.takeException(), isNull);
     api.close();
   });
