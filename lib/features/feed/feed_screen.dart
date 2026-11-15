@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
+import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
 import 'feed_request_policy.dart';
 
@@ -433,6 +434,13 @@ class _FeedScreenState extends State<FeedScreen> {
                           builder: (_) => PostDetailScreen(api: widget.api, postId: id),
                         ),
                       ),
+                      onOpenVideo: id.isEmpty || post['is_video'] != true
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => ShortsScreen(api: widget.api, initialPostId: id),
+                                ),
+                              ),
                       onLike: () => _action(post, 'like'),
                       onRepost: () => _action(post, 'repost'),
                       onBookmark: () => _action(post, 'bookmark'),
@@ -855,12 +863,13 @@ class _PostCard extends StatelessWidget {
     required this.onBookmark,
     required this.onReplies,
     this.onOpen,
+    this.onOpenVideo,
   });
 
   final Map<String, dynamic> post;
   final bool busy;
   final VoidCallback onLike, onRepost, onBookmark, onReplies;
-  final VoidCallback? onOpen;
+  final VoidCallback? onOpen, onOpenVideo;
 
   String _timeLabel(String value) {
     final date = DateTime.tryParse(value)?.toLocal();
@@ -887,6 +896,11 @@ class _PostCard extends StatelessWidget {
     final mediaUrls = rawMedia is List
         ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
         : <String>[];
+    final rawContentTypes = post['media_content_types'];
+    final contentTypes = rawContentTypes is List
+        ? rawContentTypes.map((value) => value.toString().toLowerCase()).toList()
+        : <String>[];
+    final isVideoPost = post['is_video'] == true || contentTypes.any((type) => type.startsWith('video/'));
     final rawMediaAuthHeaders = post['media_auth_headers'];
     final mediaAuthHeaders = <String, String>{};
     if (rawMediaAuthHeaders is Map) {
@@ -955,7 +969,30 @@ class _PostCard extends StatelessWidget {
                       child: Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
                     ),
                   ],
-                  if (mediaUrls.isNotEmpty) ...[
+                  if (isVideoPost && mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    InkWell(
+                      onTap: onOpenVideo ?? onOpen,
+                      borderRadius: BorderRadius.circular(18),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Container(
+                            color: Colors.black,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 58),
+                                SizedBox(height: 7),
+                                Text('Watch in Shorts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 11),
                     if (mediaUrls.length == 1)
                       ClipRRect(
