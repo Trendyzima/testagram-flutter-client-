@@ -8,6 +8,7 @@ import '../features/notifications/notifications_screen.dart';
 import '../features/polls/polls_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/threads/threads_screen.dart';
+import '../features/shorts/shorts_screen.dart';
 import '../features/wallet/wallet_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -43,6 +44,11 @@ class _MainShellState extends State<MainShell> {
       label: 'Explore',
     ),
     NavigationDestination(
+      icon: Icon(Icons.play_circle_outline_rounded),
+      selectedIcon: Icon(Icons.play_circle_fill_rounded),
+      label: 'Shorts',
+    ),
+    NavigationDestination(
       icon: Icon(Icons.notifications_none_rounded),
       selectedIcon: Icon(Icons.notifications_rounded),
       label: 'Notifications',
@@ -72,6 +78,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
         ExploreScreen(api: widget.api),
+        ShortsScreen(api: widget.api),
         NotificationsScreen(api: widget.api),
         ThreadsScreen(api: widget.api),
         PollsScreen(api: widget.api),
@@ -151,6 +158,11 @@ class _MainShellState extends State<MainShell> {
                             icon: Icon(Icons.search_rounded),
                             selectedIcon: Icon(Icons.travel_explore_rounded),
                             label: Text('Explore'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.play_circle_outline_rounded),
+                            selectedIcon: Icon(Icons.play_circle_fill_rounded),
+                            label: Text('Shorts'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.notifications_none_rounded),
