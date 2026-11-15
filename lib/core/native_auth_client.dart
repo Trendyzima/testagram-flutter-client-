@@ -30,6 +30,7 @@ class NativeAuthClient {
   static const _refreshKey = 'testagram.native.refresh.v1';
   static const _expiresKey = 'testagram.native.expires_at.v1';
   static const _refreshSkew = Duration(seconds: 60);
+  Future<String?>? _refreshInFlight;
 
   Future<Map<String, dynamic>> signIn({
     required String email,
@@ -39,8 +40,9 @@ class NativeAuthClient {
       'email': email.trim().toLowerCase(),
       'password': password,
     });
+    final user = _userFrom(result);
     await _saveSession(result);
-    return _userFrom(result);
+    return user;
   }
 
   Future<void> requestPasswordReset(String email) async {
@@ -84,15 +86,27 @@ class NativeAuthClient {
       return access;
     }
 
+    final pending = _refreshInFlight;
+    if (pending != null) return pending;
+    final rotation = _rotateRefresh(refresh);
+    _refreshInFlight = rotation;
+    try {
+      return await rotation;
+    } finally {
+      if (identical(_refreshInFlight, rotation)) _refreshInFlight = null;
+    }
+  }
+
+  Future<String> _rotateRefresh(String refresh) async {
     try {
       final result = await _post('refresh', {'refresh_token': refresh});
       await _saveSession(result);
       final rotated = (result['access_token'] ?? '').toString();
-      if (rotated.isEmpty) throw const NativeAuthException('The Backend returned an incomplete session.');
+      if (rotated.isEmpty) {
+        throw const NativeAuthException('The Backend returned an incomplete session.');
+      }
       return rotated;
     } on NativeAuthException {
-      // Refresh-token rotation is single-use. An invalid/reused token must
-      // clear local credentials rather than repeatedly replaying it.
       await clearSession();
       rethrow;
     }
@@ -125,7 +139,8 @@ class NativeAuthClient {
     final access = (result['access_token'] ?? '').toString();
     final refresh = (result['refresh_token'] ?? '').toString();
     final expiresIn = result['expires_in'];
-    if (access.isEmpty || refresh.isEmpty || expiresIn is! num ||
+    if (access.isEmpty || access.length > 8192 || refresh.length < 32 ||
+        refresh.length > 256 || expiresIn is! num ||
         expiresIn <= 0 || expiresIn > 3600) {
       throw const NativeAuthException('The Backend returned an invalid session.');
     }
