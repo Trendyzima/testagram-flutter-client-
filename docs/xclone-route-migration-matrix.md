@@ -54,7 +54,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 - `/stream/:streamId` — Not ported
 - `/tv/live/:streamId` — Not ported
 - `/videos` — Not ported
-- `/shorts` — Not ported
+- `/shorts` — Ported slice: authenticated video-only feed, vertical swipe playback, active/next player lifecycle, view recording and social interactions; separate Data Centre HLS catalog/channel integration remains open
 - `/videos/watchlater` — Not ported
 - `/hashtags` — Ported slice: native trending hashtag directory backed by the Backend's seven-day public-topic endpoint, including viewer follow-state indicators
 - `/hashtag/:tag` — Ported slice: privacy-filtered, cursor-paginated hashtag timeline, post-detail navigation, authenticated follow/unfollow controls and multi-media cards
@@ -247,7 +247,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 | Notifications | `features/notifications` | Ported slice: list and mark read; preferences, realtime and push remain open |
 | Profiles, followers, profile sections, privacy, lists, blocks, mutes | `features/profile`, `features/social`, `features/settings` | Ported slices: authenticated privacy-aware profile header, follow state/action, paginated followers and following lists, privacy-filtered profile posts with post-detail navigation; profile editing and settings remain open |
 | Direct messages, platform inbox, team chat, calls | `features/messages` | Blocked on verified messaging/E2EE/call contracts |
-| TV, IPTV, video, shorts, studio, live spaces | `features/tv`, `features/videos`, `features/spaces` | Not ported; do not copy source playback/catalog services without contract and rights review |
+| TV, IPTV, video, shorts, studio, live spaces | `features/tv`, `features/videos`, `features/spaces` | Shorts ported slice: public MP4/WebM post attachments play in a native vertical feed; dedicated Data Centre HLS channels/catalog, live studio and spaces remain not ported and require Backend-owned contracts |
 | Communities, challenges, polls, events | `features/communities`, `features/challenges`, `features/social` | Not ported |
 | Marketplace, storefronts, orders, wishlist, wallet, M-Pesa, credits, premium | `features/marketplace`, `features/wallet`, `features/commerce` | Blocked on verified commerce/payment contracts |
 | Creator, podcasts, series, analytics, referrals, rewards, advertising | `features/creator`, `features/ads` | Not ported |
