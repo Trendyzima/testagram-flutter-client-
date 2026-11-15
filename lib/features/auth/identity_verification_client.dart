@@ -34,6 +34,19 @@ class IdentityApplication {
       };
 }
 
+class IdentityApplicationCreateResult {
+  const IdentityApplicationCreateResult.application(this.application)
+      : message = null;
+
+  const IdentityApplicationCreateResult.accepted(this.message)
+      : application = null;
+
+  final IdentityApplication? application;
+  final String? message;
+
+  bool get hasApplication => application != null;
+}
+
 class IdentityApplicationStatus {
   const IdentityApplicationStatus({
     required this.status,
@@ -102,7 +115,7 @@ class IdentityVerificationClient {
     return decoded;
   }
 
-  Future<IdentityApplication> createApplication({
+  Future<IdentityApplicationCreateResult> createApplication({
     required String email,
     required String username,
     required String displayName,
@@ -127,7 +140,20 @@ class IdentityVerificationClient {
         'privacy_accepted': privacyAccepted,
       }),
     );
-    return IdentityApplication.fromJson(_decode(response));
+    final decoded = _decode(response);
+    if (decoded['application_id'] is String &&
+        decoded['application_token'] is String) {
+      return IdentityApplicationCreateResult.application(
+        IdentityApplication.fromJson(decoded),
+      );
+    }
+    final message = decoded['message'];
+    if (decoded['ok'] == true && message is String && message.trim().isNotEmpty) {
+      return IdentityApplicationCreateResult.accepted(message.trim());
+    }
+    throw const FormatException(
+      'Identity API returned neither an application capability nor an acceptance message.',
+    );
   }
 
   Future<void> uploadAndSubmitEvidence({
