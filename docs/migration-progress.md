@@ -6,7 +6,7 @@ Last updated: 2026-11-12
 
 | XClone capability | Flutter implementation | Backend contract |
 |---|---|---|
-| Home feed and post publishing | For You / Following, pull-to-refresh, cursor pagination; native text composer with public/followers/private visibility and idempotent publish | `GET /api/feed/home`, `POST /api/social/posts` (`Idempotency-Key`) |
+| Home feed and post publishing | For You / Following / Latest / Media / Discover, pull-to-refresh, cursor pagination; native text composer with public/followers/private visibility and idempotent publish | `GET /api/feed/home`, `POST /api/social/posts` (`Idempotency-Key`) |
 | Short-video feed | TikTok-style vertical swipe player, one active player plus next-item preload, app-lifecycle pause/resume, mute, view recording, like/repost/bookmark/comments/follow, and public MP4/WebM composer upload (20 MiB cap) | `GET /api/feed/home?video_only=true`, `POST /api/social/posts/{id}/view`, existing media upload/complete/attach and social interaction routes |
 | Post reactions | Like / unlike | `POST|DELETE /api/social/posts/{id}/reaction` |
 | Reposts | Repost / undo repost | `POST|DELETE /api/social/posts/{id}/reposts` |
