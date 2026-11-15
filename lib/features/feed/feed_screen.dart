@@ -177,7 +177,8 @@ class _FeedScreenState extends State<FeedScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (sheetContext) => Padding(
+      builder: (sheetContext) => StatefulBuilder(
+        builder: (sheetContext, setQuoteState) => Padding(
         padding: EdgeInsets.fromLTRB(
           18, 8, 18, MediaQuery.viewInsetsOf(sheetContext).bottom + 18,
         ),
@@ -204,22 +205,21 @@ class _FeedScreenState extends State<FeedScreen> {
                 hintText: 'Add your perspective…',
                 border: OutlineInputBorder(),
               ),
-              onChanged: (_) {},
+              onChanged: (_) => setQuoteState(() {}),
             ),
             const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerRight,
-              child: StatefulBuilder(
-                builder: (context, setQuoteState) => FilledButton.icon(
-                  onPressed: controller.text.trim().isEmpty
-                      ? null
-                      : () => Navigator.pop(sheetContext, controller.text.trim()),
-                  icon: const Icon(Icons.repeat_rounded),
-                  label: const Text('Publish quote'),
-                ),
+              child: FilledButton.icon(
+                onPressed: controller.text.trim().isEmpty
+                    ? null
+                    : () => Navigator.pop(sheetContext, controller.text.trim()),
+                icon: const Icon(Icons.repeat_rounded),
+                label: const Text('Publish quote'),
               ),
             ),
           ],
+        ),
         ),
       ),
     );
