@@ -314,7 +314,7 @@ class _ConfigurationRequired extends StatelessWidget {
                 const SizedBox(height: 16),
                 Text('Testagram', style: Theme.of(context).textTheme.headlineMedium),
                 const SizedBox(height: 10),
-                const Text(
+                Text(
                   AppConfig.useNativeAuth
                       ? 'This native build needs the Testagram Backend API URL. Configure it with --dart-define before running.'
                       : 'This migration build needs an Appwrite endpoint, Appwrite project ID, and Testagram Backend API URL. Configure them with --dart-define before running.',
