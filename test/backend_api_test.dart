@@ -8,6 +8,37 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('retries one 401 after the native refresh callback rotates credentials', () async {
+      final authorizations = <String?>[];
+      var refreshCalls = 0;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getJwt: () async => 'expired-access',
+        refreshJwt: () async {
+          refreshCalls++;
+          return 'rotated-access';
+        },
+        client: MockClient((request) async {
+          authorizations.add(request.headers['authorization']);
+          if (authorizations.length == 1) {
+            return http.Response(jsonEncode({
+              'ok': false,
+              'error': {'code': 'AUTH_REQUIRED', 'message': 'Expired'},
+            }), 401);
+          }
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'items': [], 'has_more': false},
+          }), 200);
+        }),
+      );
+
+      await api.getTrendingHashtags();
+      expect(authorizations, ['Bearer expired-access', 'Bearer rotated-access']);
+      expect(refreshCalls, 1);
+      api.close();
+    });
+
     test('loads trending hashtags and a cursor-paginated hashtag timeline', () async {
       final requests = <http.Request>[];
       final api = BackendApi(
