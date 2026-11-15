@@ -663,6 +663,11 @@ class _AuthScreenState extends State<AuthScreen> {
       _identityApplication = null;
       _identityStatus = null;
       _identityProvisioningAuthorization = null;
+      _ageConfirmed = false;
+      _termsAccepted = false;
+      _privacyAccepted = false;
+      _password.clear();
+      _confirm.clear();
       _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
       _notice = widget.enableIdentityRegistration
           ? 'You can submit a new application with updated details.'
