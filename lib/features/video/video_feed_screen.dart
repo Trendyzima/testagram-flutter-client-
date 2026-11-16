@@ -36,7 +36,16 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     super.initState();
     final origin = widget.videoApiBaseUri;
     if (origin != null) {
-      _videoApi = VideoApi(baseUri: origin, getJwt: () => widget.api.getJwt());
+      _videoApi = VideoApi(baseUri: origin, getJwt: () async {
+        final nativeProvider = widget.api.getAccessToken;
+        if (nativeProvider != null) {
+          final token = await nativeProvider();
+          if (token != null && token.isNotEmpty) return token;
+        }
+        final legacyProvider = widget.api.getJwt;
+        if (legacyProvider != null) return legacyProvider();
+        throw StateError('A Testagram access token is required for video interactions.');
+      });
     }
     if (widget.isActive) _load();
   }
