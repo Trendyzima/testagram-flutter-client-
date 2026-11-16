@@ -1,12 +1,12 @@
 name: Deploy Testagram Flutter Web
 
-# Pages deployment owns the frontend only; production DNS is managed separately.
+# Pages owns the www frontend only. The apex remains the Backend/Federation identity origin and redirects ordinary web traffic to www.
 
 on:
   workflow_dispatch:
     inputs:
       confirm_production_pages_deploy:
-        description: Confirm an intentional production Pages deployment to testagram.site and www.testagram.site.
+        description: Confirm an intentional production Pages deployment to www.testagram.site; the apex remains on the Backend federation edge.
         required: true
         type: boolean
         default: false
@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 35
     environment: production
     env:
-      TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://api.testagram.site' }}
+      TESTAGRAM_API_URL: https://api.testagram.site
       TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'false' }}
       CONFIRM_IDENTITY_REGISTRATION_UI: ${{ inputs.confirm_identity_registration_ui }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -55,12 +55,10 @@ jobs:
             echo "::error::Production deployment blocked. CLOUDFLARE_ACCOUNT_ID plus CLOUDFLARE_API_TOKEN as repository secrets."
             exit 1
           fi
-          for name in TESTAGRAM_API_URL; do
-            case "${!name}" in
-              https://*) ;;
-              *) echo "::error::$name must use HTTPS in production"; exit 1 ;;
-            esac
-          done
+          if [[ "$TESTAGRAM_API_URL" != "https://api.testagram.site" ]]; then
+            echo "::error::Production Flutter builds must use the canonical API hostname https://api.testagram.site, never a direct VPS port URL."
+            exit 1
+          fi
           case "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" in
             true|false) ;;
             *) echo "::error::TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED must be true or false."; exit 1 ;;
@@ -188,6 +186,25 @@ jobs:
           fi
           echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
+      - name: Protect the apex federation hostname
+        shell: bash
+        run: |
+          set -euo pipefail
+          apex_url="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains/testagram.site"
+          status="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -o /tmp/apex-pages-domain.json -w '%{http_code}' \\
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$apex_url")"
+          if [[ "$status" == "200" ]] && [[ "$(jq -r '.success // false' /tmp/apex-pages-domain.json)" == "true" ]]; then
+            echo "::error::testagram.site is still associated with Cloudflare Pages. The apex is reserved for Backend ActivityPub discovery and must remain on the Backend edge; detach it from Pages only after confirming the Backend apex route is active."
+            jq -c '.result | {name,status,validation_data,verification_data}' /tmp/apex-pages-domain.json
+            exit 1
+          fi
+          if [[ "$status" != "404" ]]; then
+            echo "::error::Could not safely verify apex ownership (HTTP $status). Refusing to deploy Pages while apex ownership is ambiguous."
+            jq -c '{success,errors,messages}' /tmp/apex-pages-domain.json || true
+            exit 1
+          fi
+          echo "Apex is not attached to Pages; Backend/Federation retains testagram.site."
+
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
 
@@ -197,7 +214,7 @@ jobs:
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
 
-          for domain in testagram.site www.testagram.site; do
+          for domain in www.testagram.site; do
             current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
             if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
@@ -220,7 +237,7 @@ jobs:
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
 
-          for domain in testagram.site www.testagram.site; do
+          for domain in www.testagram.site; do
             active=false
             for attempt in $(seq 1 90); do
               current="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
