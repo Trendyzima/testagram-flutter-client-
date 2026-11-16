@@ -34,8 +34,6 @@ flutter analyze
 flutter test
 flutter run \
   --dart-define=TESTAGRAM_API_URL=https://api.testagram.site
-
-  --dart-define=TESTAGRAM_API_URL=https://api.testagram.site
 ```
 
 The Flutter client needs only the public Testagram Backend URL. For local development, use an HTTPS development endpoint or localhost HTTP. Do not commit credentials, signing keys, tokens, or environment-specific production configuration.
