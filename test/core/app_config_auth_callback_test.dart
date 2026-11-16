@@ -4,7 +4,7 @@ import 'package:testagram/core/app_config.dart';
 void main() {
   group('Testagram native application configuration', () {
     test('uses the published InstaBox API and canonical Testagram website origins', () {
-      expect(AppConfig.backendOrigin.toString(), 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech');
+      expect(AppConfig.backendOrigin.toString(), 'https://api.testagram.site');
       expect(AppConfig.siteUrl, 'https://testagram.site');
       expect(AppConfig.isConfigured, isTrue);
     });
