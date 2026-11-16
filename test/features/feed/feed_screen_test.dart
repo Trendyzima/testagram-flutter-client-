@@ -384,10 +384,12 @@ void main() {
   });
 
   testWidgets('remote Bluesky cards show provenance and hide unsupported interactions', (tester) async {
+    final requestedPaths = <String>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
       getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
       client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
         if (request.url.path == '/api/feed/home') {
           return http.Response(jsonEncode({
             'ok': true,
@@ -425,6 +427,7 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
+    expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
     expect(find.text('via Bluesky'), findsOneWidget);
     expect(find.text('A public Bluesky post'), findsOneWidget);
     expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
