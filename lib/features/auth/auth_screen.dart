@@ -8,6 +8,7 @@ import '../../core/app_config.dart';
 import '../../core/backend_api.dart';
 import '../../core/auth/native_auth_client.dart';
 import '../../core/widgets/testagram_brand_mark.dart';
+import '../../core/testagram_theme.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 import 'identity_application_store.dart';
@@ -758,11 +759,14 @@ class _AuthScreenState extends State<AuthScreen> {
       _Page.identity => 'Complete your application and follow its review status.',
     };
     final theme = Theme.of(context);
-    const ink = Color(0xFF10251D);
-    const muted = Color(0xFF63746C);
-    const green = Color(0xFF087C4A);
-    const pale = Color(0xFFEAF5EE);
+    const ink = TestagramTheme.ink;
+    const muted = TestagramTheme.mutedInk;
+    const blue = TestagramTheme.blue;
+    const pale = Color(0xFFEAF2FF);
     final isDark = theme.brightness == Brightness.dark;
+    final surface = isDark ? TestagramTheme.darkSurface : TestagramTheme.lightSurface;
+    final raised = isDark ? TestagramTheme.darkRaised : TestagramTheme.lightRaised;
+    final border = isDark ? TestagramTheme.darkBorder : TestagramTheme.lightBorder;
 
     Widget field({
       required TextEditingController controller,
@@ -798,11 +802,11 @@ class _AuthScreenState extends State<AuthScreen> {
           prefixText: prefix,
           suffixIcon: suffix,
           filled: true,
-          fillColor: isDark ? const Color(0xFF17231D) : const Color(0xFFF5F8F6),
+          fillColor: raised,
           contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 19),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE0E9E3)),
+            borderSide: BorderSide(color: border),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -810,7 +814,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           focusedBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
-            borderSide: const BorderSide(color: green, width: 1.6),
+            borderSide: const BorderSide(color: blue, width: 1.8),
           ),
           errorBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(16),
@@ -829,7 +833,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return Container(
         padding: const EdgeInsets.all(4),
         decoration: BoxDecoration(
-          color: isDark ? const Color(0xFF17231D) : const Color(0xFFF0F5F1),
+          color: raised,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Row(
@@ -849,7 +853,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         constraints: const BoxConstraints(minHeight: 44),
                         padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
                         decoration: BoxDecoration(
-                          color: _page == mode.$1 ? (isDark ? const Color(0xFF234B37) : Colors.white) : Colors.transparent,
+                          color: _page == mode.$1 ? (isDark ? const Color(0xFF203A5D) : surface) : Colors.transparent,
                           borderRadius: BorderRadius.circular(10),
                           boxShadow: _page == mode.$1 && !isDark
                               ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))]
@@ -881,7 +885,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
 
     Widget statusMessage(String message, {required bool error}) {
-      final color = error ? theme.colorScheme.error : green;
+      final color = error ? theme.colorScheme.error : blue;
       return Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
@@ -906,9 +910,9 @@ class _AuthScreenState extends State<AuthScreen> {
       child: FilledButton(
         onPressed: _busy ? null : action,
         style: FilledButton.styleFrom(
-          backgroundColor: green,
+          backgroundColor: blue,
           foregroundColor: Colors.white,
-          disabledBackgroundColor: green.withValues(alpha: 0.5),
+          disabledBackgroundColor: blue.withValues(alpha: 0.48),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
         ),
@@ -925,24 +929,25 @@ class _AuthScreenState extends State<AuthScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                const TestagramBrandMark(size: 46, radius: 14),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Testagram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.8, color: isDark ? Colors.white : ink)),
-                      const Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
-                    ],
+            if (!compact) ...[
+              Row(
+                children: [
+                  const TestagramBrandMark(size: 46, radius: 14),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Testagram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.8, color: isDark ? Colors.white : ink)),
+                        const Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
+                      ],
+                    ),
                   ),
-                ),
-                if (!compact)
-                  Icon(Icons.public_rounded, color: green.withValues(alpha: 0.8), size: 22),
-              ],
-            ),
-            const SizedBox(height: 28),
+                  Icon(Icons.public_rounded, color: blue.withValues(alpha: 0.8), size: 22),
+                ],
+              ),
+              const SizedBox(height: 28),
+            ],
             modeSwitch(),
             const SizedBox(height: 28),
             Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
@@ -1080,7 +1085,7 @@ class _AuthScreenState extends State<AuthScreen> {
     Widget brandPanel() => Container(
       padding: const EdgeInsets.all(32),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF063D29), Color(0xFF087C4A), Color(0xFF0A6843)]),
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF0B3B88), Color(0xFF146EF5), Color(0xFF0756C9)]),
         borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
@@ -1092,19 +1097,67 @@ class _AuthScreenState extends State<AuthScreen> {
         const SizedBox(height: 36),
         const Text('More than a feed.\nA world of voices.', style: TextStyle(color: Colors.white, fontSize: 39, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -1.6)),
         const SizedBox(height: 16),
-        const Text('Follow what moves you. Share what matters. Find your people.', style: TextStyle(color: Color(0xFFD8F1E2), fontSize: 16, height: 1.55)),
+        const Text('Follow what moves you. Share what matters. Find your people.', style: TextStyle(color: Color(0xFFDCEAFF), fontSize: 16, height: 1.55)),
         const SizedBox(height: 28),
         Wrap(spacing: 8, runSpacing: 8, children: [
           for (final item in ['Your voice', 'Open conversations', 'Communities'])
             Container(padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white.withValues(alpha: 0.2))), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
         ]),
         const SizedBox(height: 34),
-        const Text('ONE PLATFORM. MANY PERSPECTIVES.', style: TextStyle(color: Color(0xFFB6E2C8), fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w800)),
+        const Text('ONE PLATFORM. MANY PERSPECTIVES.', style: TextStyle(color: Color(0xFFC3DAFF), fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w800)),
       ]),
     );
 
+    Widget mobileHero() => Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 54),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF0B3B88), Color(0xFF146EF5), Color(0xFF0756C9)],
+        ),
+        borderRadius: BorderRadius.vertical(bottom: Radius.circular(30)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(children: [
+            TestagramBrandMark(size: 44, radius: 14),
+            SizedBox(width: 12),
+            Text('Testagram', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.7)),
+            Spacer(),
+            Icon(Icons.public_rounded, color: Color(0xFFDCEAFF), size: 22),
+          ]),
+          const SizedBox(height: 28),
+          const Text(
+            'More than a feed.\\nA world of voices.',
+            style: TextStyle(color: Colors.white, fontSize: 30, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -1.1),
+          ),
+          const SizedBox(height: 10),
+          const Text(
+            'Follow what moves you. Share what matters. Find your people.',
+            style: TextStyle(color: Color(0xFFDCEAFF), fontSize: 13, height: 1.45),
+          ),
+          const SizedBox(height: 18),
+          Wrap(spacing: 7, runSpacing: 7, children: [
+            for (final item in ['Your voice', 'Open conversations', 'Communities'])
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.13),
+                  borderRadius: BorderRadius.circular(30),
+                  border: Border.all(color: Colors.white.withValues(alpha: 0.22)),
+                ),
+                child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+          ]),
+        ],
+      ),
+    );
+
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0D1511) : const Color(0xFFF4F8F5),
+      backgroundColor: isDark ? TestagramTheme.darkBackground : TestagramTheme.lightBackground,
       body: SafeArea(
         child: LayoutBuilder(builder: (context, constraints) {
           final wide = constraints.maxWidth >= 900;
@@ -1128,21 +1181,37 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             );
           }
-          return Center(
-            child: SingleChildScrollView(
-              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-              padding: EdgeInsets.fromLTRB(compact ? 18 : 28, compact ? 22 : 36, compact ? 18 : 28, 28),
+          return SingleChildScrollView(
+            keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+            child: Center(
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 480),
-                child: Container(
-                  padding: EdgeInsets.all(compact ? 22 : 32),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surface,
-                    borderRadius: BorderRadius.circular(26),
-                    border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE5EDE7)),
-                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.045), blurRadius: 28, offset: const Offset(0, 12))],
-                  ),
-                  child: formContent(compact: compact),
+                constraints: const BoxConstraints(maxWidth: 680),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    mobileHero(),
+                    Transform.translate(
+                      offset: const Offset(0, -28),
+                      child: Container(
+                        margin: EdgeInsets.symmetric(horizontal: compact ? 14 : 28),
+                        padding: EdgeInsets.fromLTRB(compact ? 20 : 30, compact ? 22 : 30, compact ? 20 : 30, 28),
+                        decoration: BoxDecoration(
+                          color: surface,
+                          borderRadius: BorderRadius.circular(26),
+                          border: Border.all(color: border),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: isDark ? 0.24 : 0.09),
+                              blurRadius: 30,
+                              offset: const Offset(0, 12),
+                            ),
+                          ],
+                        ),
+                        child: formContent(compact: compact),
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                  ],
                 ),
               ),
             ),
