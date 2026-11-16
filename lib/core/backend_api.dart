@@ -14,11 +14,27 @@ class PrivateMediaAccess {
 }
 
 class BackendApi {
-  BackendApi({required this.baseUri, required this.getJwt, http.Client? client})
-      : _client = client ?? http.Client();
+  BackendApi({
+    required this.baseUri,
+    Future<String?> Function({bool forceRefresh})? getAccessToken,
+    @Deprecated('Use getAccessToken; this alias is for older test fixtures only.')
+    Future<String?> Function()? getJwt,
+    http.Client? client,
+  })  : getAccessToken = _resolveAccessTokenProvider(getAccessToken, getJwt),
+        _client = client ?? http.Client();
+
+  static Future<String?> Function({bool forceRefresh}) _resolveAccessTokenProvider(
+    Future<String?> Function({bool forceRefresh})? getAccessToken,
+    Future<String?> Function()? getJwt,
+  ) {
+    if (getAccessToken != null) return getAccessToken;
+    if (getJwt != null) return ({bool forceRefresh = false}) => getJwt();
+    throw ArgumentError('getAccessToken is required.');
+  }
 
   final Uri baseUri;
-  final Future<String> Function() getJwt;
+  /// Testagram-native session provider. Access tokens remain in memory.
+  final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
   Future<Map<String, dynamic>> getHomeFeed({
@@ -440,7 +456,7 @@ class BackendApi {
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
   /// Resolves the caller's canonical Testagram profile from the verified session.
-  /// Appwrite user IDs are not canonical Testagram account UUIDs.
+  /// External identity-provider IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
 
@@ -526,7 +542,7 @@ class BackendApi {
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
 
   /// Reads the canonical federation preference through the public Backend API.
-  /// The Appwrite session JWT is attached by the shared authenticated request path.
+  /// The Testagram native access token is attached by the shared authenticated request path.
   Future<Map<String, dynamic>> getMyFederationPreference() =>
       _request('GET', baseUri.resolve('/api/me/federation'));
 
@@ -610,7 +626,7 @@ class BackendApi {
   }
 
   /// Calls a first-party Backend capability. Product data never bypasses
-  /// the Backend and the Appwrite JWT is attached by the shared request path.
+  /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
     String capability, {
     Map<String, dynamic> input = const {},
@@ -631,51 +647,63 @@ class BackendApi {
     Map<String, dynamic>? body,
     Map<String, String> extraHeaders = const {},
   }) async {
-    final headers = <String, String>{
+    Future<http.Response> send(Map<String, String> headers) async {
+      try {
+        switch (method) {
+          case 'GET':
+            return await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+          case 'POST':
+            return await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+                .timeout(const Duration(seconds: 20));
+          case 'PUT':
+            return await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
+                .timeout(const Duration(seconds: 20));
+          case 'DELETE':
+            return await _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
+          default:
+            throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+        }
+      } on TimeoutException {
+        throw const BackendApiException(
+          'The request timed out. Check your connection and try again.',
+        );
+      } on http.ClientException {
+        throw const BackendApiException(
+          'Could not connect to Testagram. Check your connection.',
+        );
+      }
+    }
+
+    Map<String, String> headers = {
       ...await _headers(),
       ...extraHeaders,
       if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
     };
-    late final http.Response response;
-    try {
-      switch (method) {
-        case 'GET':
-          response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
-          break;
-        case 'POST':
-          response = await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
-              .timeout(const Duration(seconds: 20));
-          break;
-        case 'PUT':
-          response = await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
-              .timeout(const Duration(seconds: 20));
-          break;
-        case 'DELETE':
-          response = await _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
-          break;
-        default:
-          throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
-      }
-    } on TimeoutException {
-      throw const BackendApiException(
-        'The request timed out. Check your connection and try again.',
-      );
-    } on http.ClientException {
-      throw const BackendApiException(
-        'Could not connect to Testagram. Check your connection.',
-      );
+    var response = await send(headers);
+
+    // Native access tokens are short-lived. Retry exactly once after the
+    // shared session manager rotates the refresh token. Backend auth rejects
+    // before executing protected handlers, so this retry cannot duplicate a
+    // successfully applied product mutation.
+    if (response.statusCode == 401) {
+      headers = {
+        ...await _headers(forceRefresh: true),
+        ...extraHeaders,
+        if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
+      };
+      response = await send(headers);
     }
     return _decodeObject(response);
   }
 
-  Future<Map<String, String>> _headers() async {
-    final jwt = await getJwt();
-    if (jwt.trim().isEmpty) {
+  Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
+    final token = await getAccessToken(forceRefresh: forceRefresh);
+    if (token == null || token.trim().isEmpty) {
       throw const BackendApiException('Your session has expired. Sign in again.', statusCode: 401);
     }
     return {
       'Accept': 'application/json',
-      'Authorization': 'Bearer $jwt',
+      'Authorization': 'Bearer $token',
     };
   }
 
