@@ -6,6 +6,7 @@ import '../core/testagram_background.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/notifications/notifications_screen.dart';
+import '../features/shorts/shorts_screen.dart';
 import '../features/polls/polls_screen.dart';
 import '../features/settings/settings_screen.dart';
 import '../features/threads/threads_screen.dart';
@@ -34,7 +35,11 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   int _index = 0;
 
-  int get _mobileSelectedIndex => _index <= 3 ? _index : 4;
+  int get _mobileSelectedIndex {
+    if (_index <= 2) return _index;
+    if (_index == 4) return 3;
+    return 4;
+  }
 
   void _openMoreMenu() {
     showModalBottomSheet<void>(
@@ -63,10 +68,11 @@ class _MainShellState extends State<MainShell> {
             ),
             const Divider(height: 1),
             for (final item in const [
-              (4, Icons.forum_outlined, 'Threads'),
-              (5, Icons.poll_outlined, 'Polls'),
-              (6, Icons.account_balance_wallet_outlined, 'Wallet'),
-              (7, Icons.settings_outlined, 'Settings'),
+              (3, Icons.search_rounded, 'Explore'),
+              (5, Icons.forum_outlined, 'Threads'),
+              (6, Icons.poll_outlined, 'Polls'),
+              (7, Icons.account_balance_wallet_outlined, 'Wallet'),
+              (8, Icons.settings_outlined, 'Settings'),
             ])
               ListTile(
                 selected: _index == item.$1,
@@ -87,6 +93,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
         VideoFeedScreen(api: widget.api, videoApiBaseUri: AppConfig.videoApiOrigin, isActive: _index == 1),
+        ShortsScreen(api: widget.api, isActive: _index == 2),
         ExploreScreen(api: widget.api),
         NotificationsScreen(api: widget.api),
         ThreadsScreen(api: widget.api),
@@ -169,6 +176,11 @@ class _MainShellState extends State<MainShell> {
                             label: Text('Video'),
                           ),
                           NavigationRailDestination(
+                            icon: Icon(Icons.play_circle_outline_rounded),
+                            selectedIcon: Icon(Icons.play_circle_fill_rounded),
+                            label: Text('Shorts'),
+                          ),
+                          NavigationRailDestination(
                             icon: Icon(Icons.search_rounded),
                             selectedIcon: Icon(Icons.travel_explore_rounded),
                             label: Text('Explore'),
@@ -229,9 +241,9 @@ class _MainShellState extends State<MainShell> {
                       label: 'Video',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.search_rounded),
-                      selectedIcon: Icon(Icons.travel_explore_rounded),
-                      label: 'Explore',
+                      icon: Icon(Icons.play_circle_outline_rounded),
+                      selectedIcon: Icon(Icons.play_circle_fill_rounded),
+                      label: 'Shorts',
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.notifications_none_rounded),

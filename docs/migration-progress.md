@@ -6,7 +6,8 @@ Last updated: 2026-11-12
 
 | XClone capability | Flutter implementation | Backend contract |
 |---|---|---|
-| Home feed and post publishing | For You / Following, pull-to-refresh, cursor pagination; native text composer with public/followers/private visibility and idempotent publish | `GET /api/feed/home`, `POST /api/social/posts` (`Idempotency-Key`) |
+| Home feed and post publishing | For You / Following / Latest / Media / Discover, pull-to-refresh, cursor pagination; native text composer with public/followers/private visibility and idempotent publish | `GET /api/feed/home`, `POST /api/social/posts` (`Idempotency-Key`) |
+| Short-video feed | TikTok-style vertical swipe player, one active player plus next-item preload, app-lifecycle pause/resume, mute, view recording, like/repost/bookmark/comments/follow, and public MP4/WebM composer upload (20 MiB cap) | `GET /api/feed/home?video_only=true`, `POST /api/social/posts/{id}/view`, existing media upload/complete/attach and social interaction routes |
 | Post reactions | Like / unlike | `POST|DELETE /api/social/posts/{id}/reaction` |
 | Reposts | Repost / undo repost | `POST|DELETE /api/social/posts/{id}/reposts` |
 | Bookmarks | Save / remove | `POST|DELETE /api/social/posts/{id}/bookmarks` |
@@ -52,4 +53,4 @@ The client has no Supabase SDK, URL, key, REST endpoint or direct database opera
 7. Do not delete, archive or redirect XClone until feature parity and production cutover are approved.
 
 
-Main-feed media: public posts support up to four verified image attachments through the Backend media upload/complete/attach lifecycle. Private/follower post attachments remain blocked pending a privacy-aware private media delivery contract.
+Main-feed media: public posts support up to four verified image attachments or one verified MP4/WebM short-video attachment through the Backend media upload/complete/attach lifecycle (20 MiB public-post cap). Private/follower post attachments remain blocked pending a privacy-aware private media delivery contract. The Shorts player currently consumes these public post attachments; the separate Data Centre Video service's HLS channel/catalog API is not yet proxied through the Backend and is not claimed as integrated.
