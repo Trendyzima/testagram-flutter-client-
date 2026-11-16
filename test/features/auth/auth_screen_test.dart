@@ -165,4 +165,43 @@ void main() {
     expect(find.text('Reset your password'), findsOneWidget);
     expect(find.text('Send reset link'), findsOneWidget);
   });
+  testWidgets('mobile authentication uses the new branded hero and uncluttered form layout',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(390, 844));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: authClient,
+        onSignedIn: () {},
+        enableIdentityRegistration: true,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+
+    expect(find.text('More than a feed.\\nA world of voices.'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Sign in'), findsWidgets);
+    expect(find.text('Your voice'), findsOneWidget);
+    expect(find.text('Open conversations'), findsOneWidget);
+    expect(find.text('Communities'), findsOneWidget);
+  });
+
+  testWidgets('wide authentication retains the two-column branded experience',
+      (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: authClient,
+        onSignedIn: () {},
+        enableIdentityRegistration: true,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+
+    expect(find.text('More than a feed.\\nA world of voices.'), findsOneWidget);
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Sign in'), findsWidgets);
+  });
+
 }
