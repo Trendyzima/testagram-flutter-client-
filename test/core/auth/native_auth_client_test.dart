@@ -5,6 +5,19 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:testagram/core/auth/native_auth_client.dart';
 
+class _FailingDeleteNativeAuthStorage implements NativeAuthStorage {
+  @override
+  Future<String?> read({required String key}) async => null;
+
+  @override
+  Future<void> write({required String key, required String value}) async {}
+
+  @override
+  Future<void> delete({required String key}) async {
+    throw StateError('secure storage delete unavailable');
+  }
+}
+
 class _FailingNativeAuthStorage implements NativeAuthStorage {
   @override
   Future<String?> read({required String key}) async => null;
@@ -137,6 +150,27 @@ void main() {
       client.signIn(email: 'user@example.test', password: 'correct-password-123'),
       throwsA(isA<NativeAuthException>()),
     );
+    expect(await client.accessToken(), isNull);
+    client.close();
+  });
+
+  test('clears in-memory access even when secure-storage deletion fails on sign out', () async {
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _FailingDeleteNativeAuthStorage(),
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/login')) {
+          return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+        }
+        if (request.url.path.endsWith('/logout')) {
+          return http.Response(jsonEncode({'ok': true, 'data': {'revoked': true}}), 200);
+        }
+        return http.Response('unexpected route', 404);
+      }),
+    );
+
+    await client.signIn(email: 'user@example.test', password: 'correct-password-123');
+    await expectLater(client.signOut(), throwsA(isA<StateError>()));
     expect(await client.accessToken(), isNull);
     client.close();
   });
