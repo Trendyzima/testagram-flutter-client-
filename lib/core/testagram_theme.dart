@@ -1,24 +1,24 @@
 import 'package:material_ui/material_ui.dart';
 
 /// Shared T social design tokens for Flutter mobile and web.
-/// The visual language is inspired by modern conversation-first social apps,
-/// while keeping Testagram's own name, iconography and product identity.
+/// Testagram's own social identity: calm editorial surfaces, clear hierarchy,
+/// and a confident evergreen accent across light and dark appearances.
 class TestagramTheme {
   const TestagramTheme._();
 
-  static const blue = Color(0xFF1685F5);
-  static const blueDark = Color(0xFF4AA3FF);
+  static const blue = Color(0xFF148A68);
+  static const blueDark = Color(0xFF45C79A);
   // Compatibility aliases used by existing decorative background widgets.
   static const green = blue;
   static const greenDark = blueDark;
   static const lightBackground = Color(0xFFFFFFFF);
   static const lightSurface = Color(0xFFFFFFFF);
-  static const lightRaised = Color(0xFFF5F8FA);
-  static const lightBorder = Color(0xFFE5EAF0);
-  static const darkBackground = Color(0xFF080B10);
-  static const darkSurface = Color(0xFF10151D);
-  static const darkRaised = Color(0xFF19212C);
-  static const darkBorder = Color(0xFF263241);
+  static const lightRaised = Color(0xFFF3F7F5);
+  static const lightBorder = Color(0xFFE1EAE5);
+  static const darkBackground = Color(0xFF09110F);
+  static const darkSurface = Color(0xFF101A17);
+  static const darkRaised = Color(0xFF192621);
+  static const darkBorder = Color(0xFF293B33);
 
   static ThemeData light() => _build(Brightness.light);
   static ThemeData dark() => _build(Brightness.dark);
