@@ -265,7 +265,7 @@ void main() {
     );
 
     expect(seen.url.path,
-        '/api/identity/applications/\${application.applicationId}/verify-email');
+        '/api/identity/applications/${application.applicationId}/verify-email');
     expect(seen.headers.containsKey('Authorization'), isFalse);
     expect(jsonDecode(seen.body), {
       'token': 'one-time-native-email-token-abcdefghijklmnopqrstuvwxyz',
@@ -289,7 +289,7 @@ void main() {
     await client.resendVerification(application);
 
     expect(seen.url.path,
-        '/api/identity/applications/\${application.applicationId}/resend-verification');
+        '/api/identity/applications/${application.applicationId}/resend-verification');
     expect(seen.headers['X-Application-Token'], application.applicationToken);
     expect(seen.headers.containsKey('Authorization'), isFalse);
     client.close();
