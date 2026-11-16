@@ -196,7 +196,7 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                 const _FederationInfo(
                   icon: Icons.lock_outline_rounded,
                   text:
-                      'Your existing Testagram Appwrite session remains your only login. Federation does not create a separate Mastodon password.',
+                      'Your Testagram account remains your identity and login. Federation does not create a separate Mastodon password.',
                 ),
                 const _FederationInfo(
                   icon: Icons.shield_outlined,
