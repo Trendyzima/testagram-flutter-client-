@@ -106,10 +106,10 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.hub_rounded,
                           size: 36,
-                          color: Color(0xFF18A957),
+                          color: Theme.of(context).colorScheme.secondary,
                         ),
                         const SizedBox(height: 14),
                         Text(
