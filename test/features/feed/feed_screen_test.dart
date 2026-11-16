@@ -383,4 +383,71 @@ void main() {
     api.close();
   });
 
+  testWidgets('remote Bluesky cards show provenance and hide unsupported interactions', (tester) async {
+    final requestedPaths = <String>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'at://did:plc:example/app.bsky.feed.post/1',
+                'content': 'A public Bluesky post',
+                'origin': 'atproto',
+                'created_at': '2026-11-16T09:00:00Z',
+                'author': {
+                  'id': 'did:plc:example',
+                  'username': 'alice.bsky.social',
+                  'display_name': 'Alice',
+                  'protected_account': false,
+                },
+                'capabilities': {
+                  'like': false,
+                  'reply': false,
+                  'repost': false,
+                  'quote': false,
+                  'follow_author': false,
+                },
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
+    expect(find.text('via Bluesky'), findsOneWidget);
+    expect(find.text('A public Bluesky post'), findsOneWidget);
+    expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
+    expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
+
+    final menuFinder = find.ancestor(
+      of: find.byTooltip('Post actions'),
+      matching: find.byType(PopupMenuButton<String>),
+    );
+    expect(menuFinder, findsOneWidget);
+    final menu = tester.widget<PopupMenuButton<String>>(menuFinder);
+    final menuContext = tester.element(menuFinder);
+    final entries = menu.itemBuilder(menuContext);
+    final quote = entries.whereType<PopupMenuItem<String>>()
+        .firstWhere((entry) => entry.value == 'quote');
+    expect(quote.enabled, isFalse);
+    api.close();
+  });
+
+
 }
