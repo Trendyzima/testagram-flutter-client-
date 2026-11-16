@@ -383,4 +383,64 @@ void main() {
     api.close();
   });
 
+  testWidgets('remote Bluesky cards show provenance and hide unsupported interactions', (tester) async {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'at://did:plc:example/app.bsky.feed.post/1',
+                'content': 'A public Bluesky post',
+                'origin': 'atproto',
+                'created_at': '2026-11-16T09:00:00Z',
+                'author': {
+                  'id': 'did:plc:example',
+                  'username': 'alice.bsky.social',
+                  'display_name': 'Alice',
+                  'protected_account': false,
+                },
+                'capabilities': {
+                  'like': false,
+                  'reply': false,
+                  'repost': false,
+                  'quote': false,
+                  'follow_author': false,
+                },
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('via Bluesky'), findsOneWidget);
+    expect(find.text('A public Bluesky post'), findsOneWidget);
+    expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
+    expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
+
+    await tester.tap(find.byTooltip('Post actions'));
+    await tester.pumpAndSettle();
+    final quote = tester.widget<PopupMenuItem>(find.ancestor(
+      of: find.text('Quote post'),
+      matching: find.byType(PopupMenuItem),
+    ).first);
+    expect(quote.enabled, isFalse);
+    api.close();
+  });
+
+
 }
