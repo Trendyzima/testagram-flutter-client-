@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
+import '../../core/widgets/testagram_brand_mark.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
 import 'feed_media_url.dart';
@@ -361,16 +362,7 @@ class _FeedScreenState extends State<FeedScreen> {
     appBar: AppBar(
       title: Row(
         children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(9),
-            child: Image.asset(
-              'assets/branding/testagram-icon.webp',
-              width: 30,
-              height: 30,
-              fit: BoxFit.cover,
-              semanticLabel: 'Testagram',
-            ),
-          ),
+          const TestagramBrandMark(size: 30, radius: 9),
           const SizedBox(width: 10),
           const Text('Testagram'),
         ],
