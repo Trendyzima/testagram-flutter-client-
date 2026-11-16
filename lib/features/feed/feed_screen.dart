@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
+import '../../core/widgets/testagram_brand_mark.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
 import 'feed_media_url.dart';
@@ -359,11 +360,11 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Row(
+      title: const Row(
         children: [
-          Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
-          const SizedBox(width: 9),
-          const Text('T social'),
+          TestagramBrandMark(size: 30, radius: 9),
+          SizedBox(width: 10),
+          Text('Testagram'),
         ],
       ),
       actions: [

@@ -16,8 +16,9 @@ void main() {
       );
     });
 
-    test('does not enable a separate video API until explicitly configured', () {
-      expect(AppConfig.videoApiOrigin, isNull);
+    test('routes the video service through the canonical HTTPS API origin', () {
+      expect(AppConfig.videoApiOrigin, AppConfig.backendOrigin);
+      expect(AppConfig.videoApiOrigin?.scheme, 'https');
     });
   });
 }

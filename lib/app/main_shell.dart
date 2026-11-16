@@ -3,6 +3,8 @@ import 'package:material_ui/material_ui.dart';
 import '../core/backend_api.dart';
 import '../core/app_config.dart';
 import '../core/testagram_background.dart';
+import '../core/testagram_theme.dart';
+import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/notifications/notifications_screen.dart';
@@ -53,7 +55,7 @@ class _MainShellState extends State<MainShell> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Text('Your Testagram', style: Theme.of(context).textTheme.titleLarge),
+              child: Text('Explore Testagram', style: Theme.of(context).textTheme.titleLarge),
             ),
             ListTile(
               leading: const Icon(Icons.person_outline_rounded),
@@ -117,7 +119,7 @@ class _MainShellState extends State<MainShell> {
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 1180),
+              constraints: const BoxConstraints(maxWidth: TestagramTheme.contentMaxWidth),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),
@@ -141,19 +143,11 @@ class _MainShellState extends State<MainShell> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: Image.asset(
-                                  'assets/branding/testagram-icon.webp',
-                                  width: 42,
-                                  height: 42,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
+                              const TestagramBrandMark(size: 42, radius: 13),
                               if (extended) ...[
                                 const SizedBox(width: 12),
                                 const Text(
-                                  'T social',
+                                  'Testagram',
                                   style: TextStyle(
                                     fontSize: 20,
                                     fontWeight: FontWeight.w900,
