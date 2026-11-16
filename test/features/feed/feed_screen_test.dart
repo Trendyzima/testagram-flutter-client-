@@ -176,7 +176,7 @@ void main() {
                 'content': 'A short video',
                 'is_video': true,
                 'created_at': '2026-11-15T09:00:00Z',
-                'media_urls': ['https://cdn.testagram.site/video.mp4'],
+                'media_urls': ['https://media.testagram.site/media/video.mp4'],
                 'media_content_types': ['video/mp4'],
                 'author': {'id': 'creator-id', 'username': 'creator', 'display_name': 'Creator'},
               }],
