@@ -929,25 +929,10 @@ class _AuthScreenState extends State<AuthScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (!compact) ...[
-              Row(
-                children: [
-                  const TestagramBrandMark(size: 46, radius: 14),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Testagram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.8, color: isDark ? Colors.white : ink)),
-                        const Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
-                      ],
-                    ),
-                  ),
-                  Icon(Icons.public_rounded, color: blue.withValues(alpha: 0.8), size: 22),
-                ],
-              ),
-              const SizedBox(height: 28),
-            ],
+            // The surrounding layout already owns the brand header:
+            // mobileHero() on narrow screens and brandPanel() on desktop.
+            // Repeating the wordmark here caused duplicate branding at tablet
+            // widths and in the desktop form column.
             modeSwitch(),
             const SizedBox(height: 28),
             Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
