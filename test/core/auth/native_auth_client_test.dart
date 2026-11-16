@@ -123,6 +123,130 @@ void main() {
     client.close();
   });
 
+  test('web waits for the published port wake response before submitting credentials', () async {
+    final requests = <http.Request>[];
+    final waits = <Duration>[];
+    final statuses = <String?>[];
+    NativeAuthWakeAware? wakeAware;
+    var healthCalls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      isWeb: true,
+      waitBeforeWakeRetry: (delay) async {
+        waits.add(delay);
+        statuses.add(wakeAware!.wakeStatus.value);
+      },
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'GET' && request.url.path == '/healthz') {
+          healthCalls++;
+          if (healthCalls == 1) {
+            return http.Response(
+              'Sandbox is waking up',
+              503,
+              headers: {'retry-after': '4'},
+            );
+          }
+          return http.Response('ok', 200);
+        }
+        return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+      }),
+    );
+    wakeAware = client;
+
+    await client.signIn(
+      email: 'user@example.test',
+      password: 'correct-password-123',
+    );
+
+    expect(requests.map((request) => request.method), ['GET', 'GET', 'POST']);
+    expect(requests.last.url.path, '/api/auth/login');
+    expect(waits, [const Duration(seconds: 4)]);
+    expect(statuses, ['Waking Testagram… reconnecting automatically.']);
+    expect(storage.values, {'testagram.auth.refresh.v1': refreshOne});
+    client.close();
+  });
+
+  test('web retries only the safe health GET when the proxy wake response is CORS-opaque', () async {
+    final requests = <http.Request>[];
+    final waits = <Duration>[];
+    var healthCalls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      isWeb: true,
+      waitBeforeWakeRetry: (delay) async => waits.add(delay),
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.method == 'GET' && request.url.path == '/healthz') {
+          healthCalls++;
+          if (healthCalls == 1) {
+            throw http.ClientException('Browser hid proxy 503 because CORS headers were absent');
+          }
+          return http.Response('ok', 200);
+        }
+        return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+      }),
+    );
+
+    await client.signIn(
+      email: 'user@example.test',
+      password: 'correct-password-123',
+    );
+
+    expect(requests.map((request) => request.method), ['GET', 'GET', 'POST']);
+    expect(waits, [const Duration(seconds: 2)]);
+    expect(requests.where((request) => request.method == 'POST'), hasLength(1));
+    client.close();
+  });
+
+  test('web does not submit credentials when InstaBox reports a manual offline state', () async {
+    final requests = <http.Request>[];
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      isWeb: true,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return http.Response('Sandbox offline', 503);
+      }),
+    );
+
+    await expectLater(
+      client.signIn(email: 'user@example.test', password: 'correct-password-123'),
+      throwsA(isA<NativeAuthException>()
+          .having((error) => error.code, 'code', 'MACHINE_OFFLINE')),
+    );
+    expect(requests.map((request) => request.method), ['GET']);
+    client.close();
+  });
+
+  test('web does not submit credentials during maximum-runtime cooldown', () async {
+    final requests = <http.Request>[];
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      isWeb: true,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return http.Response(
+          jsonEncode({'error': {'code': 'machine_cooldown'}}),
+          409,
+          headers: {'retry-after': '300'},
+        );
+      }),
+    );
+
+    await expectLater(
+      client.signIn(email: 'user@example.test', password: 'correct-password-123'),
+      throwsA(isA<NativeAuthException>()
+          .having((error) => error.code, 'code', 'MACHINE_COOLDOWN')),
+    );
+    expect(requests.map((request) => request.method), ['GET']);
+    client.close();
+  });
+
   test('honors the full InstaBox Retry-After value without shortening it', () async {
     final waits = <Duration>[];
     var calls = 0;
