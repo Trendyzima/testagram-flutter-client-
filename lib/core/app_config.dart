@@ -11,7 +11,7 @@ class AppConfig {
   );
   static const backendApiUrl = String.fromEnvironment(
     'TESTAGRAM_API_URL',
-    defaultValue: 'https://api.testagram.site',
+    defaultValue: 'https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech',
   );
   static const siteUrl = String.fromEnvironment(
     'TESTAGRAM_SITE_URL',
