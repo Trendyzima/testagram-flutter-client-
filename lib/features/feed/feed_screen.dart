@@ -360,9 +360,9 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Row(
+      title: const Row(
         children: [
-          const TestagramBrandMark(size: 30, radius: 9),
+          TestagramBrandMark(size: 30, radius: 9),
           const SizedBox(width: 10),
           const Text('Testagram'),
         ],
