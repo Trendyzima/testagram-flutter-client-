@@ -344,7 +344,7 @@ jobs:
 
           apex_headers="$(mktemp)"
           apex_status="$(curl --silent --show-error --max-time 30 -D "$apex_headers" -o /dev/null -w '%{http_code}' "https://testagram.site/" || true)"
-          if [[ "$apex_status" != "308" ]] || ! grep -Eiq '^location:[[:space:]]*https://www\.testagram\.site/?[[:space:]]* "$apex_headers"; then
+          if [[ "$apex_status" != "308" ]] || ! grep -Fqi 'https://www.testagram.site/' "$apex_headers"; then
             echo "::error::The apex must remain on the Backend/Federation edge and redirect to https://www.testagram.site (HTTP $apex_status)."
             cat "$apex_headers"
             rm -f "$apex_headers"
