@@ -16,23 +16,15 @@ class PrivateMediaAccess {
 class BackendApi {
   BackendApi({
     required this.baseUri,
-    Future<String> Function()? getJwt,
-    Future<String?> Function({bool forceRefresh})? getAccessToken,
+    required this.getAccessToken,
     http.Client? client,
-  })  : getJwt = getJwt,
-        getAccessToken = getAccessToken,
-        _client = client ?? http.Client() {
-    if (getJwt == null && getAccessToken == null) {
-      throw ArgumentError('A Testagram access-token provider is required.');
-    }
-  }
+  }) : _client = client ?? http.Client();
 
   final Uri baseUri;
-  final Future<String> Function()? getJwt;
 
-  /// Native Testagram session provider. A 401 response triggers one coordinated
+  /// Testagram-native session provider. A 401 response triggers one coordinated
   /// refresh through the shared session manager, then retries the request once.
-  final Future<String?> Function({bool forceRefresh})? getAccessToken;
+  final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
   Future<Map<String, dynamic>> getHomeFeed({
@@ -419,7 +411,7 @@ class BackendApi {
       _request('GET', baseUri.resolve('/api/social/profiles/$userId'));
 
   /// Resolves the caller's canonical Testagram profile from the verified session.
-  /// Appwrite user IDs are not canonical Testagram account UUIDs.
+  /// External identity-provider IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
 
@@ -505,7 +497,7 @@ class BackendApi {
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
 
   /// Reads the canonical federation preference through the public Backend API.
-  /// The Appwrite session JWT is attached by the shared authenticated request path.
+  /// The Testagram native access token is attached by the shared authenticated request path.
   Future<Map<String, dynamic>> getMyFederationPreference() =>
       _request('GET', baseUri.resolve('/api/me/federation'));
 
@@ -589,7 +581,7 @@ class BackendApi {
   }
 
   /// Calls a first-party Backend capability. Product data never bypasses
-  /// the Backend and the Appwrite JWT is attached by the shared request path.
+  /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
     String capability, {
     Map<String, dynamic> input = const {},
@@ -648,7 +640,7 @@ class BackendApi {
     // shared session manager rotates the refresh token. Backend auth rejects
     // before executing protected handlers, so this retry cannot duplicate a
     // successfully applied product mutation.
-    if (response.statusCode == 401 && getAccessToken != null) {
+    if (response.statusCode == 401) {
       headers = {
         ...await _headers(forceRefresh: true),
         ...extraHeaders,
@@ -660,9 +652,7 @@ class BackendApi {
   }
 
   Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
-    final token = getAccessToken != null
-        ? await getAccessToken!(forceRefresh: forceRefresh)
-        : await getJwt!();
+    final token = await getAccessToken(forceRefresh: forceRefresh);
     if (token == null || token.trim().isEmpty) {
       throw const BackendApiException('Your session has expired. Sign in again.', statusCode: 401);
     }
