@@ -63,10 +63,7 @@ class AppConfig {
   }
 
   static bool get isConfigured =>
-      _isHttpsUrl(appwriteEndpoint) &&
-      appwriteProjectId.trim().isNotEmpty &&
-      _isHttpsUrl(backendApiUrl) &&
-      _isHttpsUrl(siteUrl);
+      _isHttpsUrl(backendApiUrl) && _isHttpsUrl(siteUrl);
 
   static Uri get backendOrigin => Uri.parse(backendApiUrl);
 
