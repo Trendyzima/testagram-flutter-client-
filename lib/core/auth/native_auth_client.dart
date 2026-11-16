@@ -7,7 +7,6 @@ import 'package:http/http.dart' as http;
 /// UI-facing contract so auth screens and gates do not depend on a
 /// particular transport implementation.
 abstract interface class NativeAuthSession {
-  @override
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -15,7 +14,6 @@ abstract interface class NativeAuthSession {
   Future<String?> accessToken({bool forceRefresh = false});
   Future<void> signOut();
   Future<void> requestPasswordReset(String email);
-  @override
   Future<void> resetPassword({
     required String token,
     required String password,
@@ -110,6 +108,7 @@ class NativeAuthClient implements NativeAuthSession {
     return value;
   }
 
+  @override
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -229,6 +228,7 @@ class NativeAuthClient implements NativeAuthSession {
     });
   }
 
+  @override
   Future<void> resetPassword({
     required String token,
     required String password,
