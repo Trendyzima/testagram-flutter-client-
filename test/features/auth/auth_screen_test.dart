@@ -63,7 +63,7 @@ void main() {
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
@@ -94,9 +94,8 @@ void main() {
       home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
+    // Identity review mode intentionally opens the application page directly;
+    // it must not require a second tap on the sign-in-only Create account action.
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -144,9 +143,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
+    // Identity review mode opens the gated application page directly.
     await tapVisible(tester, find.text('Read Terms and Conditions'));
     expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
@@ -160,7 +157,7 @@ void main() {
   testWidgets('forgot-password page is reachable from sign in',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.text('Forgot password?'));
