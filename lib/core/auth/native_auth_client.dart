@@ -59,15 +59,18 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
     NativeAuthStorage? storage,
     http.Client? httpClient,
     Future<void> Function(Duration delay)? waitBeforeWakeRetry,
+    bool? isWeb,
   })  : _storage = storage ?? FlutterNativeAuthStorage(),
         _http = httpClient ?? http.Client(),
         _waitBeforeWakeRetry =
-            waitBeforeWakeRetry ?? ((delay) => Future<void>.delayed(delay));
+            waitBeforeWakeRetry ?? ((delay) => Future<void>.delayed(delay)),
+        _isWeb = isWeb ?? kIsWeb;
 
   final Uri baseUri;
   final NativeAuthStorage _storage;
   final http.Client _http;
   final Future<void> Function(Duration delay) _waitBeforeWakeRetry;
+  final bool _isWeb;
   final ValueNotifier<String?> _wakeStatus = ValueNotifier<String?>(null);
 
   @override
@@ -136,6 +139,16 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
         : null;
 
     try {
+      // A JSON POST triggers a browser CORS preflight. If the InstaBox proxy
+      // returns its wake 503 before the API is resumed, that proxy response
+      // may not carry the app's CORS headers and the browser hides Retry-After.
+      // A simple GET to /healthz wakes the public port first; if the proxy
+      // response is CORS-opaque, retry only this safe GET until the API answers.
+      // The credential-bearing POST is sent exactly once after health is 2xx.
+      if (_isWeb) {
+        await _waitForBackendReady(deadline);
+      }
+
       while (true) {
         final response = await _http
             .post(
@@ -166,6 +179,86 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
       }
     } finally {
       _wakeStatus.value = null;
+    }
+  }
+
+  Future<void> _waitForBackendReady(DateTime deadline) async {
+    var opaqueWakeAttempts = 0;
+    while (true) {
+      http.Response response;
+      try {
+        response = await _http.get(
+          baseUri.resolve('/healthz'),
+          headers: const {'Accept': 'application/json'},
+        ).timeout(_requestTimeout);
+      } on http.ClientException {
+        // Fetch deliberately hides a cross-origin proxy-generated 503 when
+        // that response has no Access-Control-Allow-Origin. This GET is safe
+        // to repeat and carries no credentials; once the machine resumes,
+        // the API's own CORS response becomes readable.
+        if (DateTime.now().isAfter(deadline)) {
+          throw const NativeAuthException(
+            'Testagram could not be reached. The machine may be offline or the service may still be waking; your credentials have not been sent.',
+            statusCode: 503,
+            code: 'BACKEND_UNREACHABLE',
+          );
+        }
+        opaqueWakeAttempts++;
+        _wakeStatus.value = 'Connecting to Testagram… waiting for the server to wake.';
+        final delay = Duration(seconds: opaqueWakeAttempts == 1 ? 2 : 5);
+        await _waitBeforeWakeRetry(delay);
+        continue;
+      } on TimeoutException {
+        if (DateTime.now().isAfter(deadline)) {
+          throw const NativeAuthException(
+            'Testagram did not become reachable in time; your credentials have not been sent.',
+            statusCode: 503,
+            code: 'BACKEND_UNREACHABLE',
+          );
+        }
+        opaqueWakeAttempts++;
+        _wakeStatus.value = 'Connecting to Testagram… waiting for the server to wake.';
+        final delay = Duration(seconds: opaqueWakeAttempts == 1 ? 2 : 5);
+        await _waitBeforeWakeRetry(delay);
+        continue;
+      }
+
+      final retryDelay = _instaBoxWakeRetryDelay(response);
+      if (retryDelay != null) {
+        if (DateTime.now().add(retryDelay).isAfter(deadline)) {
+          throw const NativeAuthException(
+            'Testagram is still waking up. Please wait a moment and try again; your credentials have not been sent.',
+            statusCode: 503,
+            code: 'SANDBOX_WAKING_UP',
+          );
+        }
+        _wakeStatus.value = 'Waking Testagram… reconnecting automatically.';
+        await _waitBeforeWakeRetry(retryDelay);
+        continue;
+      }
+
+      if (response.statusCode >= 200 && response.statusCode < 300) return;
+
+      final body = response.body.toLowerCase();
+      if (response.statusCode == 503 && body.contains('sandbox offline')) {
+        throw const NativeAuthException(
+          'The InstaBox machine is offline because it was manually stopped or paused. It must be resumed before login can continue.',
+          statusCode: 503,
+          code: 'MACHINE_OFFLINE',
+        );
+      }
+      if (response.statusCode == 409 && body.contains('machine_cooldown')) {
+        throw NativeAuthException(
+          'InstaBox is in its maximum-runtime cooldown. Wait for the provider Retry-After period before signing in.',
+          statusCode: 409,
+          code: 'MACHINE_COOLDOWN',
+        );
+      }
+      throw NativeAuthException(
+        'Testagram health check returned HTTP ${response.statusCode}; authentication was not submitted.',
+        statusCode: response.statusCode,
+        code: 'API_UNAVAILABLE',
+      );
     }
   }
 
