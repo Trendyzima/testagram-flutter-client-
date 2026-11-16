@@ -614,4 +614,65 @@ void main() {
     api.close();
   });
 
+  testWidgets('post menu publishes a quote through the canonical repost endpoint', (tester) async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'quote-source-1',
+                'content': 'Original post to quote',
+                'created_at': '2026-11-14T09:00:00Z',
+                'author': {'username': 'alice', 'display_name': 'Alice'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'is_reposted': true, 'reposts': 1},
+          }), 200);
+        }
+        if (request.url.path == '/api/social/posts/quote-source-1/reposts') {
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'quote-1'}}), 201);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Post actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quote post'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Original post to quote'), findsAtLeastNWidgets(1));
+    await tester.enterText(find.byType(TextField).last, 'Adding my perspective');
+    await tester.pumpAndSettle();
+    final publish = find.widgetWithText(FilledButton, 'Publish quote');
+    expect(tester.widget<FilledButton>(publish).onPressed, isNotNull);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+
+    final quoteRequest = requests.firstWhere(
+      (request) => request.url.path == '/api/social/posts/quote-source-1/reposts',
+    );
+    expect(quoteRequest.method, 'POST');
+    expect(jsonDecode(quoteRequest.body), {'quote': 'Adding my perspective'});
+    expect(find.text('Your quote was published.'), findsOneWidget);
+    api.close();
+  });
+
 }
