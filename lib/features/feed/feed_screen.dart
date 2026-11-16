@@ -8,6 +8,7 @@ import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
 
 class FeedScreen extends StatefulWidget {
@@ -1015,12 +1016,12 @@ class _PostCard extends StatelessWidget {
         ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
         : 'Testagram user';
     final username = author is Map ? (author['username'] ?? '').toString() : '';
-    final avatarUrl = author is Map ? (author['avatar_url'] ?? '').toString() : '';
+    final avatarUrl = author is Map ? (FeedMediaUrl.normalize(author['avatar_url']) ?? '') : '';
     final body = (post['content'] ?? '').toString();
     final created = _timeLabel((post['created_at'] ?? '').toString());
     final rawMedia = post['media_urls'];
     final mediaUrls = rawMedia is List
-        ? rawMedia.map((value) => value.toString()).where((value) => value.startsWith('http')).take(4).toList()
+        ? rawMedia.map(FeedMediaUrl.normalize).whereType<String>().take(4).toList()
         : <String>[];
     final rawContentTypes = post['media_content_types'];
     final contentTypes = rawContentTypes is List
@@ -1031,9 +1032,9 @@ class _PostCard extends StatelessWidget {
     final mediaAuthHeaders = <String, String>{};
     if (rawMediaAuthHeaders is Map) {
       for (final entry in rawMediaAuthHeaders.entries) {
-        final url = entry.key.toString();
+        final url = FeedMediaUrl.normalize(entry.key);
         final authorization = entry.value.toString();
-        if (url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
+        if (url != null && url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
           mediaAuthHeaders[url] = authorization;
         }
       }
@@ -1043,8 +1044,8 @@ class _PostCard extends StatelessWidget {
       return authorization == null ? null : {'Authorization': authorization};
     }
     if (mediaUrls.isEmpty) {
-      final legacyUrl = (post['media_url'] ?? '').toString();
-      if (legacyUrl.startsWith('http')) mediaUrls.add(legacyUrl);
+      final legacyUrl = FeedMediaUrl.normalize(post['media_url']);
+      if (legacyUrl != null && !mediaUrls.contains(legacyUrl)) mediaUrls.add(legacyUrl);
     }
 
     return Padding(
