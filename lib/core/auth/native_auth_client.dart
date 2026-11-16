@@ -144,12 +144,44 @@ class NativeAuthClient {
     }
   }
 
-  Future<void> signOut() async {
-    final refresh = await _storage.read(key: _refreshKey);
+  Future<void> _revokeWithBearer(String action, String token) async {
+    final response = await _http
+        .post(
+          _endpoint(action),
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $token',
+          },
+          body: '{}',
+        )
+        .timeout(const Duration(seconds: 15));
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw NativeAuthException(
+        'Testagram could not confirm session revocation.',
+        statusCode: response.statusCode,
+        code: 'SESSION_REVOKE_FAILED',
+      );
+    }
     try {
-      if (refresh != null && refresh.isNotEmpty) {
-        await _post('logout', body: {'refresh_token': refresh});
+      final decoded = jsonDecode(response.body);
+      if (decoded is! Map || decoded['ok'] != true) {
+        throw const FormatException();
       }
+    } catch (_) {
+      throw const NativeAuthException(
+        'Testagram returned an invalid session-revocation response.',
+        code: 'SESSION_REVOKE_FAILED',
+      );
+    }
+  }
+
+  Future<void> signOut() async {
+    try {
+      // Backend revocation is authorized by the short-lived access token,
+      // not by submitting the refresh secret in a logout request body.
+      final token = await accessToken();
+      if (token != null) await _revokeWithBearer('logout', token);
     } finally {
       await _storage.delete(key: _refreshKey);
       _clearMemory();
@@ -157,19 +189,9 @@ class NativeAuthClient {
   }
 
   Future<void> signOutAll() async {
-    final token = await accessToken();
     try {
-      if (token != null) {
-        await _http.post(
-          _endpoint('logout-all'),
-          headers: {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $token',
-          },
-          body: '{}',
-        ).timeout(const Duration(seconds: 15));
-      }
+      final token = await accessToken();
+      if (token != null) await _revokeWithBearer('logout-all', token);
     } finally {
       await _storage.delete(key: _refreshKey);
       _clearMemory();
