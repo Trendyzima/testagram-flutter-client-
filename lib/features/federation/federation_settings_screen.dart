@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import 'remote_author_subscriptions_panel.dart';
 
 class FederationSettingsScreen extends StatefulWidget {
   const FederationSettingsScreen({super.key, required this.api});
@@ -182,6 +183,8 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 18),
+                RemoteAuthorSubscriptionsPanel(api: widget.api),
                 const SizedBox(height: 20),
                 Text(
                   'Before enabling',

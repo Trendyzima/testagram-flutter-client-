@@ -8,6 +8,77 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('creates, lists and removes remote author subscriptions through native Backend auth', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'native-testagram-token',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'verification_status': 'pending', 'subscriptions': []},
+          }), request.method == 'POST' ? 202 : 200);
+        }),
+      );
+
+      await api.subscribeRemoteAuthor(
+        protocol: 'activitypub',
+        identity: 'https://mastodon.example/users/alice',
+      );
+      await api.subscribeRemoteAuthor(
+        protocol: 'bluesky',
+        identity: 'did:plc:222222222222222222222222',
+        handle: 'alice.bsky.social',
+      );
+      await api.listRemoteAuthorSubscriptions();
+      await api.unsubscribeRemoteAuthor('123e4567-e89b-42d3-a456-426614174000');
+
+      expect(requests, hasLength(4));
+      expect(requests[0].method, 'POST');
+      expect(requests[0].url.path, '/api/federation/subscriptions');
+      expect(jsonDecode(requests[0].body), {
+        'protocol': 'activitypub',
+        'identity': 'https://mastodon.example/users/alice',
+      });
+      expect(requests[1].method, 'POST');
+      expect(jsonDecode(requests[1].body), {
+        'protocol': 'bluesky',
+        'identity': 'did:plc:222222222222222222222222',
+        'handle': 'alice.bsky.social',
+      });
+      expect(requests[2].method, 'GET');
+      expect(requests[2].url.path, '/api/federation/subscriptions');
+      expect(requests[3].method, 'DELETE');
+      expect(requests[3].url.path,
+          '/api/federation/subscriptions/123e4567-e89b-42d3-a456-426614174000');
+      expect(requests.every((request) =>
+          request.headers['authorization'] == 'Bearer native-testagram-token'), isTrue);
+      api.close();
+    });
+
+    test('rejects malformed remote identities and subscription IDs before network access', () {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      expect(() => api.subscribeRemoteAuthor(
+        protocol: 'activitypub',
+        identity: 'http://mastodon.example/users/alice',
+      ), throwsArgumentError);
+      expect(() => api.subscribeRemoteAuthor(
+        protocol: 'bluesky',
+        identity: 'alice.bsky.social',
+      ), throwsArgumentError);
+      expect(() => api.subscribeRemoteAuthor(
+        protocol: 'unknown',
+        identity: 'https://mastodon.example/users/alice',
+      ), throwsArgumentError);
+      expect(() => api.unsubscribeRemoteAuthor('not-a-uuid'), throwsArgumentError);
+      api.close();
+    });
+
     test('loads trending hashtags and a cursor-paginated hashtag timeline', () async {
       final requests = <http.Request>[];
       final api = BackendApi(

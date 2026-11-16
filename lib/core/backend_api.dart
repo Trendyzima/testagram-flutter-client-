@@ -543,6 +543,59 @@ class BackendApi {
         body: {'enabled': enabled},
       );
 
+  /// Lists remote ActivityPub and Bluesky authors followed by this native
+  /// Testagram account. Remote identities remain distinct from local accounts.
+  Future<Map<String, dynamic>> listRemoteAuthorSubscriptions() =>
+      _request('GET', baseUri.resolve('/api/federation/subscriptions'));
+
+  /// Subscribes to a canonical ActivityPub actor URI or Bluesky DID.
+  /// The Backend/Federation services verify the identity before it is feed-eligible.
+  Future<Map<String, dynamic>> subscribeRemoteAuthor({
+    required String protocol,
+    required String identity,
+    String handle = '',
+  }) {
+    final normalizedProtocol = protocol.trim().toLowerCase();
+    final normalizedIdentity = identity.trim();
+    final normalizedHandle = handle.trim();
+    if (normalizedProtocol == 'activitypub') {
+      final uri = Uri.tryParse(normalizedIdentity);
+      if (uri == null || uri.scheme != 'https' || uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty || uri.hasQuery || uri.hasFragment ||
+          normalizedIdentity.length > 2048) {
+        throw ArgumentError.value(identity, 'identity', 'Use a canonical HTTPS ActivityPub actor URI');
+      }
+    } else if (normalizedProtocol == 'bluesky') {
+      if (!RegExp(r'^did:(plc:[a-z2-7]{24}|web:[^\s/?#@]+)$').hasMatch(normalizedIdentity) ||
+          normalizedIdentity.length > 512) {
+        throw ArgumentError.value(identity, 'identity', 'Use a canonical Bluesky DID');
+      }
+    } else {
+      throw ArgumentError.value(protocol, 'protocol', 'Protocol must be activitypub or bluesky');
+    }
+    if (normalizedHandle.length > 256) {
+      throw ArgumentError.value(handle, 'handle', 'Remote display handle is too long');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/federation/subscriptions'),
+      body: {
+        'protocol': normalizedProtocol,
+        'identity': normalizedIdentity,
+        if (normalizedHandle.isNotEmpty) 'handle': normalizedHandle,
+      },
+    );
+  }
+
+  /// Removes only this user's remote-author subscription.
+  Future<Map<String, dynamic>> unsubscribeRemoteAuthor(String subscriptionId) {
+    final id = subscriptionId.trim().toLowerCase();
+    if (!RegExp(r'^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$').hasMatch(id)) {
+      throw ArgumentError.value(subscriptionId, 'subscriptionId', 'Invalid subscription UUID');
+    }
+    return _request('DELETE', baseUri.resolve('/api/federation/subscriptions/$id'));
+  }
+
   /// Reads the authenticated user's wallet from the native Backend ledger.
   Future<Map<String, dynamic>> getWalletBalance({String currency = 'KES'}) =>
       callCapability('testagram.wallet.balance', input: {'currency': currency});
