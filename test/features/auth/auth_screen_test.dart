@@ -69,21 +69,21 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
-    expect(find.text('New to Testagram?'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
+    expect(find.text('NEW HERE?'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Create your account'), findsOneWidget);
     expect(find.text('Sign up'), findsOneWidget);
     expect(find.text('Reset password'), findsOneWidget);
 
     await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsOneWidget);
 
     await tapVisible(tester, find.text('Reset password'));
     await tester.pumpAndSettle();
     expect(find.text('Reset your password'), findsOneWidget);
     expect(find.text('Send reset link'), findsOneWidget);
 
-    await tapVisible(tester, find.widgetWithText(ChoiceChip, 'Sign in'));
+    await tapVisible(tester, find.text('Sign in').first);
     await tester.pumpAndSettle();
     expect(find.text('Welcome back'), findsOneWidget);
   });
@@ -96,18 +96,18 @@ void main() {
 
     // Identity review mode intentionally opens the application page directly;
     // it must not require a second tap on the sign-in-only Create account action.
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
-    expect(find.text('Email'), findsOneWidget);
+    expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Password'), findsNothing);
     expect(find.text('Confirm password'), findsNothing);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.textContaining('Two independent reviewers and two independent account approvers must approve'), findsOneWidget);
+    expect(find.textContaining('Complete identity verification and independent account approval'), findsOneWidget);
 
-    final action = find.widgetWithText(FilledButton, 'Submit identity application');
+    final action = find.widgetWithText(FilledButton, 'Submit application');
     expect(action, findsOneWidget);
     expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
@@ -130,8 +130,8 @@ void main() {
       ),
     ));
 
-    expect(find.text('Create your account'), findsOneWidget);
-    expect(find.text('Submit identity application'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Submit application'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
@@ -144,13 +144,13 @@ void main() {
       home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
     // Identity review mode opens the gated application page directly.
-    await tapVisible(tester, find.text('Read Terms and Conditions'));
+    await tapVisible(tester, find.text('Read terms'));
     expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
         findsOneWidget);
     await tapVisible(tester, find.text('Close'));
 
-    await tapVisible(tester, find.text('Read Privacy Notice'));
+    await tapVisible(tester, find.text('Read privacy notice'));
     expect(find.textContaining('TESTAGRAM PRIVACY NOTICE'), findsOneWidget);
   });
 
