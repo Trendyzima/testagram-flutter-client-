@@ -1,57 +1,77 @@
 # Native authentication rollout boundary
 
-This document records why the native authentication client is not yet wired into
-the production sign-in gate. Do not switch production authentication to
-`TESTAGRAM_AUTH_PROVIDER=native` solely because the login endpoint exists.
+This document describes the current staged Testagram-owned authentication path.
+The Flutter branch and Backend pull requests are not production deployments.
 
-## What is implemented in the Backend today
+## Implemented in the Flutter native-auth branch
 
-The Backend exposes PostgreSQL-backed routes under `/api/auth` for login,
-refresh, logout, logout-all, forgot-password and reset-password. Native access
-tokens are short-lived and session-bound; refresh tokens rotate and reuse
-detection revokes the token family. Password reset consumes a one-time token,
-increments the identity token version and revokes existing sessions.
+- The application entry point and AuthGate restore sessions through the
+  Testagram Backend; they no longer construct an Appwrite client or account.
+- The native client persists only the rotating refresh token in secure storage.
+  Access tokens remain in memory. A 401 causes one coordinated refresh and
+  retry for BackendApi and video interactions.
+- Sign-in, password recovery, password reset, logout and session restoration
+  use Testagram-owned endpoints.
+- Identity application creation, evidence upload and review-status retrieval
+  continue to use the existing application-scoped workflow.
+- Approved applicants submit a native password to the Backend redemption
+  endpoint. Flutter no longer creates an Appwrite account or obtains an
+  Appwrite JWT for provisioning.
+- Email verification and resend use application-scoped Testagram endpoints.
+  The saved application capability is retained until the account is active.
+- The Appwrite Flutter SDK and its obsolete web-auth override have been
+  removed from this branch.
 
-The Flutter client now has a transport foundation that stores access and
-refresh tokens in `flutter_secure_storage`, refreshes before access-token
-expiry, clears local credentials after refresh failure, and calls the existing
-login, refresh, logout, logout-all, forgot-password and reset-password routes.
+## Backend implementation and remaining work
 
-## Production blockers that must be resolved before wiring the UI
+Backend PR #294 supplies Argon2id password storage with legacy PBKDF2
+verification and lazy upgrade. Backend PR #296 adds native approved-identity
+provisioning, hashed one-time email verification and a PostgreSQL provisioning
+ledger. PR #296 is stacked on #294; both remain draft and unmerged.
 
-1. `authRespond` currently returns `IDENTITY_REVIEW_REQUIRED` for signup,
-   resend-verification and verify-email. The new client intentionally does not
-   pretend those routes are operational.
-2. The identity application/provisioning schema still contains Appwrite user
-   identifiers and Appwrite-specific provisioning states. The two-person
-   review process must be migrated to a provider-neutral canonical identity
-   transaction before the Appwrite SDK can be removed.
-3. Native auth identity UUIDs must be reconciled to existing canonical
-   `testagram_local.accounts.user_id` values. A successful password check alone
-   must never create a new social identity or bypass identity approval.
-4. The profile endpoint must reject a valid native session whose subject has no
-   active canonical account mapping. This must be verified with integration
-   tests before the client treats login as complete.
-5. The existing email-verification pipeline needs a provider-neutral,
-   single-use token flow. Existing verified-email evidence must be preserved;
-   it must not be inferred from an email address match.
-6. The deployment must configure the existing Backend authentication issuer
-   secret and SMTP settings, apply the auth/session migrations, and pass
-   rollback and account-preservation acceptance tests before switching providers.
+The redemption transaction checks the evidence-review ledger and the separate
+two-person account-approval ledger. It creates one native identity and one
+canonical profile, consumes the approval grant, and leaves the identity unable
+to obtain a session until email verification activates the provisioning row.
+Ordinary public signup remains fail-closed.
+
+The following are not yet complete:
+
+1. Staff reviewer authentication and staff-role grants still use Appwrite
+   identifiers in the review and sensitive-action ledgers. Preserve the
+   historical audit trail while introducing native staff principals and
+   two-person authorization for staff-role activation.
+2. Remove the remaining Backend Appwrite login bridges, provider adapters,
+   callback routes and unused Appwrite configuration only after the native
+   staff workflow and account reconciliation are proven.
+3. Audit every Flutter API/media client and every Backend route for legacy
+   bearer/JWT assumptions. Video likes and comments now use native access
+   tokens, but the separate video service still needs its own end-to-end
+   authorization acceptance.
+4. Run PostgreSQL migration ordering and idempotency, concurrent redemption,
+   email-token replay, account disablement, session refresh, Android and Web
+   builds, widget tests and end-to-end feed acceptance.
+5. Reconcile existing Appwrite users to canonical Testagram UUIDs using
+   explicit evidence and controlled account-preservation rules. Never link
+   accounts on email equality alone.
+6. Configure native auth issuer secrets and email delivery only after the
+   reviewed migrations and release gates pass. Do not switch the production
+   provider or deploy from these draft branches.
 
 ## Video authorization boundary
 
-The video API must not retain Appwrite credentials or either video-specific
-signing variable (`VIDEO_SIGNING_SECRET` or
-`VIDEO_PLAYBACK_SIGNING_KEY`). Playback authorization must be delegated to
-the Backend's canonical account/session boundary. The video service must not
-accept caller-supplied user IDs or trust a client-generated identity claim.
-Private HLS manifests, child playlists, segments and encryption keys must all
-be authorized; protecting only the manifest is insufficient.
+The Flutter video client uses the same Testagram native access-token provider
+as BackendApi and performs at most one refresh/retry after a 401. Playback
+authorization remains a separate service boundary: the video service must not
+accept caller-supplied user IDs or trust client-generated identity claims.
+Private manifests, child playlists, segments and encryption keys must all be
+authorized by the Backend-issued capability/session boundary.
 
 ## Release rule
 
-This work is a staged migration. Keep the native client transport isolated
-until the canonical identity mapping and review pipeline are provider-neutral.
-Do not remove the existing production authentication provider, flip the
-provider feature flag, or deploy this client transport before those gates pass.
+This is a staged migration. Keep production authentication and infrastructure
+unchanged until the first approved applicant can verify email, sign in with
+Testagram-owned credentials, restore and rotate a session, and reach the
+authenticated Testagram feed on Android and Web with no Appwrite dependency in
+that user path. Staff authorization, legacy-account reconciliation and all
+release tests must also pass before declaring Appwrite fully retired.
