@@ -231,6 +231,17 @@ class _AuthScreenState extends State<AuthScreen> {
           }
           return;
         }
+        if (error.code == 'IDENTITY_APPROVAL_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
+              _notice = widget.enableIdentityRegistration
+                  ? 'This account has not completed Testagram identity review and two-person account approval. Submit an application to continue.'
+                  : 'This account has not completed identity review and two-person account approval. Registration is temporarily unavailable.';
+            });
+          }
+          return;
+        }
         rethrow;
       }
       final backend = BackendApi(
