@@ -17,7 +17,7 @@ void main() {
     final requestedUris = <Uri>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
       client: MockClient((request) async {
         requestedUris.add(request.url);
         if (request.url.path == '/api/feed/home') {
@@ -68,7 +68,7 @@ void main() {
   testWidgets('main-feed composer exposes privacy and image attachment controls', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
       client: MockClient((request) async => http.Response(jsonEncode({
         'ok': true,
         'data': {'posts': [], 'has_more': false, 'next_cursor': ''},
@@ -94,7 +94,7 @@ void main() {
   testWidgets('main feed renders all attached images in a post gallery', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
       client: MockClient((request) async {
         if (request.url.path == '/api/feed/home') {
           return http.Response(jsonEncode({
@@ -139,7 +139,7 @@ void main() {
     final requests = <http.Request>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'appwrite-session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
       client: MockClient((request) async {
         requests.add(request);
         if (request.url.path == '/api/feed/home') {
@@ -176,7 +176,7 @@ void main() {
 
     final createRequest = requests.firstWhere((request) => request.url.path == '/api/social/posts');
     expect(createRequest.method, 'POST');
-    expect(createRequest.headers['authorization'], 'Bearer appwrite-session-jwt');
+    expect(createRequest.headers['authorization'], 'Bearer testagram-native-access-token');
     expect(createRequest.headers['idempotency-key'], isNotEmpty);
     expect(jsonDecode(createRequest.body), {
       'content': 'Hello from Testagram #BuildInPublic',
@@ -191,7 +191,7 @@ void main() {
     final requests = <http.Request>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'staging-shaped-appwrite-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'staging-shaped-native-access-token',
       client: MockClient((request) async {
         requests.add(request);
         if (request.url.path == '/api/feed/home') {
@@ -244,7 +244,7 @@ void main() {
     expect(requests.where((r) => r.url.path == '/api/social/posts').length, 1);
     expect(requests.where((r) => r.url.path == '/api/feed/home').length, greaterThanOrEqualTo(2));
     expect(requests.firstWhere((r) => r.url.path == '/api/social/posts').headers['authorization'],
-        'Bearer staging-shaped-appwrite-jwt');
+        'Bearer staging-shaped-native-access-token');
     api.close();
   });
 
