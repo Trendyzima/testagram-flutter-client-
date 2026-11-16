@@ -1,0 +1,63 @@
+name: Testagram production domain smoke test
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testagram-domain-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Check apex redirect, www frontend and federation discovery
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe production hostnames
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          failed=0
+
+          apex_headers="$tmp/apex.headers"
+          apex_status="$(curl --silent --show-error --max-time 25 -D "$apex_headers" -o "$tmp/apex.body" -w '%{http_code}' https://testagram.site/ || true)"
+          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$apex_headers" | tail -n1)"
+          echo "Apex root: HTTP $apex_status; Location: ${location:-none}"
+          if [[ "$apex_status" != "308" || "$location" != "https://www.testagram.site/" ]]; then
+            echo "::error::Apex must permanently redirect ordinary web traffic to https://www.testagram.site/."
+            failed=1
+          fi
+
+          for item in "www_root|https://www.testagram.site/" "www_signin|https://www.testagram.site/?mode=signin" "pages_dev|https://testagram-flutter-web.pages.dev/"; do
+            label="${item%%|*}"
+            url="${item#*|}"
+            status="$(curl --silent --show-error --retry 2 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 -o "$tmp/$label.body" -w '%{http_code}' "$url" || true)"
+            echo "$label: HTTP $status"
+            if [[ "$status" != "200" ]] || ! grep -Fq 'flutter_bootstrap.js' "$tmp/$label.body"; then
+              echo "::error::$label did not return the Flutter application shell (HTTP $status)."
+              failed=1
+            fi
+          done
+
+          webfinger_status="$(curl --silent --show-error --max-time 25 -o "$tmp/webfinger.body" -w '%{http_code}' "https://testagram.site/.well-known/webfinger?resource=acct:nonexistent-probe@invalid.testagram.site" || true)"
+          echo "WebFinger: HTTP $webfinger_status"
+          case "$webfinger_status" in
+            200|400|404) ;;
+            *) echo "::error::The dedicated WebFinger endpoint did not reach the federation service."; failed=1 ;;
+          esac
+
+          {
+            echo "## Testagram production domain smoke test"
+            echo "- Apex ordinary web traffic: expected HTTP 308 to www.testagram.site"
+            echo "- www and Pages.dev: expected HTTP 200 with Flutter bootstrap"
+            echo "- WebFinger: expected federation-origin response (200, 400 or 404)"
+            echo "- Read-only: no DNS, Pages, Worker, deployment or application changes"
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$failed"
