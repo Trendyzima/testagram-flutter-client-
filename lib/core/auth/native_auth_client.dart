@@ -134,7 +134,9 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
     final uri = _endpoint(action);
     final deadline = DateTime.now().add(_wakeRetryWindow);
     var retries = 0;
-    _wakeStatus.value = null;
+    _wakeStatus.value = (action == 'login' || action == 'refresh')
+        ? 'Connecting to Testagram…'
+        : null;
 
     try {
       while (true) {
