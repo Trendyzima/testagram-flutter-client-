@@ -203,7 +203,7 @@ void main() {
     client.close();
   });
 
-  test('requests an applicant-scoped provisioning token and redeems it with Appwrite JWT', () async {
+  test('requests an applicant-scoped provisioning token and redeems with a native password', () async {
     final seen = <http.BaseRequest>[];
     final client = IdentityVerificationClient(
       backendOrigin: Uri.parse('https://api.testagram.site'),
@@ -228,7 +228,7 @@ void main() {
     final result = await client.redeemProvisioningAuthorization(
       application: application,
       authorization: authorization,
-      appwriteJwt: 'appwrite-session-jwt',
+      password: 'a-strong-native-password-123',
     );
     expect(result['status'], 'provisioned');
     expect(seen[0].url.path,
@@ -238,7 +238,10 @@ void main() {
         '/api/identity/applications/${application.applicationId}/redeem');
     expect(seen[1].headers['X-Identity-Approval-Token'], authorization.token);
     expect(seen[1].headers['X-Identity-Approval-JTI'], authorization.jti);
-    expect(seen[1].headers['Authorization'], 'Bearer appwrite-session-jwt');
+    expect(seen[1].headers.containsKey('Authorization'), isFalse);
+    expect(jsonDecode((seen[1] as http.Request).body), {
+      'password': 'a-strong-native-password-123',
+    });
     client.close();
   });
 
@@ -249,12 +252,14 @@ void main() {
         'status': 'verification_pending',
         'adult_verification_status': 'verified',
         'verification_session_id': application.sessionId,
+        'account_provisioning_status': 'active',
       }), 200, headers: {'content-type': 'application/json'})),
     );
     final status = await client.getStatus(application);
     expect(status.status, 'verification_pending');
     expect(status.verificationStatus, 'verified');
     expect(status.sessionId, application.sessionId);
+    expect(status.provisioningStatus, 'active');
     client.close();
   });
 }
