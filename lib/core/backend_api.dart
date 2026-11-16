@@ -16,21 +16,9 @@ class PrivateMediaAccess {
 class BackendApi {
   BackendApi({
     required this.baseUri,
-    Future<String?> Function({bool forceRefresh})? getAccessToken,
-    @Deprecated('Use getAccessToken; this alias is for older test fixtures only.')
-    Future<String?> Function()? getJwt,
+    required this.getAccessToken,
     http.Client? client,
-  })  : getAccessToken = _resolveAccessTokenProvider(getAccessToken, getJwt),
-        _client = client ?? http.Client();
-
-  static Future<String?> Function({bool forceRefresh}) _resolveAccessTokenProvider(
-    Future<String?> Function({bool forceRefresh})? getAccessToken,
-    Future<String?> Function()? getJwt,
-  ) {
-    if (getAccessToken != null) return getAccessToken;
-    if (getJwt != null) return ({bool forceRefresh = false}) => getJwt();
-    throw ArgumentError('getAccessToken is required.');
-  }
+  }) : _client = client ?? http.Client();
 
   final Uri baseUri;
   /// Testagram-native session provider. Access tokens remain in memory.
