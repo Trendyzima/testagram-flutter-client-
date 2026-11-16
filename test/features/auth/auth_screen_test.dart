@@ -1,6 +1,6 @@
-import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:testagram/core/auth/native_auth_client.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 import 'package:testagram/features/auth/identity_application_store.dart';
 
@@ -21,19 +21,19 @@ class _MemoryIdentityStorage implements IdentityApplicationSecureStorage {
   }
 }
 
-class _FakeAccount implements Account {
+class _FakeNativeAuthSession implements NativeAuthSession {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  late Account account;
+  late NativeAuthSession authClient;
   late IdentityApplicationStore identityStore;
 
   setUp(() {
     // These screen tests exercise local navigation and registration consent gates;
-    // no Appwrite network or platform implementation should be constructed.
-    account = _FakeAccount();
+    // no network or platform implementation should be constructed.
+    authClient = _FakeNativeAuthSession();
     identityStore = IdentityApplicationStore(storage: _MemoryIdentityStorage());
   });
 
@@ -47,7 +47,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
-        account: account,
+        authClient: authClient,
         onSignedIn: () {},
         identityApplicationStore: identityStore,
         requireIdentityReview: true,
@@ -112,7 +112,7 @@ void main() {
     expect(action, findsOneWidget);
     expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
-    // The form still validates locally before any Appwrite request is made.
+    // The form still validates locally before any backend request is made.
     await tapVisible(tester, action);
     expect(find.text('Enter your name.'), findsOneWidget);
     expect(find.text('Use 3–30 letters, numbers or underscores.'), findsOneWidget);
