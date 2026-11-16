@@ -63,7 +63,7 @@ void main() {
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
@@ -91,7 +91,7 @@ void main() {
   testWidgets('registration requires private identity evidence and dual approval before account creation',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
@@ -123,7 +123,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
-        account: account,
+        authClient: authClient,
         onSignedIn: () {},
         requireIdentityReview: true,
         enableIdentityRegistration: true,
@@ -142,7 +142,7 @@ void main() {
 
   testWidgets('legal documents can be read before consent', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
@@ -160,7 +160,7 @@ void main() {
   testWidgets('forgot-password page is reachable from sign in',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.text('Forgot password?'));
