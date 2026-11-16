@@ -83,6 +83,73 @@ void main() {
     client.close();
   });
 
+  test('automatically retries authentication while an InstaBox public port wakes the machine', () async {
+    final storage = _MemoryNativeAuthStorage();
+    final requests = <http.Request>[];
+    final waits = <Duration>[];
+    final statuses = <String?>[];
+    NativeAuthWakeAware? wakeAware;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      waitBeforeWakeRetry: (delay) async {
+        waits.add(delay);
+        statuses.add(wakeAware!.wakeStatus.value);
+      },
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (requests.length == 1) {
+          return http.Response(
+            'Sandbox is waking up',
+            503,
+            headers: {'retry-after': '3'},
+          );
+        }
+        return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+      }),
+    );
+    wakeAware = client;
+
+    await client.signIn(email: 'user@example.test', password: 'correct-password-123');
+
+    expect(requests, hasLength(2));
+    expect(requests.first.url.path, '/api/auth/login');
+    expect(requests.last.url.path, '/api/auth/login');
+    expect(requests.first.body, requests.last.body);
+    expect(waits, [const Duration(seconds: 3)]);
+    expect(statuses, ['Waking Testagram… reconnecting automatically.']);
+    expect(wakeAware.wakeStatus.value, isNull);
+    expect(storage.values, {'testagram.auth.refresh.v1': refreshOne});
+    client.close();
+  });
+
+  test('does not retry ordinary application 503 responses', () async {
+    var calls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      waitBeforeWakeRetry: (_) async => fail('ordinary 503 must not be retried'),
+      httpClient: MockClient((_) async {
+        calls++;
+        return http.Response(
+          jsonEncode({
+            'ok': false,
+            'error': {'code': 'SERVICE_UNAVAILABLE', 'message': 'Authentication is temporarily unavailable.'},
+          }),
+          503,
+          headers: {'retry-after': '2'},
+        );
+      }),
+    );
+
+    await expectLater(
+      client.signIn(email: 'user@example.test', password: 'correct-password-123'),
+      throwsA(isA<NativeAuthException>().having((error) => error.statusCode, 'statusCode', 503)),
+    );
+    expect(calls, 1);
+    client.close();
+  });
+
   test('force refresh rotates the refresh token and replaces the in-memory access token', () async {
     final storage = _MemoryNativeAuthStorage();
     var refreshCalls = 0;
