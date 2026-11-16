@@ -979,15 +979,15 @@ class _AuthScreenState extends State<AuthScreen> {
               const SizedBox(height: 12),
               Material(
                 color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _ageConfirmed, onChanged: _busy ? null : (v) => setState(() => _ageConfirmed = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I confirm that I am 18 years old or above.'), dense: true),,
+                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _ageConfirmed, onChanged: _busy ? null : (v) => setState(() => _ageConfirmed = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I confirm that I am 18 years old or above.'), dense: true),
               ),
               Material(
                 color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _termsAccepted, onChanged: _busy ? null : (v) => setState(() => _termsAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Terms and Conditions.'), dense: true),,
+                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _termsAccepted, onChanged: _busy ? null : (v) => setState(() => _termsAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Terms and Conditions.'), dense: true),
               ),
               Material(
                 color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _privacyAccepted, onChanged: _busy ? null : (v) => setState(() => _privacyAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Privacy Notice.'), dense: true),,
+                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _privacyAccepted, onChanged: _busy ? null : (v) => setState(() => _privacyAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Privacy Notice.'), dense: true),
               ),
               Wrap(alignment: WrapAlignment.start, spacing: 8, children: [
                 TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read terms')),
