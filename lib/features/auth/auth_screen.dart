@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/app_config.dart';
 import '../../core/backend_api.dart';
 import '../../core/auth/native_auth_client.dart';
+import '../../core/widgets/testagram_brand_mark.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 import 'identity_application_store.dart';
@@ -818,16 +819,7 @@ class _AuthScreenState extends State<AuthScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(17),
-                child: Image.asset(
-                  'assets/branding/testagram-icon.webp',
-                  width: 58,
-                  height: 58,
-                  fit: BoxFit.cover,
-                  semanticLabel: 'Testagram',
-                ),
-              ),
+              const TestagramBrandMark(size: 58, radius: 17),
               const SizedBox(width: 12),
               Flexible(
                 child: Column(
