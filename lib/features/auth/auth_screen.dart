@@ -359,12 +359,30 @@ class _AuthScreenState extends State<AuthScreen> {
           status = await api.getStatus(application);
         }
       }
-      if (mounted) {
+      if (status.provisioningStatus == 'active') {
+        try {
+          await _identityStore.clear();
+        } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _identityDraft = null;
+            _identityApplication = null;
+            _identityStatus = status;
+            _page = _Page.signIn;
+            _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
+          });
+        }
+      } else if (mounted) {
         setState(() {
           _identityDraft = currentDraft;
           _identityApplication = application;
           _identityStatus = status;
-          _notice = 'Your application is ready to continue. Refresh its status at any time.';
+          _page = status.provisioningStatus == 'verification_pending'
+              ? _Page.verify
+              : _Page.identity;
+          _notice = status.provisioningStatus == 'verification_pending'
+              ? 'Your Testagram account has been created. Verify your email to activate it.'
+              : 'Your application is ready to continue. Refresh its status at any time.';
         });
       }
     } catch (_) {
@@ -655,12 +673,30 @@ class _AuthScreenState extends State<AuthScreen> {
             status = await api.getStatus(application);
           }
         }
-        if (mounted) {
+        if (status.provisioningStatus == 'active') {
+          try {
+            await _identityStore.clear();
+          } catch (_) {}
+          if (mounted) {
+            setState(() {
+              _identityDraft = null;
+              _identityApplication = null;
+              _identityStatus = status;
+              _page = _Page.signIn;
+              _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
+            });
+          }
+        } else if (mounted) {
           setState(() {
             _identityDraft = currentDraft;
             _identityApplication = application;
             _identityStatus = status;
-            _notice = 'Application status refreshed.';
+            _page = status.provisioningStatus == 'verification_pending'
+                ? _Page.verify
+                : _Page.identity;
+            _notice = status.provisioningStatus == 'verification_pending'
+                ? 'Your Testagram account has been created. Verify your email to activate it.'
+                : 'Application status refreshed.';
           });
         }
       } finally {
