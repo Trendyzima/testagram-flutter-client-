@@ -239,7 +239,7 @@ jobs:
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
 
-          for domain in testagram.site www.testagram.site; do
+          for domain in www.testagram.site; do
             active=false
             for attempt in $(seq 1 90); do
               current="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
