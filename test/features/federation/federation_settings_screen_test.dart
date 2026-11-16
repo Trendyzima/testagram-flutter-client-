@@ -14,7 +14,7 @@ void main() {
     var putSeen = false;
     final client = MockClient((request) async {
       expect(request.url.path, '/api/me/federation');
-      expect(request.headers['Authorization'], 'Bearer appwrite-session-jwt');
+      expect(request.headers['Authorization'], 'Bearer testagram-native-access-token');
       expect(request.headers['Accept'], 'application/json');
       if (request.method == 'GET') {
         getSeen = true;
@@ -47,7 +47,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'appwrite-session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
       client: client,
     );
     addTearDown(api.close);
@@ -94,7 +94,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'appwrite-session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
       client: client,
     );
     addTearDown(api.close);
