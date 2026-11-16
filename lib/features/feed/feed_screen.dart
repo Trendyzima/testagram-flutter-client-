@@ -363,8 +363,8 @@ class _FeedScreenState extends State<FeedScreen> {
       title: const Row(
         children: [
           TestagramBrandMark(size: 30, radius: 9),
-          const SizedBox(width: 10),
-          const Text('Testagram'),
+          SizedBox(width: 10),
+          Text('Testagram'),
         ],
       ),
       actions: [
