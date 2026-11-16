@@ -241,8 +241,8 @@ class NativeAuthClient implements NativeAuthSession {
       final token = await accessToken();
       if (token != null) await _revokeWithBearer('logout', token);
     } finally {
-      await _storage.delete(key: _refreshKey);
       _clearMemory();
+      await _storage.delete(key: _refreshKey);
     }
   }
 
@@ -251,8 +251,8 @@ class NativeAuthClient implements NativeAuthSession {
       final token = await accessToken();
       if (token != null) await _revokeWithBearer('logout-all', token);
     } finally {
-      await _storage.delete(key: _refreshKey);
       _clearMemory();
+      await _storage.delete(key: _refreshKey);
     }
   }
 
@@ -272,8 +272,11 @@ class NativeAuthClient implements NativeAuthSession {
       'token': token,
       'password': password,
     });
-    await _storage.delete(key: _refreshKey);
-    _clearMemory();
+    try {
+      await _storage.delete(key: _refreshKey);
+    } finally {
+      _clearMemory();
+    }
   }
 
   void _clearMemory() {
@@ -282,8 +285,11 @@ class NativeAuthClient implements NativeAuthSession {
   }
 
   Future<void> clearSession() async {
-    await _storage.delete(key: _refreshKey);
-    _clearMemory();
+    try {
+      await _storage.delete(key: _refreshKey);
+    } finally {
+      _clearMemory();
+    }
   }
 
   void close() {
