@@ -216,10 +216,23 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signIn() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
-      await widget.authClient.signIn(
-        email: _email.text.trim().toLowerCase(),
-        password: _password.text,
-      );
+      try {
+        await widget.authClient.signIn(
+          email: _email.text.trim().toLowerCase(),
+          password: _password.text,
+        );
+      } on NativeAuthException catch (error) {
+        if (error.code == 'EMAIL_VERIFICATION_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = _Page.verify;
+              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh link from your saved application.';
+            });
+          }
+          return;
+        }
+        rethrow;
+      }
       final backend = BackendApi(
         baseUri: AppConfig.backendOrigin,
         getAccessToken: widget.authClient.accessToken,
