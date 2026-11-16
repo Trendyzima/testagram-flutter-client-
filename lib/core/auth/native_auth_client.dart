@@ -126,9 +126,22 @@ class NativeAuthClient implements NativeAuthSession {
         'Testagram returned an incomplete or unsafe session.',
       );
     }
-    _accessToken = access;
-    _accessExpiresAt = DateTime.now().toUtc().add(Duration(seconds: expires));
     return value;
+  }
+
+  Future<void> _persistSession(Map<String, dynamic> data) async {
+    try {
+      await _storage.write(key: _refreshKey, value: data['refresh_token'] as String);
+    } catch (_) {
+      _clearMemory();
+      throw const NativeAuthException(
+        'Secure session storage is unavailable. Sign in again after restoring device storage.',
+      );
+    }
+    _accessToken = data['access_token'] as String;
+    _accessExpiresAt = DateTime.now().toUtc().add(
+      Duration(seconds: data['expires_in'] as int),
+    );
   }
 
   @override
@@ -141,7 +154,7 @@ class NativeAuthClient implements NativeAuthSession {
       'password': password,
     });
     final data = _tokenData(response);
-    await _storage.write(key: _refreshKey, value: data['refresh_token'] as String);
+    await _persistSession(data);
     return data;
   }
 
@@ -172,12 +185,8 @@ class NativeAuthClient implements NativeAuthSession {
     try {
       final response = await _post('refresh', body: {'refresh_token': refresh});
       final data = _tokenData(response);
-      // Persist the rotated token before returning the access token. If secure
-      // storage fails, fail closed rather than using an unrefreshable session.
-      await _storage.write(
-        key: _refreshKey,
-        value: data['refresh_token'] as String,
-      );
+      // Persist the rotated refresh token before exposing its access token.
+      await _persistSession(data);
       return _accessToken;
     } on NativeAuthException catch (error) {
       if (error.statusCode == 401 || error.statusCode == 403) {
