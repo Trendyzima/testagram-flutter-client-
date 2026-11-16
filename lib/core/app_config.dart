@@ -39,11 +39,11 @@ class AppConfig {
       .where((host) => host.isNotEmpty)
       .toSet();
 
-  // Optional dedicated video origin. It stays unset until the video service
-  // has an approved HTTPS deployment and its auth path is compatible.
+  // The video service is routed by Caddy under the same HTTPS API origin.
+  // A separate origin remains overridable for staging or dedicated deployments.
   static const videoApiUrl = String.fromEnvironment(
     'TESTAGRAM_VIDEO_API_URL',
-    defaultValue: '',
+    defaultValue: backendApiUrl,
   );
 
   static Uri? get videoApiOrigin {
