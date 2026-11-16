@@ -254,7 +254,7 @@ void main() {
       api.close();
     });
 
-    test('accepts Appwrite owner IDs with underscores and periods', () async {
+    test('accepts legacy external owner IDs with underscores and periods', () async {
       const key = 'users/user_123.test/0123456789abcdef0123456789abcdef';
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
@@ -358,7 +358,7 @@ void main() {
       api.close();
     });
 
-    test('loads the canonical post feed using an Appwrite JWT', () async {
+    test('loads the canonical post feed using a Testagram native access token', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
@@ -488,11 +488,11 @@ void main() {
       api.close();
     });
 
-    test('resolves the current Appwrite session to a canonical Backend account', () async {
+    test('resolves the current native session to a canonical Backend account', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getAccessToken: ({bool forceRefresh = false}) async => 'verified-appwrite-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'verified-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -508,7 +508,7 @@ void main() {
       final profile = await api.getMyProfile();
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/me/profile');
-      expect(captured.headers['authorization'], 'Bearer verified-appwrite-jwt');
+      expect(captured.headers['authorization'], 'Bearer verified-native-access-token');
       expect((profile['data'] as Map)['username'], 'linked_member');
       api.close();
     });
@@ -541,7 +541,7 @@ void main() {
       api.close();
     });
 
-    test('loads a privacy-filtered post detail using the Appwrite JWT', () async {
+    test('loads a privacy-filtered post detail using a native access token', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
@@ -867,7 +867,7 @@ void main() {
       );
       api.close();
     });
-    test('calls native Backend capabilities with the Appwrite session', () async {
+    test('calls native Backend capabilities with the Testagram session', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
