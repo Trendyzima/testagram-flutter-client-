@@ -133,6 +133,9 @@ class NativeAuthClient implements NativeAuthSession {
     try {
       await _storage.write(key: _refreshKey, value: data['refresh_token'] as String);
     } catch (_) {
+      try {
+        await _storage.delete(key: _refreshKey);
+      } catch (_) {}
       _clearMemory();
       throw const NativeAuthException(
         'Secure session storage is unavailable. Sign in again after restoring device storage.',
