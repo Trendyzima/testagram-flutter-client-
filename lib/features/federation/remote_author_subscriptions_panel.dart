@@ -152,7 +152,7 @@ class _RemoteAuthorSubscriptionsPanelState
             ),
             const SizedBox(height: 16),
             DropdownButtonFormField<String>(
-              value: _protocol,
+              initialValue: _protocol,
               decoration: const InputDecoration(
                 labelText: 'Network',
                 border: OutlineInputBorder(),
