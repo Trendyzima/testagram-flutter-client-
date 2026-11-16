@@ -1,0 +1,32 @@
+name: Validate Cloudflare Pages Flutter build
+
+on:
+  pull_request:
+    paths:
+      - "cloudflare-pages/**"
+      - ".github/workflows/validate-pages-build.yml"
+      - "pubspec.yaml"
+      - "lib/**"
+      - "tool/**"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v5
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - name: Run the same build script used by Cloudflare Pages
+        run: bash cloudflare-pages/build.sh
+      - name: Verify deployable artifact
+        run: |
+          test -s build/web/index.html
+          test -s build/web/flutter_bootstrap.js
+          test -s build/web/main.dart.js
