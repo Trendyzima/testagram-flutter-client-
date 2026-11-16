@@ -6,6 +6,29 @@ import 'package:http/http.dart' as http;
 
 /// UI-facing contract so auth screens and gates do not depend on a
 /// particular transport implementation.
+abstract interface class NativeAuthStorage {
+  Future<String?> read(String key);
+  Future<void> write(String key, String value);
+  Future<void> delete(String key);
+}
+
+class FlutterNativeAuthStorage implements NativeAuthStorage {
+  FlutterNativeAuthStorage({FlutterSecureStorage? storage})
+      : _storage = storage ?? const FlutterSecureStorage();
+
+  final NativeAuthStorage _storage;
+
+  @override
+  Future<String?> read(String key) => _storage.read(key: key);
+
+  @override
+  Future<void> write(String key, String value) =>
+      _storage.write(key: key, value: value);
+
+  @override
+  Future<void> delete(String key) => _storage.delete(key: key);
+}
+
 abstract interface class NativeAuthSession {
   Future<Map<String, dynamic>> signIn({
     required String email,
@@ -27,9 +50,9 @@ abstract interface class NativeAuthSession {
 class NativeAuthClient implements NativeAuthSession {
   NativeAuthClient({
     required this.baseUri,
-    FlutterSecureStorage? storage,
+    NativeAuthStorage? storage,
     http.Client? httpClient,
-  })  : _storage = storage ?? const FlutterSecureStorage(),
+  })  : _storage = storage ?? FlutterNativeAuthStorage(),
         _http = httpClient ?? http.Client();
 
   final Uri baseUri;
