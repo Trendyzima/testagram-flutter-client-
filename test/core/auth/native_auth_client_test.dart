@@ -5,6 +5,19 @@ import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:testagram/core/auth/native_auth_client.dart';
 
+class _FailingNativeAuthStorage implements NativeAuthStorage {
+  @override
+  Future<String?> read(String key) async => null;
+
+  @override
+  Future<void> write(String key, String value) async {
+    throw StateError('secure storage unavailable');
+  }
+
+  @override
+  Future<void> delete(String key) async {}
+}
+
 class _MemoryNativeAuthStorage implements NativeAuthStorage {
   final Map<String, String> values = {};
 
@@ -109,6 +122,22 @@ void main() {
     expect(logout.url.path, '/api/auth/logout');
     expect(logout.headers['Authorization'], 'Bearer $accessOne');
     expect(storage.values.containsKey('testagram.auth.refresh.v1'), isFalse);
+    client.close();
+  });
+
+  test('does not expose an access token if secure refresh storage fails', () async {
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _FailingNativeAuthStorage(),
+      httpClient: MockClient((request) async =>
+          http.Response(jsonEncode(session(accessOne, refreshOne)), 200)),
+    );
+
+    await expectLater(
+      client.signIn(email: 'user@example.test', password: 'correct-password-123'),
+      throwsA(isA<NativeAuthException>()),
+    );
+    expect(await client.accessToken(), isNull);
     client.close();
   });
 
