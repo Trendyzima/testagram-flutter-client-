@@ -989,9 +989,9 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_page == _Page.signUp) ...[
               Container(
                 padding: const EdgeInsets.all(15),
-                decoration: BoxDecoration(color: pale.withValues(alpha: isDark ? 0.12 : 1), borderRadius: BorderRadius.circular(16), border: Border.all(color: green.withValues(alpha: 0.18))),
+                decoration: BoxDecoration(color: pale.withValues(alpha: isDark ? 0.12 : 1), borderRadius: BorderRadius.circular(16), border: Border.all(color: blue.withValues(alpha: 0.18))),
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(Icons.verified_user_outlined, color: green, size: 21),
+                  Icon(Icons.verified_user_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
                   Expanded(child: Text('Account safety comes first. Your application is reviewed independently before account activation.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
@@ -1066,7 +1066,7 @@ class _AuthScreenState extends State<AuthScreen> {
                   onPressed: _busy ? null : () => _go(_Page.signUp),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
                   label: const Text('Create your account'),
-                  style: OutlinedButton.styleFrom(foregroundColor: green, side: const BorderSide(color: Color(0xFFB8D8C3)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                  style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 )),
               ],
             ] else if (_page != _Page.verify)
@@ -1131,7 +1131,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ]),
           const SizedBox(height: 28),
           const Text(
-            'More than a feed.\\nA world of voices.',
+            'More than a feed.\nA world of voices.',
             style: TextStyle(color: Colors.white, fontSize: 30, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -1.1),
           ),
           const SizedBox(height: 10),
