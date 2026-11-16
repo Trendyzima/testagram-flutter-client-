@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_brand_mark.dart';
 import '../profile/profile_screen.dart';
 import '../federation/federation_settings_screen.dart';
 
@@ -34,16 +35,7 @@ class SettingsScreen extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(14),
-                    child: Image.asset(
-                      'assets/branding/testagram-icon.webp',
-                      width: 52,
-                      height: 52,
-                      fit: BoxFit.cover,
-                      semanticLabel: 'Testagram',
-                    ),
-                  ),
+                  const TestagramBrandMark(size: 52, radius: 14),
                   const SizedBox(width: 14),
                   Expanded(
                     child: Column(
