@@ -139,8 +139,6 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                     secondary: const Icon(Icons.public_rounded),
                   ),
                 ),
-                const SizedBox(height: 18),
-                RemoteAuthorSubscriptionsPanel(api: widget.api),
                 if (_saving) ...[
                   const SizedBox(height: 12),
                   const LinearProgressIndicator(),
@@ -185,6 +183,8 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                     ),
                   ),
                 ],
+                const SizedBox(height: 18),
+                RemoteAuthorSubscriptionsPanel(api: widget.api),
                 const SizedBox(height: 20),
                 Text(
                   'Before enabling',
