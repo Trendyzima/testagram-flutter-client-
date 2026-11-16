@@ -4,6 +4,7 @@ import '../core/backend_api.dart';
 import '../core/app_config.dart';
 import '../core/testagram_background.dart';
 import '../core/testagram_theme.dart';
+import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/notifications/notifications_screen.dart';
@@ -142,15 +143,7 @@ class _MainShellState extends State<MainShell> {
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(13),
-                                child: Image.asset(
-                                  'assets/branding/testagram-icon.webp',
-                                  width: 42,
-                                  height: 42,
-                                  fit: BoxFit.cover,
-                                ),
-                              ),
+                              const TestagramBrandMark(size: 42, radius: 13),
                               if (extended) ...[
                                 const SizedBox(width: 12),
                                 const Text(
