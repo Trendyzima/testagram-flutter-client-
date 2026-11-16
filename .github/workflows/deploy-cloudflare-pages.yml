@@ -287,7 +287,8 @@ jobs:
             '/?mode=verification&userId=smoke-user&secret=smoke-secret'
             '/?mode=recovery&userId=smoke-user&secret=smoke-secret'
           )
-          for hostname in testagram.site www.testagram.site; do
+          # Pages owns www only. The apex is the Backend federation edge and must redirect, not serve Flutter assets.
+          for hostname in www.testagram.site; do
             page="$(mktemp)"
             headers="$(mktemp)"
             for path in "${paths[@]}"; do
@@ -340,3 +341,19 @@ jobs:
             echo "Verified current versioned auth bundle and callback entry points on https://$hostname"
             rm -f "$page" "$headers"
           done
+
+          apex_headers="$(mktemp)"
+          apex_status="$(curl --silent --show-error --max-time 30 -D "$apex_headers" -o /dev/null -w '%{http_code}' "https://testagram.site/" || true)"
+          if [[ "$apex_status" != "308" ]] || ! grep -Eiq '^location:[[:space:]]*https://www\.testagram\.site/?[[:space:]]* "$apex_headers"; then
+            echo "::error::The apex must remain on the Backend/Federation edge and redirect to https://www.testagram.site (HTTP $apex_status)."
+            cat "$apex_headers"
+            rm -f "$apex_headers"
+            exit 1
+          fi
+          rm -f "$apex_headers"
+          apex_webfinger="$(curl --silent --show-error --max-time 30 -o /tmp/apex-webfinger.json -w '%{http_code}' "https://testagram.site/.well-known/webfinger?resource=acct:nonexistent-probe@invalid.testagram.site" || true)"
+          case "$apex_webfinger" in
+            200|400|404) ;;
+            *) echo "::error::Apex WebFinger did not reach the Backend Federation service (HTTP $apex_webfinger)."; cat /tmp/apex-webfinger.json 2>/dev/null || true; exit 1 ;;
+          esac
+          echo "Verified apex federation redirect and WebFinger routing; Flutter Pages is serving www.testagram.site only."
