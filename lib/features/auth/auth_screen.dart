@@ -160,26 +160,29 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Testagram authentication is temporarily unavailable. Please retry.';
       }
       if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
-        return 'Your Appwrite sign-in succeeded, but Testagram could not resolve your canonical account. Retry or contact support.';
+        return 'Testagram could not confirm your account. Retry or contact support.';
       }
       return e.message;
     }
-    if (e is AppwriteException) {
-      if (e.code == 401) {
+    if (e is NativeAuthException) {
+      if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
+        return 'Verify your email address before signing in.';
+      }
+      if (e.statusCode == 401) {
         return 'The email or password is incorrect.';
       }
-      if (e.code == 409) {
-        return 'We could not create this account. Try signing in or use password recovery if you already registered.';
+      if (e.statusCode == 409) {
+        return 'This account or application conflicts with an existing Testagram record. Check your details or contact support.';
       }
-      if (e.code == 429) {
+      if (e.statusCode == 429) {
         return 'Too many attempts. Wait and retry.';
       }
-      return e.message ?? 'The request failed.';
+      return e.message;
     }
     final s = e.toString();
     if (s.contains('ClientException') || s.contains('Failed to fetch') ||
         s.contains('SocketException') || s.contains('Failed host lookup')) {
-      return 'Cannot reach Appwrite. Check your connection, Appwrite endpoint, project Web platform and CORS settings.';
+      return 'Cannot reach Testagram. Check your connection and retry.';
     }
     if (s.contains('TimeoutException')) {
       return 'Request timed out. Check your connection and retry.';
@@ -892,7 +895,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         children: [
                           Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text('Submit your details and private age-assurance evidence. Two independent reviewers must approve your application before an Appwrite account and Testagram profile can be created.'),
+                          Text('Submit your details and private age-assurance evidence. Two independent reviewers and two independent account approvers must approve your application before your Testagram account can be created.'),
                         ],
                       ),
                     ),
@@ -1053,7 +1056,7 @@ class _AuthScreenState extends State<AuthScreen> {
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
           Text(
-            'Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
+            'Testagram authenticates accounts and controls profile linking, sessions and product authorization.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
           ),
