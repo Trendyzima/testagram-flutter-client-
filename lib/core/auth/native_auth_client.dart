@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
@@ -47,19 +48,38 @@ abstract interface class NativeAuthSession {
 ///
 /// Only the refresh credential is persisted. Short-lived access tokens remain
 /// in memory and are never written to browser local storage or preferences.
-class NativeAuthClient implements NativeAuthSession {
+abstract interface class NativeAuthWakeAware {
+  ValueListenable<String?> get wakeStatus;
+}
+
+/// Testagram-owned authentication and rotating session client.
+///
+/// Only the refresh credential is persisted. Short-lived access tokens remain
+/// in memory and are never written to browser local storage or preferences.
+class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
   NativeAuthClient({
     required this.baseUri,
     NativeAuthStorage? storage,
     http.Client? httpClient,
+    Future<void> Function(Duration delay)? waitBeforeWakeRetry,
   })  : _storage = storage ?? FlutterNativeAuthStorage(),
-        _http = httpClient ?? http.Client();
+        _http = httpClient ?? http.Client(),
+        _waitBeforeWakeRetry =
+            waitBeforeWakeRetry ?? ((delay) => Future<void>.delayed(delay));
 
   final Uri baseUri;
   final NativeAuthStorage _storage;
   final http.Client _http;
+  final Future<void> Function(Duration delay) _waitBeforeWakeRetry;
+  final ValueNotifier<String?> _wakeStatus = ValueNotifier<String?>(null);
+
+  @override
+  ValueListenable<String?> get wakeStatus => _wakeStatus;
 
   static const _refreshKey = 'testagram.auth.refresh.v1';
+  static const _requestTimeout = Duration(seconds: 60);
+  static const _wakeRetryWindow = Duration(seconds: 120);
+  static const _maxWakeRetries = 8;
   String? _accessToken;
   DateTime? _accessExpiresAt;
   Future<String?>? _refreshInFlight;
@@ -72,24 +92,19 @@ class NativeAuthClient implements NativeAuthSession {
     Map<String, dynamic>? body,
   }) async {
     if (_closed) throw StateError('Authentication client is closed.');
-    final response = await _http
-        .post(
-          _endpoint(action),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(body ?? const <String, dynamic>{}),
-        )
-        .timeout(const Duration(seconds: 15));
+    final response = await _postWithWakeRecovery(
+      action,
+      body ?? const <String, dynamic>{},
+    );
     Map<String, dynamic> decoded;
     try {
       final value = jsonDecode(response.body);
       if (value is! Map<String, dynamic>) throw const FormatException();
       decoded = value;
     } catch (_) {
-      throw const NativeAuthException(
+      throw NativeAuthException(
         'Testagram returned an invalid authentication response.',
+        statusCode: response.statusCode,
       );
     }
     if (response.statusCode < 200 || response.statusCode >= 300 ||
@@ -106,6 +121,66 @@ class NativeAuthClient implements NativeAuthSession {
       );
     }
     return decoded;
+  }
+
+  /// A public InstaBox HTTP port automatically resumes a machine paused by
+  /// inactivity. While it wakes, the proxy returns 503 with a "waking up"
+  /// response and Retry-After. Wait beyond the proxy's 45-second request
+  /// window, then retry the same auth request; do not retry ordinary app 503s.
+  Future<http.Response> _postWithWakeRecovery(
+    String action,
+    Map<String, dynamic> body,
+  ) async {
+    final uri = _endpoint(action);
+    final deadline = DateTime.now().add(_wakeRetryWindow);
+    var retries = 0;
+    _wakeStatus.value = null;
+
+    try {
+      while (true) {
+        final response = await _http
+            .post(
+              uri,
+              headers: const {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json',
+              },
+              body: jsonEncode(body),
+            )
+            .timeout(_requestTimeout);
+
+        final retryDelay = _instaBoxWakeRetryDelay(response);
+        if (retryDelay == null) return response;
+
+        if (retries >= _maxWakeRetries ||
+            DateTime.now().add(retryDelay).isAfter(deadline)) {
+          throw const NativeAuthException(
+            'Testagram is still waking up. Please wait a moment and try again; your credentials have not been rejected.',
+            statusCode: 503,
+            code: 'SANDBOX_WAKING_UP',
+          );
+        }
+
+        retries++;
+        _wakeStatus.value = 'Waking Testagram… reconnecting automatically.';
+        await _waitBeforeWakeRetry(retryDelay);
+      }
+    } finally {
+      _wakeStatus.value = null;
+    }
+  }
+
+  Duration? _instaBoxWakeRetryDelay(http.Response response) {
+    if (response.statusCode != 503) return null;
+    final body = response.body.toLowerCase();
+    if (!body.contains('waking up') ||
+        (!body.contains('sandbox') && !body.contains('machine'))) {
+      return null;
+    }
+
+    final retryAfter = int.tryParse(response.headers['retry-after']?.trim() ?? '');
+    final seconds = retryAfter ?? 2;
+    return Duration(seconds: seconds.clamp(1, 15).toInt());
   }
 
   Map<String, dynamic> _tokenData(Map<String, dynamic> response) {
@@ -295,6 +370,7 @@ class NativeAuthClient implements NativeAuthSession {
   void close() {
     _closed = true;
     _clearMemory();
+    _wakeStatus.dispose();
     _http.close();
   }
 }
