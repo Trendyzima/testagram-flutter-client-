@@ -9,7 +9,7 @@ void main() {
   test('video feed exposes only public, ready records', () async {
     final api = VideoApi(
       baseUri: Uri.parse('https://video.example.test'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         expect(request.url.path, '/v1/feed');
         return http.Response(jsonEncode([
@@ -30,7 +30,7 @@ void main() {
   test('video likes require and forward the active session JWT', () async {
     final api = VideoApi(
       baseUri: Uri.parse('https://video.example.test'),
-      getJwt: () async => 'active-session-token',
+      getAccessToken: ({bool forceRefresh = false}) async => 'active-session-token',
       client: MockClient((request) async {
         expect(request.method, 'POST');
         expect(request.url.path, '/v1/videos/abc/like');
@@ -43,10 +43,36 @@ void main() {
     api.close();
   });
 
+  test('video likes refresh a native session once after a 401', () async {
+    final refreshCalls = <bool>[];
+    var requestCount = 0;
+    final api = VideoApi(
+      baseUri: Uri.parse('https://video.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async {
+        refreshCalls.add(forceRefresh);
+        return forceRefresh ? 'fresh-native-access-token' : 'expired-native-access-token';
+      },
+      client: MockClient((request) async {
+        requestCount++;
+        if (requestCount == 1) {
+          expect(request.headers['authorization'], 'Bearer expired-native-access-token');
+          return http.Response(jsonEncode({'error': 'expired'}), 401);
+        }
+        expect(request.headers['authorization'], 'Bearer fresh-native-access-token');
+        return http.Response(jsonEncode({'liked': true}), 200);
+      }),
+    );
+
+    expect(await api.like('abc'), isTrue);
+    expect(requestCount, 2);
+    expect(refreshCalls, [false, true]);
+    api.close();
+  });
+
   test('video likes fail closed when there is no session token', () async {
     final api = VideoApi(
       baseUri: Uri.parse('https://video.example.test'),
-      getJwt: () async => '',
+      getAccessToken: ({bool forceRefresh = false}) async => '',
       client: MockClient((_) async => http.Response('{}', 200)),
     );
 
