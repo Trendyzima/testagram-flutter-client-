@@ -12,7 +12,7 @@ void main() {
     test('does not enable identity registration by default', () {
       expect(
         AppConfig.enableIdentityRegistrationUi,
-        bool.fromEnvironment('TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED', defaultValue: false),
+        const bool.fromEnvironment('TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED', defaultValue: false),
       );
     });
 
