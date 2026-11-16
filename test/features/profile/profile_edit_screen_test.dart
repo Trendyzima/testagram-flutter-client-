@@ -10,7 +10,7 @@ void main() {
   testWidgets('profile editor presents XClone-inspired cover, avatar and profile fields', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'test-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
       client: MockClient((_) async => http.Response('{}', 200)),
     );
 
