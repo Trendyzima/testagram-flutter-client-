@@ -52,11 +52,13 @@ class IdentityApplicationStatus {
     required this.status,
     required this.verificationStatus,
     required this.sessionId,
+    required this.provisioningStatus,
   });
 
   final String status;
   final String verificationStatus;
   final String sessionId;
+  final String provisioningStatus;
 
   factory IdentityApplicationStatus.fromJson(Map<String, dynamic> json) {
     return IdentityApplicationStatus(
@@ -64,6 +66,7 @@ class IdentityApplicationStatus {
       verificationStatus:
           json['adult_verification_status'] as String? ?? 'unknown',
       sessionId: json['verification_session_id'] as String? ?? '',
+      provisioningStatus: json['account_provisioning_status'] as String? ?? '',
     );
   }
 }
@@ -286,19 +289,46 @@ class IdentityVerificationClient {
   Future<Map<String, dynamic>> redeemProvisioningAuthorization({
     required IdentityApplication application,
     required IdentityProvisioningAuthorization authorization,
-    required String appwriteJwt,
+    required String password,
   }) async {
     final response = await _client.post(
       _endpoint('/api/identity/applications/${application.applicationId}/redeem'),
       headers: {
         'Accept': 'application/json',
+        'Content-Type': 'application/json',
         'X-Application-Token': application.applicationToken,
         'X-Identity-Approval-Token': authorization.token,
         'X-Identity-Approval-JTI': authorization.jti,
-        'Authorization': 'Bearer $appwriteJwt',
       },
+      body: jsonEncode({'password': password}),
     );
     return _decode(response);
+  }
+
+  Future<void> verifyEmail({
+    required String applicationId,
+    required String token,
+  }) async {
+    final response = await _client.post(
+      _endpoint('/api/identity/applications/$applicationId/verify-email'),
+      headers: const {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: jsonEncode({'token': token}),
+    );
+    _decode(response);
+  }
+
+  Future<void> resendVerification(IdentityApplication application) async {
+    final response = await _client.post(
+      _endpoint('/api/identity/applications/${application.applicationId}/resend-verification'),
+      headers: {
+        'Accept': 'application/json',
+        'X-Application-Token': application.applicationToken,
+      },
+    );
+    _decode(response);
   }
 
   void close() => _client.close();
