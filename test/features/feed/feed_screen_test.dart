@@ -52,6 +52,9 @@ void main() {
 
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Latest'), findsOneWidget);
+    expect(find.text('Media'), findsOneWidget);
+    expect(find.text('Discover'), findsOneWidget);
     expect(find.text("What's happening?"), findsOneWidget);
     expect(find.text("What's happening"), findsOneWidget);
     expect(find.text('#kenyatech'), findsOneWidget);
@@ -60,7 +63,9 @@ void main() {
 
     await tester.tap(find.text('Following'));
     await tester.pumpAndSettle();
-    expect(requestedUris.any((uri) => uri.queryParameters['following_only'] == 'true'), isTrue);
+    expect(requestedUris.any((uri) =>
+        uri.queryParameters['following_only'] == 'true' &&
+        uri.queryParameters['feed'] == 'following'), isTrue);
     expect(tester.takeException(), isNull);
     api.close();
   });
@@ -87,6 +92,7 @@ void main() {
     expect(find.text('Followers'), findsOneWidget);
     expect(find.text('Only me'), findsOneWidget);
     expect(find.text('Add photo (0/4)'), findsOneWidget);
+    expect(find.text('Add video (0/1)'), findsOneWidget);
     expect(find.text('Publish'), findsOneWidget);
     api.close();
   });
@@ -132,6 +138,62 @@ void main() {
 
     expect(find.text('A gallery post'), findsOneWidget);
     expect(find.byType(Image), findsNWidgets(2));
+    api.close();
+  });
+
+  testWidgets('video posts open Shorts instead of being decoded as images', (tester) async {
+    final requestedUris = <Uri>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        requestedUris.add(request.url);
+        if (request.url.path == '/api/feed/home' &&
+            request.url.queryParameters['video_only'] == 'true') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'posts': [], 'has_more': false, 'next_cursor': ''},
+          }), 200);
+        }
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'video-post-1',
+                'content': 'A short video',
+                'is_video': true,
+                'created_at': '2026-11-15T09:00:00Z',
+                'media_urls': ['https://cdn.testagram.site/video.mp4'],
+                'media_content_types': ['video/mp4'],
+                'author': {'id': 'creator-id', 'username': 'creator', 'display_name': 'Creator'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'likes': 0, 'replies': 0, 'reposts': 0},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Watch in Shorts'), findsOneWidget);
+    expect(find.byType(Image), findsNothing);
+    // The video URL is never sent to Image.network; tapping opens the native
+    // Shorts route, whose platform player is exercised by device/integration tests.
+    expect(requestedUris.any((uri) => uri.queryParameters['video_only'] == 'true'), isFalse);
+    expect(tester.takeException(), isNull);
     api.close();
   });
 
@@ -248,5 +310,65 @@ void main() {
     api.close();
   });
 
+  testWidgets('post menu publishes a quote through the canonical repost endpoint', (tester) async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'quote-source-1',
+                'content': 'Original post to quote',
+                'created_at': '2026-11-14T09:00:00Z',
+                'author': {'username': 'alice', 'display_name': 'Alice'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path.endsWith('/interaction-summary')) {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'is_reposted': true, 'reposts': 1},
+          }), 200);
+        }
+        if (request.url.path == '/api/social/posts/quote-source-1/reposts') {
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'quote-1'}}), 201);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Post actions'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Quote post'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Original post to quote'), findsAtLeastNWidgets(1));
+    await tester.enterText(find.byType(TextField).last, 'Adding my perspective');
+    await tester.pumpAndSettle();
+    final publish = find.widgetWithText(FilledButton, 'Publish quote');
+    expect(tester.widget<FilledButton>(publish).onPressed, isNotNull);
+    await tester.tap(publish);
+    await tester.pumpAndSettle();
+
+    final quoteRequest = requests.firstWhere(
+      (request) => request.url.path == '/api/social/posts/quote-source-1/reposts',
+    );
+    expect(quoteRequest.method, 'POST');
+    expect(jsonDecode(quoteRequest.body), {'quote': 'Adding my perspective'});
+    expect(find.text('Your quote was published.'), findsOneWidget);
+    api.close();
+  });
 
 }
