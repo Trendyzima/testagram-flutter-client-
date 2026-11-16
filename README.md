@@ -5,7 +5,7 @@ The canonical native Flutter application for Testagram. This repository is inten
 ## Six runtime repositories + API contract control plane
 
 - **This repository — Flutter client:** native presentation, navigation, local UX state, device permissions and API transport.
-- **Testagram Backend:** canonical Appwrite identity validation, account linking, authorization, profiles, posts, social graph, feed orchestration and public API.
+- **Testagram Backend:** canonical Testagram identity, native authentication, account linking, authorization, profiles, posts, social graph, feed orchestration and public API.
 - **Testagram CDN:** media delivery, edge caching and range/HLS transport. Private-media access remains origin-authoritative; the CDN must not turn private storage objects into public URLs.
 - **The Algorithm:** private ranking and recommendations. The client never calls it directly.
 - **Testagram Data Centre:** deployment, object-storage durability, infrastructure, backups and restore. Storage objects remain private and are not exposed directly by the client.
@@ -14,13 +14,13 @@ The canonical native Flutter application for Testagram. This repository is inten
 
 ## Hard security boundaries
 
-- Appwrite Client SDK is used only for end-user authentication and session JWT creation.
-- All product data operations go through the public Testagram Backend API using an Appwrite JWT.
-- Media delivery must use the Testagram CDN and the Backend/CDN authorization contract; do not return direct Appwrite Storage or Instabox object URLs to clients. Private assets must be authorized at the origin and excluded from shared caching unless the origin explicitly marks them public.
-- Never connect from Flutter directly to PostgreSQL/Neon, Appwrite databases, private service APIs, queues, object-store credentials, or federation/ranking services.
+- Flutter authentication is Testagram-owned. The client uses the Backend's native login, refresh, logout and password-recovery endpoints; it does not use a third-party identity SDK or provider JWTs.
+- All authenticated product data operations go through the public Testagram Backend API using short-lived Testagram access tokens. The rotating refresh token is stored in platform secure storage; access tokens remain in memory.
+- Media delivery must use the Testagram CDN and the Backend/CDN authorization contract; do not return direct object-storage URLs to clients. Private assets must be authorized at the origin and excluded from shared caching unless the origin explicitly marks them public.
+- Never connect from Flutter directly to PostgreSQL/Neon, private service APIs, queues, object-store credentials, or federation/ranking services.
 - Never add Supabase SDKs, Supabase URLs/keys, Edge Function calls, or direct database access.
 - Never add Upstash or hosted Redis dependencies.
-- The Backend must reject unknown/unlinked Appwrite identities. Do not silently create a canonical account or link by matching email.
+- The Backend must reject unknown or unapproved identities. Do not silently create a canonical account or link accounts by matching email alone.
 - Unsupported API operations must show an explicit unavailable/error state; never fabricate success or substitute empty data for a failed request.
 
 ## Configure and run
@@ -33,18 +33,18 @@ flutter pub get
 flutter analyze
 flutter test
 flutter run \
-  --dart-define=APPWRITE_ENDPOINT=https://cloud.example.test/v1 \
-  --dart-define=APPWRITE_PROJECT_ID=YOUR_APPWRITE_PROJECT_ID \
+  --dart-define=TESTAGRAM_API_URL=https://api.testagram.site
+
   --dart-define=TESTAGRAM_API_URL=https://api.testagram.site
 ```
 
-Use your actual Appwrite endpoint and project ID. For local development, use an HTTPS development endpoint or localhost HTTP. Do not commit credentials, signing keys, tokens, or environment-specific production configuration.
+The Flutter client needs only the public Testagram Backend URL. For local development, use an HTTPS development endpoint or localhost HTTP. Do not commit credentials, signing keys, tokens, or environment-specific production configuration.
 
 ## Current implementation status
 
 The Android application ID is generated as `com.xclone.app` to preserve the existing XClone installation identity for a carefully staged upgrade. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
 
-The initial native foundation includes Appwrite email/password session login, Backend JWT transport, authenticated home-feed retrieval, post creation , loading/error/empty states, and a dark-green Testagram visual foundation. Native Polls list, create, vote and results are now available through the Backend polls API.
+The native foundation includes Testagram-owned email/password login, rotating native sessions, Backend access-token transport, authenticated home-feed retrieval, post creation, loading/error/empty states, and a dark-green Testagram visual foundation. Native Polls list, create, vote and results are now available through the Backend polls API.
 
 This is an expanding migration slice, **not full XClone feature parity or a production release**. The source XClone Flutter app contains 121 Dart files and 214 GoRouter route patterns; the route-by-route parity ledger is in `docs/xclone-route-migration-matrix.md`. The destination intentionally does not copy the legacy monorepo or its dependencies. The native main-feed composer now publishes through the Backend's idempotent `POST /api/social/posts` route. It supports text and optional public-image uploads/attachments through Backend-owned media APIs. Post creation commits before media uploads and attachments; if a later media step fails, the client explicitly reports that the text post was published with incomplete media and attempts to delete unattached uploads. This is a deliberate partial-success flow, not an atomic post-plus-media transaction. It does not establish private-media/CDN authorization readiness, which still requires cross-repository staging tests. Profiles and complete graph flows, messaging/E2EE/calls, stories, video/live/TV, creator tools, commerce/wallet/M-Pesa, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests remain open. Each feature must be implemented against a verified Backend contract before being marked complete.
 
@@ -53,7 +53,7 @@ This is an expanding migration slice, **not full XClone feature parity or a prod
 1. Every XClone user-facing route has a native equivalent or an explicitly approved retirement.
 2. No Supabase SDK/import/env/URL/Edge Function/database operation remains in the Flutter client.
 3. No Upstash/Redis dependency is introduced in the client.
-4. All authenticated operations use Appwrite JWTs and Backend authorization.
+4. All authenticated operations use Testagram native access tokens and Backend authorization.
 5. Backend, Algorithm, Data Centre, Federation and CDN integration contracts pass across the six runtime repositories, with API contract-governance checks.
 6. `flutter analyze`, `flutter test`, Android debug/release builds and real-device smoke tests pass.
 7. Existing XClone data, deep links, app identity/signing and user sessions are migrated safely before retiring the old client.
@@ -75,14 +75,13 @@ The client now talks to verified first-class Backend routes:
 - `GET /api/social/notifications` and `POST /api/social/notifications/{id}/read` — notifications.
 - `GET|POST /api/threads` and dedicated thread interaction endpoints — separate thread product surface.
 
-The Flutter client must use Backend-owned Fediverse endpoints for every signed-in interaction; it must never call the Federation private or public protocol API directly and must not request a separate Mastodon password/session. The existing Appwrite session remains the only Testagram login.
+The Flutter client must use Backend-owned Fediverse endpoints for every signed-in interaction; it must never call the Federation private or public protocol API directly and must not request a separate Mastodon password/session. The Testagram native session is the only supported Flutter login.
 
 The Flutter CI runs `tool/check_dependency_boundary.dart`, which fails if Supabase, Upstash or Redis references are introduced into `lib/`, `test/`, platform/tooling source, `pubspec.yaml`, environment files, or the resolved `pubspec.lock`. Do not weaken or remove this check to make a build pass.
 
 ## Explicitly not migrated yet
 
-- **Main-feed text publishing is implemented, but staging acceptance remains open.** The native composer calls the Backend's idempotent `POST /api/social/posts` route and refreshes `GET /api/feed/home`. Widget tests verify request shape, Appwrite bearer transport and the idempotency header; they do not prove the deployed Backend, PostgreSQL or Appwrite integration.
+- **Main-feed text publishing is implemented, but staging acceptance remains open.** The native composer calls the Backend's idempotent `POST /api/social/posts` route and refreshes `GET /api/feed/home`. Widget tests verify request shape, Testagram native bearer transport and the idempotency header; they do not prove the deployed Backend, PostgreSQL or media-provider integration.
 - **Public-image attachment is implemented as a sequential, partial-success flow, not an atomic transaction.** Flutter creates the text post first, uploads each image through `POST /api/media/upload-intent` → bounded `PUT /api/media/upload` → `POST /api/media/complete`, waits for `status=ready`, then attaches each verified key. If upload/attachment fails after post creation, the text post remains published and the UI reports that partial success; unattached uploaded objects are best-effort deleted and the Backend janitor remains the recovery mechanism. Only public posts currently allow photo attachments. This is not evidence of three-provider replication or CDN authorization in staging.
 - **Media lifecycle production acceptance remains open.** The Backend media endpoints and Flutter client transport exist, but real Instabox/R2/B2 read-back, checksum verification, outage/repair, private-media authorization, CDN cache isolation/purge, and physical Android/web upload journeys must pass before enabling the fresh media path.
-- Profile read/update, direct messages, voice/video calls, wallet and M-Pesa, TV studio, creator/advertising, admin/moderation and federation: no feature is marked complete merely because a legacy route exists.
 - Profile read/update, direct messages, voice/video calls, wallet and M-Pesa, TV studio, creator/advertising, admin/moderation and federation: no feature is marked complete merely because a legacy route exists.
