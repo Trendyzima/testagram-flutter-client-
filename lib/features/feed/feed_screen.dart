@@ -361,9 +361,18 @@ class _FeedScreenState extends State<FeedScreen> {
     appBar: AppBar(
       title: Row(
         children: [
-          Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
-          const SizedBox(width: 9),
-          const Text('T social'),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(9),
+            child: Image.asset(
+              'assets/branding/testagram-icon.webp',
+              width: 30,
+              height: 30,
+              fit: BoxFit.cover,
+              semanticLabel: 'Testagram',
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Text('Testagram'),
         ],
       ),
       actions: [
