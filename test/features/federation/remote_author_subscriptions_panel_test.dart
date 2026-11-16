@@ -62,7 +62,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('alice@mastodon.social'), findsOneWidget);
-    expect(find.textContaining('pending'), findsOneWidget);
+    expect(find.textContaining('activitypub · pending'), findsOneWidget);
     expect(requests.where((request) => request.method == 'POST'), hasLength(1));
     expect(jsonDecode(requests.firstWhere((request) => request.method == 'POST').body), {
       'protocol': 'activitypub',
