@@ -32,7 +32,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.example'),
-      getJwt: () async => 'test-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
       client: client,
     );
 
