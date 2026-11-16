@@ -818,34 +818,14 @@ class _AuthScreenState extends State<AuthScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 54,
-                height: 54,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [scheme.primary, scheme.primary.withValues(alpha: 0.78)],
-                  ),
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: scheme.primary.withValues(alpha: 0.22),
-                      blurRadius: 16,
-                      offset: const Offset(0, 7),
-                    ),
-                  ],
-                ),
-                child: const Center(
-                  child: Text(
-                    'T',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 31,
-                      fontWeight: FontWeight.w900,
-                      letterSpacing: -1.8,
-                    ),
-                  ),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(17),
+                child: Image.asset(
+                  'assets/branding/testagram-icon.webp',
+                  width: 58,
+                  height: 58,
+                  fit: BoxFit.cover,
+                  semanticLabel: 'Testagram',
                 ),
               ),
               const SizedBox(width: 12),
@@ -853,13 +833,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('T social',
+                    Text('Testagram',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
                             letterSpacing: -0.7,
                           )),
                     Text(
-                      'Your world, in the conversation.',
+                      'Your world. Your voice. Your community.',
                       softWrap: true,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
