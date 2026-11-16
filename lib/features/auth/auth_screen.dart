@@ -2,11 +2,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import '../../core/app_config.dart';
 import '../../core/backend_api.dart';
+import '../../core/auth/native_auth_client.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 import 'identity_application_store.dart';
@@ -16,7 +16,7 @@ enum _Page { signIn, signUp, forgot, verify, reset, identity }
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
     super.key,
-    required this.account,
+    required this.authClient,
     required this.onSignedIn,
     this.requireVerification = false,
     this.requireIdentityReview = false,
@@ -24,7 +24,7 @@ class AuthScreen extends StatefulWidget {
     this.enableIdentityRegistration = false,
     this.identityApplicationStore,
   });
-  final Account account;
+  final NativeAuthSession authClient;
   final VoidCallback onSignedIn;
   final bool requireVerification;
   final bool requireIdentityReview;
@@ -48,7 +48,7 @@ class _AuthScreenState extends State<AuthScreen> {
   IdentityApplication? _identityApplication;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
   IdentityApplicationStatus? _identityStatus;
-  String? _error, _notice, _recoveryUser, _recoverySecret;
+  String? _error, _notice, _recoveryToken;
 
   @override
   void initState() {
@@ -58,8 +58,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final entry = AuthEntry.fromUri(Uri.base);
     switch (entry.mode) {
       case AuthEntryMode.resetPassword:
-        _recoveryUser = entry.userId;
-        _recoverySecret = entry.secret;
+        _recoveryToken = entry.token;
         _page = _Page.reset;
         if (!entry.hasCompleteCallback) {
           _error = 'This password reset link is incomplete. Request a new reset email.';
@@ -69,10 +68,10 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
           WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _verify(entry.userId!, entry.secret!),
+            (_) => _verify(entry.applicationId!, entry.token!),
           );
         } else {
-          _notice = 'Open the complete verification link from your email, or request another one.';
+          _notice = 'Open the complete Testagram verification link from your email, or request another one.';
         }
         break;
       case AuthEntryMode.signUp:
