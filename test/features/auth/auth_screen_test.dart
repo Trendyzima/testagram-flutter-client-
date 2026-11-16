@@ -105,7 +105,7 @@ void main() {
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
     expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
     expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.textContaining('Two independent reviewers must approve'), findsOneWidget);
+    expect(find.textContaining('Two independent reviewers and two independent account approvers must approve'), findsOneWidget);
 
     final action = find.widgetWithText(FilledButton, 'Submit identity application');
     expect(action, findsOneWidget);
