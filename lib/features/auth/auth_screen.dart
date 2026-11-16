@@ -213,24 +213,13 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signIn() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
-      await widget.account.createEmailPasswordSession(
+      await widget.authClient.signIn(
         email: _email.text.trim().toLowerCase(),
         password: _password.text,
       );
-      final user = await widget.account.get();
-      if (!user.emailVerification) {
-        if (mounted) {
-          setState(() {
-            _page = _Page.verify;
-            _notice = 'Your email is not verified yet. Check your inbox or resend the verification link.';
-          });
-        }
-        return;
-      }
-
       final backend = BackendApi(
         baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
+        getAccessToken: widget.authClient.accessToken,
       );
       try {
         await backend.getMyProfile();
@@ -238,21 +227,31 @@ class _AuthScreenState extends State<AuthScreen> {
         final message = error.message.toLowerCase();
         if (error.statusCode == 403 &&
             (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-             message.contains('identity review') ||
-             message.contains('two-person account approval')))  {
+                message.contains('identity review') ||
+                message.contains('two-person account approval'))) {
           if (mounted) {
             setState(() {
-              _name.text = user.name;
-              _email.text = user.email;
-              _username.text = user.email.split('@').first
+              _email.text = _email.text.trim().toLowerCase();
+              _username.text = _email.text.split('@').first
                   .toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
                   .replaceAll(RegExp(r'_+'), '_');
               if (_username.text.length < 3) _username.text = 'user_account';
-              if (_username.text.length > 30) _username.text = _username.text.substring(0, 30);
+              if (_username.text.length > 30) {
+                _username.text = _username.text.substring(0, 30);
+              }
               _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
               _notice = widget.enableIdentityRegistration
-                  ? 'Your Appwrite login is valid, but this account has not completed Testagram identity review and two-person approval. Submit an application to continue.'
-                  : 'Your Appwrite login is valid, but this account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
+                  ? 'This Testagram account has not completed identity review and two-person approval. Submit an application to continue.'
+                  : 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
+            });
+          }
+          return;
+        }
+        if (error.statusCode == 403 && error.code == 'EMAIL_VERIFICATION_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = _Page.verify;
+              _notice = 'Verify the email address linked to your approved Testagram application before signing in.';
             });
           }
           return;
