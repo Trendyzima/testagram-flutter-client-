@@ -435,7 +435,10 @@ void main() {
     expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
     expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
 
-    final menuFinder = find.byTooltip('Post actions');
+    final menuFinder = find.ancestor(
+      of: find.byTooltip('Post actions'),
+      matching: find.byType(PopupMenuButton<String>),
+    );
     expect(menuFinder, findsOneWidget);
     final menu = tester.widget<PopupMenuButton<String>>(menuFinder);
     final menuContext = tester.element(menuFinder);
