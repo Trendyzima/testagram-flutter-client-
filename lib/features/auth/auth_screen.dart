@@ -115,29 +115,6 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() { _page = p; _error = null; _notice = null; });
   }
 
-  Widget _modeNavigation() {
-    if (_page == _Page.identity) return const SizedBox.shrink();
-    final modes = <(_Page, String)>[
-      (_Page.signIn, 'Sign in'),
-      if (widget.enableIdentityRegistration) (_Page.signUp, 'Sign up'),
-      (_Page.forgot, 'Reset password'),
-    ];
-    return Wrap(
-      alignment: WrapAlignment.center,
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        for (final mode in modes)
-          ChoiceChip(
-            label: Text(mode.$2),
-            selected: _page == mode.$1,
-            onSelected: _busy ? null : (_) => _go(mode.$1),
-            showCheckmark: false,
-          ),
-      ],
-    );
-  }
-
   String? _emailValid(String? v) {
     final s = v?.trim() ?? '';
     if (s.isEmpty) {
@@ -1118,7 +1095,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 40, offset: const Offset(0, 18))]),
                     padding: const EdgeInsets.all(12),
                     child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Expanded(child: SizedBox(minHeight: 690, child: brandPanel())),
+                      Expanded(child: ConstrainedBox(constraints: const BoxConstraints(minHeight: 690), child: brandPanel())),
                       const SizedBox(width: 12),
                       Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(40, 34, 40, 28), child: formContent(compact: false))),
                     ]),
