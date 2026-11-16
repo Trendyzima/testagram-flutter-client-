@@ -248,7 +248,7 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
         );
       }
       if (response.statusCode == 409 && body.contains('machine_cooldown')) {
-        throw NativeAuthException(
+        throw const NativeAuthException(
           'InstaBox is in its maximum-runtime cooldown. Wait for the provider Retry-After period before signing in.',
           statusCode: 409,
           code: 'MACHINE_COOLDOWN',
