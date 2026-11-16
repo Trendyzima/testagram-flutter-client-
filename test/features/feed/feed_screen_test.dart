@@ -111,9 +111,12 @@ void main() {
                 'content': 'A gallery post',
                 'created_at': '2026-11-12T09:00:00Z',
                 'media_urls': [
-                  'https://media.testagram.site/one.webp',
-                  'https://media.testagram.site/two.webp',
+                  'https://media.testagram.site/users/u1/one.webp',
+                  'https://media.testagram.site/users/u1/two.webp',
                 ],
+                'media_auth_headers': {
+                  'https://media.testagram.site/users/u1/one.webp': 'Bearer v1.test',
+                },
                 'author': {'username': 'alice', 'display_name': 'Alice'},
               }],
               'has_more': false,
@@ -137,7 +140,16 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('A gallery post'), findsOneWidget);
-    expect(find.byType(Image), findsNWidgets(2));
+    final images = tester.widgetList<Image>(find.byType(Image)).toList();
+    expect(images, hasLength(2));
+    final firstProvider = images.first.image;
+    expect(firstProvider, isA<NetworkImage>());
+    final normalizedImage = firstProvider as NetworkImage;
+    expect(
+      normalizedImage.url,
+      'https://media.testagram.site/media/users/u1/one.webp',
+    );
+    expect(normalizedImage.headers?['Authorization'], 'Bearer v1.test');
     api.close();
   });
 
