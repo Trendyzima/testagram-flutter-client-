@@ -96,7 +96,7 @@ void main() {
 
     // Identity review mode intentionally opens the application page directly;
     // it must not require a second tap on the sign-in-only Create account action.
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
@@ -130,7 +130,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Submit application'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
