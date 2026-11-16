@@ -16,9 +16,25 @@ class PrivateMediaAccess {
 class BackendApi {
   BackendApi({
     required this.baseUri,
-    required this.getAccessToken,
+    Future<String?> Function({bool forceRefresh})? getAccessToken,
+    Future<String?> Function()? getJwt,
     http.Client? client,
-  }) : _client = client ?? http.Client();
+  })  : getAccessToken = _resolveAccessTokenProvider(getAccessToken, getJwt),
+        _client = client ?? http.Client();
+
+  /// Temporary source-compatibility alias for pre-native token-provider
+  /// call sites in the PR base. New code must pass [getAccessToken]. This
+  /// adapter does not add an Appwrite SDK, session store, or auth fallback.
+  static Future<String?> Function({bool forceRefresh}) _resolveAccessTokenProvider(
+    Future<String?> Function({bool forceRefresh})? getAccessToken,
+    Future<String?> Function()? getJwt,
+  ) {
+    if (getAccessToken != null) return getAccessToken;
+    if (getJwt != null) {
+      return ({bool forceRefresh = false}) => getJwt();
+    }
+    throw ArgumentError('getAccessToken is required.');
+  }
 
   final Uri baseUri;
 
