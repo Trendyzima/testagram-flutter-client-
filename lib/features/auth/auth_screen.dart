@@ -787,8 +787,8 @@ class _AuthScreenState extends State<AuthScreen> {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isDark
-                ? [const Color(0xFF080B10), const Color(0xFF101B2A), const Color(0xFF080B10)]
-                : [const Color(0xFFF2F7FC), const Color(0xFFFFFFFF), const Color(0xFFEAF3FC)],
+                ? [const Color(0xFF08110E), const Color(0xFF10251D), const Color(0xFF09120F)]
+                : [const Color(0xFFEAF4EF), const Color(0xFFFFFFFF), const Color(0xFFF0F6F2)],
           ),
         ),
         child: SafeArea(
@@ -796,21 +796,21 @@ class _AuthScreenState extends State<AuthScreen> {
             child: SingleChildScrollView(
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
+                constraints: const BoxConstraints(maxWidth: 460),
                 child: Container(
                   decoration: BoxDecoration(
                     color: scheme.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.8)),
                     boxShadow: [
                       BoxShadow(
                         color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
-                        blurRadius: 36,
-                        offset: const Offset(0, 18),
+                        blurRadius: 42,
+                        offset: const Offset(0, 20),
                       ),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
+                  padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
                   child: Material(
                     color: scheme.surface,
                     borderRadius: BorderRadius.circular(28),
@@ -853,13 +853,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('T social',
+                    Text('TESTAGRAM',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.w900,
-                            letterSpacing: -0.7,
+                            letterSpacing: 1.1,
                           )),
                     Text(
-                      'Your world, in the conversation.',
+                      'Your people. Your voice. Your world.',
                       softWrap: true,
                       style: Theme.of(context).textTheme.bodySmall,
                     ),
@@ -875,7 +875,7 @@ class _AuthScreenState extends State<AuthScreen> {
               textAlign: TextAlign.center,
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                     fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
+                    letterSpacing: -0.9,
                     height: 1.12,
                   )),
           const SizedBox(height: 8),
