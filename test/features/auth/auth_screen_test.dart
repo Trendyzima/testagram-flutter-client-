@@ -1,6 +1,6 @@
-import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:testagram/core/auth/native_auth_client.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 import 'package:testagram/features/auth/identity_application_store.dart';
 
@@ -21,19 +21,19 @@ class _MemoryIdentityStorage implements IdentityApplicationSecureStorage {
   }
 }
 
-class _FakeAccount implements Account {
+class _FakeNativeAuthSession implements NativeAuthSession {
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
 void main() {
-  late Account account;
+  late NativeAuthSession authClient;
   late IdentityApplicationStore identityStore;
 
   setUp(() {
     // These screen tests exercise local navigation and registration consent gates;
-    // no Appwrite network or platform implementation should be constructed.
-    account = _FakeAccount();
+    // no network or platform implementation should be constructed.
+    authClient = _FakeNativeAuthSession();
     identityStore = IdentityApplicationStore(storage: _MemoryIdentityStorage());
   });
 
@@ -47,7 +47,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
-        account: account,
+        authClient: authClient,
         onSignedIn: () {},
         identityApplicationStore: identityStore,
         requireIdentityReview: true,
@@ -63,7 +63,7 @@ void main() {
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
@@ -91,12 +91,11 @@ void main() {
   testWidgets('registration requires private identity evidence and dual approval before account creation',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
+    // Identity review mode intentionally opens the application page directly;
+    // it must not require a second tap on the sign-in-only Create account action.
     expect(find.text('Create your account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Email'), findsOneWidget);
@@ -112,7 +111,7 @@ void main() {
     expect(action, findsOneWidget);
     expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
 
-    // The form still validates locally before any Appwrite request is made.
+    // The form still validates locally before any backend request is made.
     await tapVisible(tester, action);
     expect(find.text('Enter your name.'), findsOneWidget);
     expect(find.text('Use 3–30 letters, numbers or underscores.'), findsOneWidget);
@@ -123,7 +122,7 @@ void main() {
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
-        account: account,
+        authClient: authClient,
         onSignedIn: () {},
         requireIdentityReview: true,
         enableIdentityRegistration: true,
@@ -142,11 +141,9 @@ void main() {
 
   testWidgets('legal documents can be read before consent', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
+    // Identity review mode opens the gated application page directly.
     await tapVisible(tester, find.text('Read Terms and Conditions'));
     expect(find.text('Terms and Conditions'), findsOneWidget);
     expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
@@ -160,7 +157,7 @@ void main() {
   testWidgets('forgot-password page is reachable from sign in',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(account: account, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.text('Forgot password?'));
