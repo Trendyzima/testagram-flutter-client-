@@ -123,6 +123,102 @@ void main() {
     client.close();
   });
 
+  test('honors the full InstaBox Retry-After value without shortening it', () async {
+    final waits = <Duration>[];
+    var calls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      waitBeforeWakeRetry: (delay) async => waits.add(delay),
+      httpClient: MockClient((_) async {
+        calls++;
+        if (calls == 1) {
+          return http.Response(
+            'Sandbox is waking up',
+            503,
+            headers: {'retry-after': '20'},
+          );
+        }
+        return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+      }),
+    );
+
+    await client.signIn(
+      email: 'user@example.test',
+      password: 'correct-password-123',
+    );
+
+    expect(calls, 2);
+    expect(waits, [const Duration(seconds: 20)]);
+    client.close();
+  });
+
+  test('does not retry when InstaBox Retry-After exceeds the bounded wake window', () async {
+    var calls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      waitBeforeWakeRetry: (_) async => fail('must not retry beyond wake window'),
+      httpClient: MockClient((_) async {
+        calls++;
+        return http.Response(
+          'Sandbox is waking up',
+          503,
+          headers: {'retry-after': '180'},
+        );
+      }),
+    );
+
+    await expectLater(
+      client.signIn(
+        email: 'user@example.test',
+        password: 'correct-password-123',
+      ),
+      throwsA(
+        isA<NativeAuthException>()
+            .having((error) => error.code, 'code', 'SANDBOX_WAKING_UP'),
+      ),
+    );
+    expect(calls, 1);
+    client.close();
+  });
+
+  test('does not retry an InstaBox max-runtime cooldown response', () async {
+    var calls = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: _MemoryNativeAuthStorage(),
+      waitBeforeWakeRetry: (_) async => fail('cooldown is not an idle wake'),
+      httpClient: MockClient((_) async {
+        calls++;
+        return http.Response(
+          jsonEncode({
+            'error': {
+              'code': 'machine_cooldown',
+              'message': 'Machine is in cooldown after maximum runtime.',
+              'retryable': true,
+            },
+          }),
+          409,
+          headers: {'retry-after': '300'},
+        );
+      }),
+    );
+
+    await expectLater(
+      client.signIn(
+        email: 'user@example.test',
+        password: 'correct-password-123',
+      ),
+      throwsA(
+        isA<NativeAuthException>()
+            .having((error) => error.statusCode, 'statusCode', 409),
+      ),
+    );
+    expect(calls, 1);
+    client.close();
+  });
+
   test('does not retry ordinary application 503 responses', () async {
     var calls = 0;
     final client = NativeAuthClient(
