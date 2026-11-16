@@ -1,0 +1,95 @@
+name: Testagram production domain smoke test
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/domain-smoke.yml"
+      - "cloudflare-pages/**"
+      - ".github/workflows/deploy-cloudflare-pages.yml"
+  schedule:
+    - cron: "*/15 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testagram-domain-smoke
+  cancel-in-progress: false
+
+jobs:
+  smoke:
+    name: Check apex, www, Pages and API hostnames
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe production hostnames
+        shell: bash
+        run: |
+          set -uo pipefail
+          mkdir -p domain-results
+          failed=0
+
+          probe() {
+            local label="$1" url="$2" expected="$3" body="domain-results/body.txt" headers="domain-results/headers.txt" status location
+            status="$(curl --silent --show-error --retry 2 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 -D "$headers" -o "$body" -w '%{http_code}' "$url" 2>domain-results/curl-error.txt)" || status="000"
+            location="$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$headers" 2>/dev/null | tail -n1)"
+            printf '%s\t%s\t%s\t%s\n' "$label" "$status" "$expected" "$location" | tee -a domain-results/results.tsv
+            if [[ "$status" != "$expected" ]]; then
+              echo "::error::$label returned HTTP $status; expected $expected ($url)"
+              cat domain-results/curl-error.txt || true
+              failed=1
+            fi
+            cp "$body" "domain-results/${label//[^a-zA-Z0-9_-]/_}.body" 2>/dev/null || true
+            cp "$headers" "domain-results/${label//[^a-zA-Z0-9_-]/_}.headers" 2>/dev/null || true
+          }
+
+          : > domain-results/results.tsv
+          probe apex_root https://testagram.site/ 308
+          if ! grep -qi '^location: https://www\.testagram\.site/' domain-results/apex_root.headers; then
+            echo "::error::Apex root must redirect to https://www.testagram.site/ while preserving the path."
+            failed=1
+          fi
+
+          probe www_root https://www.testagram.site/ 200
+          if ! grep -Fq 'flutter_bootstrap.js' domain-results/www_root.body; then
+            echo "::error::www root did not serve the Flutter application shell."
+            failed=1
+          fi
+
+          probe www_signin https://www.testagram.site/?mode=signin 200
+          if ! grep -Fq 'flutter_bootstrap.js' domain-results/www_signin.body; then
+            echo "::error::Sign-in deep link did not return the Flutter application shell."
+            failed=1
+          fi
+
+          probe pages_dev_root https://testagram-flutter-web.pages.dev/ 200
+          if ! grep -Fq 'flutter_bootstrap.js' domain-results/pages_dev_root.body; then
+            echo "::error::Pages project hostname did not serve the Flutter application shell."
+            failed=1
+          fi
+
+          probe api_health https://api.testagram.site/healthz 200
+
+          {
+            echo "## Testagram domain smoke test"
+            echo ""
+            echo "| Host/path | HTTP | Expected | Redirect |"
+            echo "|---|---:|---:|---|"
+            while IFS=$'\t' read -r label status expected location; do
+              printf '| %s | %s | %s | %s |\n' "$label" "$status" "$expected" "${location:-—}"
+            done < domain-results/results.tsv
+            echo ""
+            echo "This workflow is read-only. It does not change DNS, Pages domains, Workers, deployments, or application data."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          exit "$failed"
+
+      - name: Preserve probe evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testagram-domain-smoke-evidence
+          path: domain-results/
+          if-no-files-found: warn
+          retention-days: 7
