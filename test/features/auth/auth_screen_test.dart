@@ -67,6 +67,8 @@ void main() {
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('TESTAGRAM'), findsOneWidget);
+    expect(find.text('Your people. Your voice. Your world.'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('New to Testagram?'), findsOneWidget);
