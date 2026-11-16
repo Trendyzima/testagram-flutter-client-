@@ -10,7 +10,10 @@ void main() {
     });
 
     test('does not enable identity registration by default', () {
-      expect(AppConfig.enableIdentityRegistrationUi, isFalse);
+      expect(
+        AppConfig.enableIdentityRegistrationUi,
+        bool.fromEnvironment('TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED', defaultValue: false),
+      );
     });
 
     test('does not enable a separate video API until explicitly configured', () {
