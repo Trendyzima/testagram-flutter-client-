@@ -435,12 +435,13 @@ void main() {
     expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
     expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
 
-    await tester.tap(find.byTooltip('Post actions'));
-    await tester.pumpAndSettle();
-    final quote = tester.widget<PopupMenuItem>(find.ancestor(
-      of: find.text('Quote post'),
-      matching: find.byType(PopupMenuItem),
-    ).first);
+    final menuFinder = find.byTooltip('Post actions');
+    expect(menuFinder, findsOneWidget);
+    final menu = tester.widget<PopupMenuButton<String>>(menuFinder);
+    final menuContext = tester.element(menuFinder);
+    final entries = menu.itemBuilder(menuContext);
+    final quote = entries.whereType<PopupMenuItem<String>>()
+        .firstWhere((entry) => entry.value == 'quote');
     expect(quote.enabled, isFalse);
     api.close();
   });
