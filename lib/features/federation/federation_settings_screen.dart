@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import 'remote_author_subscriptions_panel.dart';
 
 class FederationSettingsScreen extends StatefulWidget {
   const FederationSettingsScreen({super.key, required this.api});
@@ -138,6 +139,8 @@ class _FederationSettingsScreenState extends State<FederationSettingsScreen> {
                     secondary: const Icon(Icons.public_rounded),
                   ),
                 ),
+                const SizedBox(height: 18),
+                RemoteAuthorSubscriptionsPanel(api: widget.api),
                 if (_saving) ...[
                   const SizedBox(height: 12),
                   const LinearProgressIndicator(),
