@@ -476,6 +476,11 @@ class _FeedScreenState extends State<FeedScreen> {
                     }
                     final post = _posts[index];
                     final id = (post['id'] ?? '').toString();
+                    final rawContentTypes = post['media_content_types'];
+                    final isVideoPost = post['is_video'] == true ||
+                        (rawContentTypes is List && rawContentTypes.any(
+                          (type) => type.toString().toLowerCase().startsWith('video/'),
+                        ));
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
