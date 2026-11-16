@@ -25,7 +25,7 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Appearance', style: Theme.of(context).textTheme.titleLarge),
+          Text('Make Testagram yours', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Card(
             child: RadioGroup<ThemeMode>(
@@ -45,7 +45,7 @@ class SettingsScreen extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
-          Text('Account', style: Theme.of(context).textTheme.titleLarge),
+          Text('Your account', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
           Card(
             child: ListTile(
@@ -104,7 +104,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'More account, privacy, notification and connected-service controls will be added when their native Backend contracts are available.',
+            'Your preferences are saved by Testagram. More controls will appear here as their account and privacy services become available.',
             style: Theme.of(context).textTheme.bodySmall,
           ),
         ],
