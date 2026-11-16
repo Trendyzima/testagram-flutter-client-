@@ -55,10 +55,21 @@ test -s build/web/flutter_bootstrap.js
 test -s build/web/main.dart.js
 grep -Fq "flutter_bootstrap.js?v=$version" build/web/index.html
 grep -Fq "main.dart.js?v=$version" build/web/flutter_bootstrap.js
-for marker in 'Sign up' 'Reset password' 'Create your account'; do
+# Registration is intentionally disabled by default and the Flutter compiler
+# tree-shakes sign-up-only UI in that mode. Assert the always-available sign-in
+# and password-recovery UI; assert registration labels only when explicitly enabled.
+for marker in 'Sign in' 'Reset password'; do
   grep -aFq "$marker" build/web/main.dart.js || {
     echo "::error::Flutter production bundle is missing authentication UI marker: $marker"
     exit 1
   }
 done
+if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]]; then
+  for marker in 'Create your account' 'Submit identity application'; do
+    grep -aFq "$marker" build/web/main.dart.js || {
+      echo "::error::Flutter production bundle is missing enabled registration UI marker: $marker"
+      exit 1
+    }
+  done
+fi
 echo "Flutter web output validated at build/web"
