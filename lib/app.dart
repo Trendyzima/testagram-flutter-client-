@@ -1,16 +1,16 @@
-import 'package:appwrite/appwrite.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'core/app_config.dart';
+import 'core/auth/native_auth_client.dart';
 import 'core/backend_api.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
-  const TestagramApp({super.key, this.account});
+  const TestagramApp({super.key, this.authClient});
 
-  final Account? account;
+  final NativeAuthClient? authClient;
 
   @override
   State<TestagramApp> createState() => _TestagramAppState();
@@ -18,19 +18,26 @@ class TestagramApp extends StatefulWidget {
 
 class _TestagramAppState extends State<TestagramApp> {
   ThemeMode _themeMode = ThemeMode.system;
+  late final NativeAuthClient _authClient =
+      widget.authClient ?? NativeAuthClient(baseUri: AppConfig.backendOrigin);
+
+  @override
+  void dispose() {
+    if (widget.authClient == null) _authClient.close();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final configured = AppConfig.isConfigured && widget.account != null;
     return MaterialApp(
-      title: 'T social',
+      title: 'Testagram',
       debugShowCheckedModeBanner: false,
       theme: TestagramTheme.light(),
       darkTheme: TestagramTheme.dark(),
       themeMode: _themeMode,
-      home: configured
+      home: AppConfig.isConfigured
           ? AuthGate(
-              account: widget.account!,
+              authClient: _authClient,
               themeMode: _themeMode,
               onThemeModeChanged: (value) => setState(() => _themeMode = value),
             )
@@ -42,12 +49,12 @@ class _TestagramAppState extends State<TestagramApp> {
 class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
-    required this.account,
+    required this.authClient,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
-  final Account account;
+  final NativeAuthSession authClient;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
@@ -58,8 +65,6 @@ class AuthGate extends StatefulWidget {
 class _AuthGateState extends State<AuthGate> {
   bool _loading = true;
   bool _signedIn = false;
-  bool _requiresVerification = false;
-  bool _requiresIdentityReview = false;
   String? _restoreError;
   BackendApi? _api;
 
@@ -69,71 +74,59 @@ class _AuthGateState extends State<AuthGate> {
     _restore();
   }
 
+  BackendApi _createApi() => BackendApi(
+        baseUri: AppConfig.backendOrigin,
+        getAccessToken: widget.authClient.accessToken,
+      );
+
   Future<void> _restore() async {
     if (mounted) setState(() => _loading = true);
     _restoreError = null;
-    _requiresIdentityReview = false;
     try {
-      final user = await widget.account.get();
-      _requiresVerification = !user.emailVerification;
-      _signedIn = false;
-      if (user.emailVerification) {
+      final token = await widget.authClient.accessToken();
+      if (token != null && token.isNotEmpty) {
         final api = _createApi();
         try {
-          // A persisted Appwrite session is not enough by itself: every
-          // product session must also resolve to a canonical Backend account.
           await api.getMyProfile();
           _api = api;
           _signedIn = true;
         } catch (error) {
           api.close();
-          if (error is BackendApiException &&
-              error.statusCode == 403 &&
-              (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-               error.message.toLowerCase().contains('identity review') ||
-               error.message.toLowerCase().contains('two-person account approval'))) {
-            _requiresIdentityReview = true;
-            _restoreError = null;
-          } else {
-            _restoreError = error is BackendApiException
-                ? error.message
-                : 'Testagram could not verify your account with the Backend. Check your connection and retry.';
-          }
+          _signedIn = false;
+          _restoreError = error is BackendApiException
+              ? error.message
+              : 'Testagram could not validate your saved session. Check your connection and retry.';
         }
+      } else {
+        _signedIn = false;
       }
-    } catch (_) {
+    } catch (error) {
       _signedIn = false;
-      _requiresVerification = false;
-      _api?.close();
-      _api = null;
+      _restoreError = error is NativeAuthException
+          ? error.message
+          : 'Testagram could not restore your secure session. Sign in again.';
     }
     if (mounted) setState(() => _loading = false);
   }
 
-  BackendApi _createApi() => BackendApi(
-        baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
-      );
-
   void _onSignedIn() {
+    _api?.close();
     setState(() {
-      _signedIn = true;
-      _requiresVerification = false;
       _api = _createApi();
+      _signedIn = true;
+      _restoreError = null;
     });
   }
 
   Future<void> _signOut() async {
     try {
-      await widget.account.deleteSession(sessionId: 'current');
+      await widget.authClient.signOut();
     } finally {
       _api?.close();
       if (mounted) {
         setState(() {
           _signedIn = false;
           _restoreError = null;
-          _requiresVerification = false;
-          _requiresIdentityReview = false;
           _api = null;
         });
       }
@@ -141,11 +134,17 @@ class _AuthGateState extends State<AuthGate> {
   }
 
   @override
+  void dispose() {
+    _api?.close();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
-    if (_restoreError != null) {
+    if (_restoreError != null && !_signedIn) {
       return Scaffold(
         body: SafeArea(
           child: Center(
@@ -160,12 +159,12 @@ class _AuthGateState extends State<AuthGate> {
                     Icon(Icons.link_off_rounded,
                         size: 48, color: Theme.of(context).colorScheme.error),
                     const SizedBox(height: 16),
-                    Text('Finishing your secure sign-in',
+                    Text('Restoring your secure sign-in',
                         textAlign: TextAlign.center,
                         style: Theme.of(context).textTheme.headlineSmall),
                     const SizedBox(height: 10),
                     const Text(
-                      'Appwrite has an active session, but Testagram Backend has not confirmed the linked account yet. Your feed and posting stay locked until both checks succeed.',
+                      'Your saved Testagram session could not be confirmed. Your feed and posting remain locked until the Backend validates the session.',
                       textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 12),
@@ -178,7 +177,7 @@ class _AuthGateState extends State<AuthGate> {
                     ),
                     TextButton(
                       onPressed: _loading ? null : _signOut,
-                      child: const Text('Sign out and return to sign in'),
+                      child: const Text('Clear session and return to sign in'),
                     ),
                   ],
                 ),
@@ -190,10 +189,8 @@ class _AuthGateState extends State<AuthGate> {
     }
     if (!_signedIn) {
       return AuthScreen(
-        account: widget.account,
+        authClient: widget.authClient,
         onSignedIn: _onSignedIn,
-        requireVerification: _requiresVerification,
-        requireIdentityReview: _requiresIdentityReview,
         enableIdentityRegistration: AppConfig.enableIdentityRegistrationUi,
       );
     }
@@ -213,19 +210,17 @@ class _ConfigurationRequired extends StatelessWidget {
   Widget build(BuildContext context) => Scaffold(
         body: Center(
           child: Padding(
-            padding: const EdgeInsets.all(28),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.hub_rounded, color: Color(0xFF18A957), size: 52),
-                const SizedBox(height: 16),
-                Text('Testagram', style: Theme.of(context).textTheme.headlineMedium),
-                const SizedBox(height: 10),
-                const Text(
-                  'This build needs an Appwrite endpoint, Appwrite project ID, and Testagram Backend API URL. Configure them with --dart-define before running.',
-                  textAlign: TextAlign.center,
-                ),
-              ],
+            padding: const EdgeInsets.all(24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 520),
+              child: const Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.settings_suggest_outlined, size: 48),
+                  SizedBox(height: 16),
+                  Text('Testagram needs a valid HTTPS Backend URL and site URL before it can start.'),
+                ],
+              ),
             ),
           ),
         ),
