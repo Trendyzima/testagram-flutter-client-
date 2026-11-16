@@ -41,6 +41,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Sign in'), findsWidgets);
     expect(find.textContaining('Appwrite'), findsNothing);
+    expect(find.text('Testagram'), findsOneWidget);
     expect(unexpectedRequests, 0);
   });
 }
