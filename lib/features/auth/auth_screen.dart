@@ -422,53 +422,67 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _resend() async => _run(() async {
-    await widget.account.createVerification(url: '${AppConfig.authCallbackOrigin}/?mode=verification');
-    if (mounted) {
-      setState(() => _notice = 'A new verification email has been sent.');
+    final application = _identityApplication;
+    if (application == null) {
+      if (mounted) {
+        setState(() => _notice =
+            'If your approved application is awaiting email verification, reopen it on this device to request a new link.');
+      }
+      return;
+    }
+    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+    try {
+      await api.resendVerification(application);
+      if (mounted) {
+        setState(() => _notice =
+            'If your approved application is awaiting verification, a fresh Testagram email link has been requested.');
+      }
+    } finally {
+      api.close();
     }
   });
 
-  Future<void> _verify(String userId, String secret) async => _run(() async {
-    // Verification links are commonly opened on a different device/browser
-    // with no existing Appwrite session. The one-time Appwrite callback is
-    // the authority here; do not require account.get() after redeeming it.
-    await widget.account.updateVerification(userId: userId, secret: secret);
-    if (mounted) {
-      setState(() {
-        _page = _Page.signIn;
-        _notice = 'Email verified successfully. Sign in to continue.';
-      });
+  Future<void> _verify(String applicationId, String token) async => _run(() async {
+    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+    try {
+      await api.verifyEmail(applicationId: applicationId, token: token);
+      try {
+        await _identityStore.clear();
+      } catch (_) {
+        // The server has consumed the one-time token; local cleanup is best-effort.
+      }
+      if (mounted) {
+        setState(() {
+          _identityDraft = null;
+          _identityApplication = null;
+          _identityStatus = null;
+          _identityProvisioningAuthorization = null;
+          _recoveryToken = null;
+          _page = _Page.signIn;
+          _notice = 'Your Testagram email is verified. Sign in with your new Testagram password.';
+        });
+      }
+    } finally {
+      api.close();
     }
   });
 
   Future<void> _forgot() async {
-    if (!_form.currentState!.validate()) {
-      return;
-    }
+    if (!_form.currentState!.validate()) return;
     await _run(() async {
-      try {
-        await widget.account.createRecovery(
-          email: _email.text.trim().toLowerCase(),
-          url: '${AppConfig.authCallbackOrigin}/?mode=recovery');
-      } on AppwriteException catch (error) {
-        // Appwrite may distinguish an unknown email. Keep the public response
-        // identical so the form cannot be used to enumerate registered users.
-        if (error.code != 400 && error.code != 404) rethrow;
-      }
+      await widget.authClient.requestPasswordReset(_email.text.trim().toLowerCase());
       if (mounted) {
         setState(() {
           _page = _Page.signIn;
-          _notice = 'If the account exists, a password reset link has been sent.';
+          _notice = 'If the account exists, a Testagram password reset link has been sent.';
         });
       }
     });
   }
 
   Future<void> _reset() async {
-    if (!_form.currentState!.validate()) {
-      return;
-    }
-    if (_recoveryUser == null || _recoverySecret == null) {
+    if (!_form.currentState!.validate()) return;
+    if (_recoveryToken == null || _recoveryToken!.isEmpty) {
       setState(() {
         _error = 'Recovery link is incomplete. Request a new reset email.';
       });
@@ -476,12 +490,15 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     await _run(() async {
       try {
-        await widget.account.updateRecovery(
-          userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
-      } on AppwriteException catch (error) {
-        if (error.code == 400 || error.code == 401 || error.code == 404) {
+        await widget.authClient.resetPassword(
+          token: _recoveryToken!,
+          password: _password.text,
+        );
+      } on NativeAuthException catch (error) {
+        if (error.statusCode == 400 || error.statusCode == 401 || error.statusCode == 404) {
           if (mounted) {
-            setState(() => _error = 'This reset link is invalid, expired or already used. Request a new reset email.');
+            setState(() => _error =
+                'This reset link is invalid, expired or already used. Request a new reset email.');
           }
           return;
         }
@@ -492,9 +509,8 @@ class _AuthScreenState extends State<AuthScreen> {
           _page = _Page.signIn;
           _password.clear();
           _confirm.clear();
-          _recoveryUser = null;
-          _recoverySecret = null;
-        _notice = 'Password changed. Sign in with your new password.';
+          _recoveryToken = null;
+          _notice = 'Password changed. Sign in with your new Testagram password.';
         });
       }
     });
