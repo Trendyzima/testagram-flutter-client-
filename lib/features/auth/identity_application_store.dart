@@ -30,7 +30,7 @@ class FlutterIdentityApplicationSecureStorage
 }
 
 /// A recoverable registration draft. It deliberately excludes passwords,
-/// Appwrite JWTs, raw evidence bytes and evidence object URLs.
+/// native access or refresh tokens, raw evidence bytes and evidence object URLs.
 class IdentityApplicationDraft {
   const IdentityApplicationDraft({
     required this.email,
