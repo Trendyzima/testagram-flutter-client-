@@ -4,11 +4,29 @@ import 'dart:convert';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:http/http.dart' as http;
 
+/// UI-facing contract so auth screens and gates do not depend on a
+/// particular transport implementation.
+abstract interface class NativeAuthSession {
+  @override
+  Future<Map<String, dynamic>> signIn({
+    required String email,
+    required String password,
+  });
+  Future<String?> accessToken({bool forceRefresh = false});
+  Future<void> signOut();
+  Future<void> requestPasswordReset(String email);
+  @override
+  Future<void> resetPassword({
+    required String token,
+    required String password,
+  });
+}
+
 /// Testagram-owned authentication and rotating session client.
 ///
 /// Only the refresh credential is persisted. Short-lived access tokens remain
 /// in memory and are never written to browser local storage or preferences.
-class NativeAuthClient {
+class NativeAuthClient implements NativeAuthSession {
   NativeAuthClient({
     required this.baseUri,
     FlutterSecureStorage? storage,
@@ -105,7 +123,12 @@ class NativeAuthClient {
     return data;
   }
 
+  @override
   Future<String?> accessToken({bool forceRefresh = false}) async {
+    if (forceRefresh) {
+      _accessToken = null;
+      _accessExpiresAt = null;
+    }
     final expiry = _accessExpiresAt;
     if (!forceRefresh &&
         _accessToken != null &&
@@ -176,6 +199,7 @@ class NativeAuthClient {
     }
   }
 
+  @override
   Future<void> signOut() async {
     try {
       // Backend revocation is authorized by the short-lived access token,
@@ -198,6 +222,7 @@ class NativeAuthClient {
     }
   }
 
+  @override
   Future<void> requestPasswordReset(String email) async {
     await _post('forgot-password', body: {
       'email': email.trim().toLowerCase(),
@@ -216,21 +241,14 @@ class NativeAuthClient {
     _clearMemory();
   }
 
-  Future<void> register({
-    required String email,
-    required String username,
-    required String password,
-  }) async {
-    await _post('signup', body: {
-      'email': email.trim().toLowerCase(),
-      'username': username.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-      'password': password,
-    });
-  }
-
   void _clearMemory() {
     _accessToken = null;
     _accessExpiresAt = null;
+  }
+
+  Future<void> clearSession() async {
+    await _storage.delete(key: _refreshKey);
+    _clearMemory();
   }
 
   void close() {
