@@ -44,10 +44,7 @@ abstract interface class NativeAuthSession {
   });
 }
 
-/// Testagram-owned authentication and rotating session client.
-///
-/// Only the refresh credential is persisted. Short-lived access tokens remain
-/// in memory and are never written to browser local storage or preferences.
+/// Optional UI status exposed while the public InstaBox port resumes.
 abstract interface class NativeAuthWakeAware {
   ValueListenable<String?> get wakeStatus;
 }
@@ -79,7 +76,7 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
   static const _refreshKey = 'testagram.auth.refresh.v1';
   static const _requestTimeout = Duration(seconds: 60);
   static const _wakeRetryWindow = Duration(seconds: 120);
-  static const _maxWakeRetries = 8;
+  static const _maxWakeRetries = 12;
   String? _accessToken;
   DateTime? _accessExpiresAt;
   Future<String?>? _refreshInFlight;
@@ -124,9 +121,9 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
   }
 
   /// A public InstaBox HTTP port automatically resumes a machine paused by
-  /// inactivity. While it wakes, the proxy returns 503 with a "waking up"
-  /// response and Retry-After. Wait beyond the proxy's 45-second request
-  /// window, then retry the same auth request; do not retry ordinary app 503s.
+  /// inactivity. If it has not resumed within the proxy's 45-second wait, the
+  /// proxy returns its specific 503 wake response and Retry-After. Retry only
+  /// that response; never retry ordinary application 503s or manual stops.
   Future<http.Response> _postWithWakeRecovery(
     String action,
     Map<String, dynamic> body,
@@ -181,8 +178,11 @@ class NativeAuthClient implements NativeAuthSession, NativeAuthWakeAware {
     }
 
     final retryAfter = int.tryParse(response.headers['retry-after']?.trim() ?? '');
-    final seconds = retryAfter ?? 2;
-    return Duration(seconds: seconds.clamp(1, 15).toInt());
+    // InstaBox currently sends Retry-After as whole seconds. Respect the
+    // complete value: capping it at 15 seconds would retry earlier than the
+    // provider requested and can amplify load during a slow resume.
+    final seconds = retryAfter != null && retryAfter > 0 ? retryAfter : 2;
+    return Duration(seconds: seconds);
   }
 
   Map<String, dynamic> _tokenData(Map<String, dynamic> response) {
