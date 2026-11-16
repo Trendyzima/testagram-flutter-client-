@@ -124,6 +124,7 @@ void main() {
   });
 
   test('web waits for the published port wake response before submitting credentials', () async {
+    final storage = _MemoryNativeAuthStorage();
     final requests = <http.Request>[];
     final waits = <Duration>[];
     final statuses = <String?>[];
@@ -131,7 +132,7 @@ void main() {
     var healthCalls = 0;
     final client = NativeAuthClient(
       baseUri: Uri.parse(origin),
-      storage: _MemoryNativeAuthStorage(),
+      storage: storage,
       isWeb: true,
       waitBeforeWakeRetry: (delay) async {
         waits.add(delay);
