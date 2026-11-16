@@ -28,7 +28,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'test-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
       client: client,
     );
 
@@ -58,7 +58,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'test-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
       client: client,
     );
 
@@ -105,7 +105,7 @@ void main() {
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'test-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
       client: client,
     );
 
