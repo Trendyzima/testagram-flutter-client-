@@ -245,6 +245,56 @@ void main() {
     client.close();
   });
 
+  test('verifies a native email capability without an Appwrite bearer', () async {
+    late http.Request seen;
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async {
+        seen = request;
+        return http.Response(jsonEncode({
+          'status': 'active',
+          'email_verified': true,
+          'canonical_user_id': '44444444-4444-4444-8444-444444444444',
+        }), 200, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await client.verifyEmail(
+      applicationId: application.applicationId,
+      token: 'one-time-native-email-token-abcdefghijklmnopqrstuvwxyz',
+    );
+
+    expect(seen.url.path,
+        '/api/identity/applications/\${application.applicationId}/verify-email');
+    expect(seen.headers.containsKey('Authorization'), isFalse);
+    expect(jsonDecode(seen.body), {
+      'token': 'one-time-native-email-token-abcdefghijklmnopqrstuvwxyz',
+    });
+    client.close();
+  });
+
+  test('resends verification only with the saved application capability', () async {
+    late http.Request seen;
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async {
+        seen = request;
+        return http.Response(jsonEncode({
+          'ok': true,
+          'message': 'If the application is awaiting email verification, a new link will be sent.',
+        }), 202, headers: {'content-type': 'application/json'});
+      }),
+    );
+
+    await client.resendVerification(application);
+
+    expect(seen.url.path,
+        '/api/identity/applications/\${application.applicationId}/resend-verification');
+    expect(seen.headers['X-Application-Token'], application.applicationToken);
+    expect(seen.headers.containsKey('Authorization'), isFalse);
+    client.close();
+  });
+
   test('maps application status without inventing an approved state', () async {
     final client = IdentityVerificationClient(
       backendOrigin: Uri.parse('https://api.testagram.site'),
@@ -252,14 +302,14 @@ void main() {
         'status': 'verification_pending',
         'adult_verification_status': 'verified',
         'verification_session_id': application.sessionId,
-        'account_provisioning_status': 'active',
+        'account_provisioning_status': 'verification_pending',
       }), 200, headers: {'content-type': 'application/json'})),
     );
     final status = await client.getStatus(application);
     expect(status.status, 'verification_pending');
     expect(status.verificationStatus, 'verified');
     expect(status.sessionId, application.sessionId);
-    expect(status.provisioningStatus, 'active');
+    expect(status.provisioningStatus, 'verification_pending');
     client.close();
   });
 }
