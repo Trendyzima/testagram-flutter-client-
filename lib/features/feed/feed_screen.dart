@@ -1012,6 +1012,19 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = post['author'];
+    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    final isRemote = origin == 'activitypub' || origin == 'atproto';
+    final sourceLabel = switch (origin) {
+      'activitypub' => 'Fediverse',
+      'atproto' => 'Bluesky',
+      _ => null,
+    };
+    final rawCapabilities = post['capabilities'];
+    final capabilities = rawCapabilities is Map ? rawCapabilities : const <String, dynamic>{};
+    final canLike = !isRemote || capabilities['like'] == true;
+    final canReply = !isRemote || capabilities['reply'] == true;
+    final canRepost = !isRemote || capabilities['repost'] == true;
+    final canQuote = !isRemote || capabilities['quote'] == true;
     final name = author is Map
         ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
         : 'Testagram user';
@@ -1085,6 +1098,12 @@ class _PostCard extends StatelessWidget {
                         Flexible(child: Text('@$username', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
                       ],
                       if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                      if (sourceLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
+                        const SizedBox(width: 3),
+                        Text('via $sourceLabel', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700)),
+                      ],
                       const Spacer(),
                       PopupMenuButton<String>(
                         tooltip: 'Post actions',
@@ -1094,9 +1113,10 @@ class _PostCard extends StatelessWidget {
                           if (action == 'open') onOpen?.call();
                         },
                         itemBuilder: (_) => [
-                          const PopupMenuItem(
+                          PopupMenuItem(
                             value: 'quote',
-                            child: ListTile(
+                            enabled: canQuote,
+                            child: const ListTile(
                               dense: true,
                               contentPadding: EdgeInsets.zero,
                               leading: Icon(Icons.format_quote_rounded),
@@ -1182,10 +1202,14 @@ class _PostCard extends StatelessWidget {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
-                      _Action(icon: post['is_reposted'] == true ? Icons.repeat_on_rounded : Icons.repeat_rounded, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
-                      _Action(icon: post['is_liked'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
-                      _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
+                      if (canReply)
+                        _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
+                      if (canRepost)
+                        _Action(icon: post['is_reposted'] == true ? Icons.repeat_on_rounded : Icons.repeat_rounded, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
+                      if (canLike)
+                        _Action(icon: post['is_liked'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
+                      if (!isRemote)
+                        _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
                     ],
                   ),
                 ],
