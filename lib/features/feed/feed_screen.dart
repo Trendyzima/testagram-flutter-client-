@@ -484,7 +484,7 @@ class _FeedScreenState extends State<FeedScreen> {
                           builder: (_) => PostDetailScreen(api: widget.api, postId: id),
                         ),
                       ),
-                      onOpenVideo: id.isEmpty || post['is_video'] != true
+                      onOpenVideo: id.isEmpty || !isVideoPost
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
