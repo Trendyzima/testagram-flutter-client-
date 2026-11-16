@@ -140,7 +140,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('A gallery post'), findsOneWidget);
-    final images = tester.widgetList<Image>(find.byWidgetPredicate((widget) => widget is Image && widget.image is NetworkImage)).toList();
+    final images = tester.widgetList<Image>(find.byType(Image)).toList();
     expect(images, hasLength(2));
     final firstProvider = images.first.image;
     expect(firstProvider, isA<NetworkImage>());
@@ -176,7 +176,7 @@ void main() {
                 'content': 'A short video',
                 'is_video': true,
                 'created_at': '2026-11-15T09:00:00Z',
-                'media_urls': ['https://media.testagram.site/v1/videos/video.mp4'],
+                'media_urls': ['https://media.testagram.site/media/video.mp4'],
                 'media_content_types': ['video/mp4'],
                 'author': {'id': 'creator-id', 'username': 'creator', 'display_name': 'Creator'},
               }],
@@ -201,7 +201,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Watch in Shorts'), findsOneWidget);
-    expect(find.byWidgetPredicate((widget) => widget is Image && widget.image is NetworkImage), findsNothing);
+    expect(find.byType(Image), findsNothing);
     // The video URL is never sent to Image.network; tapping opens the native
     // Shorts route, whose platform player is exercised by device/integration tests.
     expect(requestedUris.any((uri) => uri.queryParameters['video_only'] == 'true'), isFalse);
