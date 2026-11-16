@@ -17,18 +17,20 @@ class FeedMediaUrl {
     final parsed = Uri.tryParse(raw);
     if (parsed == null ||
         !parsed.hasAuthority ||
-        parsed.host.isEmpty ||
+        parsed.host.toLowerCase() != cdnHost ||
         (parsed.scheme != 'https' && parsed.scheme != 'http') ||
-        parsed.userInfo.isNotEmpty) {
+        parsed.userInfo.isNotEmpty ||
+        parsed.hasFragment ||
+        (parsed.scheme == 'https' && parsed.port != 443) ||
+        (parsed.scheme == 'http' && parsed.port != 80)) {
       return null;
     }
 
     var uri = parsed;
     if (uri.scheme == 'http') {
-      uri = uri.replace(scheme: 'https');
+      uri = uri.replace(scheme: 'https', port: 443);
     }
-    if (uri.host.toLowerCase() == cdnHost &&
-        uri.path.startsWith('/users/')) {
+    if (uri.path.startsWith('/users/')) {
       uri = uri.replace(path: '/media${uri.path}');
     }
     return uri.toString();

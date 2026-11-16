@@ -26,9 +26,10 @@ void main() {
       );
     });
 
-    test('does not rewrite unrelated external HTTPS media hosts', () {
-      const url = 'https://cdn.example/video.mp4';
-      expect(FeedMediaUrl.normalize(url), url);
+    test('rejects unrelated external HTTPS media hosts', () {
+      expect(FeedMediaUrl.normalize('https://cdn.example/video.mp4'), isNull);
+      expect(FeedMediaUrl.normalize('https://media.testagram.site.evil.example/a.mp4'), isNull);
+      expect(FeedMediaUrl.normalize('https://media.testagram.site:8443/a.mp4'), isNull);
     });
 
     test('rejects unsafe, malformed, or hostless URLs', () {
