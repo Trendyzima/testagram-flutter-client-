@@ -172,6 +172,41 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  Future<void> _quotePost(Map<String, dynamic> post) async {
+    final id = (post['id'] ?? '').toString();
+    if (id.isEmpty || _busy.contains(id)) return;
+    final quote = await showModalBottomSheet<String>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      showDragHandle: true,
+      builder: (_) => _QuotePostComposer(post: post),
+    );
+    if (!mounted || quote == null || quote.trim().isEmpty) return;
+
+    setState(() => _busy.add(id));
+    try {
+      await widget.api.repostPost(id, quote: quote.trim());
+      final summary = _data(await widget.api.getPostInteractionSummary(id));
+      if (!mounted) return;
+      setState(() {
+        post['is_reposted'] = summary['is_reposted'] == true;
+        post['reposts_count'] = summary['reposts'] ?? post['reposts_count'];
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Your quote was published.')),
+      );
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not publish quote: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy.remove(id));
+    }
+  }
+
   Future<void> _replies(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
     final controller = TextEditingController();
@@ -456,6 +491,7 @@ class _FeedScreenState extends State<FeedScreen> {
                               ),
                       onLike: () => _action(post, 'like'),
                       onRepost: () => _action(post, 'repost'),
+                      onQuote: () => _quotePost(post),
                       onBookmark: () => _action(post, 'bookmark'),
                       onReplies: () => _replies(post),
                     );
@@ -868,12 +904,88 @@ class _PostMediaDraft {
   final Uint8List bytes;
 }
 
+class _QuotePostComposer extends StatefulWidget {
+  const _QuotePostComposer({required this.post});
+
+  final Map<String, dynamic> post;
+
+  @override
+  State<_QuotePostComposer> createState() => _QuotePostComposerState();
+}
+
+class _QuotePostComposerState extends State<_QuotePostComposer> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // Keyboard insets can exceed the test viewport (and occasionally
+    // transient webview viewport bounds). Cap them and allow compact layouts
+    // to scroll instead of overflowing the modal sheet.
+    final keyboardInset =
+        media.viewInsets.bottom.clamp(0.0, media.size.height * 0.6);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Quote post', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                (widget.post['content'] ?? '').toString(),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 7,
+                maxLength: 5000,
+                decoration: const InputDecoration(
+                  hintText: 'Add your perspective…',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _controller.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(_controller.text.trim()),
+                  icon: const Icon(Icons.repeat_rounded),
+                  label: const Text('Publish quote'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
     required this.busy,
     required this.onLike,
     required this.onRepost,
+    required this.onQuote,
     required this.onBookmark,
     required this.onReplies,
     this.onOpen,
@@ -882,7 +994,7 @@ class _PostCard extends StatelessWidget {
 
   final Map<String, dynamic> post;
   final bool busy;
-  final VoidCallback onLike, onRepost, onBookmark, onReplies;
+  final VoidCallback onLike, onRepost, onQuote, onBookmark, onReplies;
   final VoidCallback? onOpen, onOpenVideo;
 
   String _timeLabel(String value) {
@@ -973,7 +1085,35 @@ class _PostCard extends StatelessWidget {
                       ],
                       if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
                       const Spacer(),
-                      Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
+                      PopupMenuButton<String>(
+                        tooltip: 'Post actions',
+                        icon: Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
+                        onSelected: (action) {
+                          if (action == 'quote') onQuote();
+                          if (action == 'open') onOpen?.call();
+                        },
+                        itemBuilder: (_) => [
+                          const PopupMenuItem(
+                            value: 'quote',
+                            child: ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.format_quote_rounded),
+                              title: Text('Quote post'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'open',
+                            enabled: onOpen != null,
+                            child: const ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.open_in_new_rounded),
+                              title: Text('Open post'),
+                            ),
+                          ),
+                        ],
+                      ),
                     ],
                   ),
                   if (body.isNotEmpty) ...[
