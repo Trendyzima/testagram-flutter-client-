@@ -780,6 +780,9 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final scheme = Theme.of(context).colorScheme;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final wakeAware = widget.authClient is NativeAuthWakeAware
+        ? widget.authClient as NativeAuthWakeAware
+        : null;
     return Scaffold(
       body: Container(
         width: double.infinity,
@@ -1019,6 +1022,34 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
             ),
           ],
+          if (wakeAware != null)
+            ValueListenableBuilder<String?>(
+              valueListenable: wakeAware.wakeStatus,
+              builder: (context, status, _) {
+                if (status == null) return const SizedBox.shrink();
+                return Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      const SizedBox(width: 10),
+                      Flexible(
+                        child: Text(
+                          status,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: scheme.primary, fontWeight: FontWeight.w600),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
           if (_error != null) ...[
             const SizedBox(height: 14),
             Container(
