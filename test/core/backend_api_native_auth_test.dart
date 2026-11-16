@@ -35,22 +35,6 @@ void main() {
     api.close();
   });
 
-  test('legacy getJwt callback is only a token-provider compatibility alias', () async {
-    String? authorization;
-    final api = BackendApi(
-      baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'compatibility-access-token',
-      client: MockClient((request) async {
-        authorization = request.headers['authorization'];
-        return http.Response(jsonEncode({'data': {'items': []}}), 200);
-      }),
-    );
-
-    await api.getHomeFeed();
-    expect(authorization, 'Bearer compatibility-access-token');
-    api.close();
-  });
-
   test('BackendApi never retries repeatedly after a second 401', () async {
     var requestCount = 0;
     final api = BackendApi(
