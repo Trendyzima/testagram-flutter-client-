@@ -11,7 +11,7 @@ void main() {
   testWidgets('hashtags directory displays Backend-ranked public topics', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'appwrite-session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
       client: MockClient((request) async {
         expect(request.url.path, '/api/hashtags/trending');
         return http.Response(jsonEncode({
