@@ -11,7 +11,7 @@ void main() {
     http.Request? captured;
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         captured = request;
         return http.Response(
@@ -49,7 +49,7 @@ void main() {
     var requests = 0;
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((_) async {
         requests++;
         return http.Response('{}', 200);
