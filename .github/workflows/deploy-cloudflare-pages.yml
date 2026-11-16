@@ -1,12 +1,12 @@
 name: Deploy Testagram Flutter Web
 
-# Pages owns the www frontend only. The apex remains the Backend/Federation identity origin and redirects ordinary web traffic to www.
+# Pages serves apex and www. The dedicated WebFinger Worker route remains more specific and is preserved.
 
 on:
   workflow_dispatch:
     inputs:
       confirm_production_pages_deploy:
-        description: Confirm an intentional production Pages deployment to www.testagram.site; the apex remains on the Backend federation edge.
+        description: Confirm an intentional production Pages deployment to testagram.site and www.testagram.site; the WebFinger Worker route remains separate.
         required: true
         type: boolean
         default: false
@@ -186,25 +186,29 @@ jobs:
           fi
           echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
-      - name: Protect the apex federation hostname
+      - name: Verify the apex WebFinger Worker route remains intact
         shell: bash
         run: |
           set -euo pipefail
-          apex_url="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains/testagram.site"
-          status="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -o /tmp/apex-pages-domain.json -w '%{http_code}' \\
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$apex_url")"
-          if [[ "$status" == "200" ]] && [[ "$(jq -r '.success // false' /tmp/apex-pages-domain.json)" == "true" ]]; then
-            echo "::error::testagram.site is still associated with Cloudflare Pages. The apex is reserved for Backend ActivityPub discovery and must remain on the Backend edge; detach it from Pages only after confirming the Backend apex route is active."
-            jq -c '.result | {name,status,validation_data,verification_data}' /tmp/apex-pages-domain.json
+          zone_response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/zones?name=testagram.site")"
+          zone_id="$(jq -r '.result[0].id // empty' <<<"$zone_response")"
+          if [[ -z "$zone_id" ]]; then
+            echo "::error::Could not resolve the testagram.site zone to verify WebFinger routing."
+            jq -c '{success,errors,messages}' <<<"$zone_response"
             exit 1
           fi
-          if [[ "$status" != "404" ]]; then
-            echo "::error::Could not safely verify apex ownership (HTTP $status). Refusing to deploy Pages while apex ownership is ambiguous."
-            jq -c '{success,errors,messages}' /tmp/apex-pages-domain.json || true
+          routes="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/workers/routes")"
+          if [[ "$(jq -r '.success // false' <<<"$routes")" != "true" ]] || \
+             ! jq -e '.result | any(.pattern == "testagram.site/.well-known/webfinger*" and .script == "testagram-web")' <<<"$routes" >/dev/null; then
+            echo "::error::The dedicated testagram-web WebFinger route is missing. Refusing to change Pages routing."
+            jq -c '{success,errors,messages,result}' <<<"$routes"
             exit 1
           fi
-          echo "Apex is not attached to Pages; Backend/Federation retains testagram.site."
-
+          echo "Verified the specific WebFinger route remains assigned to testagram-web."
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
 
@@ -214,7 +218,7 @@ jobs:
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
 
-          for domain in www.testagram.site; do
+          for domain in testagram.site www.testagram.site; do
             current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
               -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
             if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
@@ -287,8 +291,8 @@ jobs:
             '/?mode=verification&userId=smoke-user&secret=smoke-secret'
             '/?mode=recovery&userId=smoke-user&secret=smoke-secret'
           )
-          # Pages owns www only. The apex is the Backend federation edge and must redirect, not serve Flutter assets.
-          for hostname in www.testagram.site; do
+          # Both web hostnames serve Flutter. The more-specific WebFinger Worker route remains untouched.
+          for hostname in testagram.site www.testagram.site; do
             page="$(mktemp)"
             headers="$(mktemp)"
             for path in "${paths[@]}"; do
@@ -342,18 +346,9 @@ jobs:
             rm -f "$page" "$headers"
           done
 
-          apex_headers="$(mktemp)"
-          apex_status="$(curl --silent --show-error --max-time 30 -D "$apex_headers" -o /dev/null -w '%{http_code}' "https://testagram.site/" || true)"
-          if [[ "$apex_status" != "308" ]] || ! grep -Fqi 'https://www.testagram.site/' "$apex_headers"; then
-            echo "::error::The apex must remain on the Backend/Federation edge and redirect to https://www.testagram.site (HTTP $apex_status)."
-            cat "$apex_headers"
-            rm -f "$apex_headers"
-            exit 1
-          fi
-          rm -f "$apex_headers"
-          apex_webfinger="$(curl --silent --show-error --max-time 30 -o /tmp/apex-webfinger.json -w '%{http_code}' "https://testagram.site/.well-known/webfinger?resource=acct:nonexistent-probe@invalid.testagram.site" || true)"
-          case "$apex_webfinger" in
+          webfinger_route="$(curl --silent --show-error --max-time 30 -o /tmp/apex-webfinger.json -w '%{http_code}' "https://testagram.site/.well-known/webfinger?resource=acct:nonexistent-probe@invalid.testagram.site" || true)"
+          case "$webfinger_route" in
             200|400|404) ;;
-            *) echo "::error::Apex WebFinger did not reach the Backend Federation service (HTTP $apex_webfinger)."; cat /tmp/apex-webfinger.json 2>/dev/null || true; exit 1 ;;
+            *) echo "::error::Apex WebFinger route is unavailable (HTTP $webfinger_route)."; cat /tmp/apex-webfinger.json 2>/dev/null || true; exit 1 ;;
           esac
-          echo "Verified apex federation redirect and WebFinger routing; Flutter Pages is serving www.testagram.site only."
+          echo "Verified apex and www Flutter routes plus the dedicated WebFinger endpoint."
