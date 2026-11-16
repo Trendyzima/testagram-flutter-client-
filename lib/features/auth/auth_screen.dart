@@ -765,340 +765,388 @@ class _AuthScreenState extends State<AuthScreen> {
   @override
   Widget build(BuildContext context) {
     final title = switch (_page) {
-      _Page.signIn => 'Welcome back', _Page.signUp => 'Create your account',
-      _Page.forgot => 'Reset your password', _Page.verify => 'Verify your email',
+      _Page.signIn => 'Welcome back',
+      _Page.signUp => 'Join the conversation',
+      _Page.forgot => 'Reset your password',
+      _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
       _Page.identity => 'Identity verification',
     };
     final subtitle = switch (_page) {
-      _Page.signIn => 'Sign in to your Testagram account.',
-      _Page.signUp => 'Join Testagram with your email address.',
-      _Page.forgot => 'We will send a secure password reset link.',
-      _Page.verify => 'Check your inbox and verify your email address.',
-      _Page.reset => 'Choose a strong password you have not used before.',
-      _Page.identity => 'Submit private evidence and track your manual review.',
+      _Page.signIn => 'Sign in to catch up with your people.',
+      _Page.signUp => 'Create your place in the conversation.',
+      _Page.forgot => 'We’ll send a secure link if an account matches that email.',
+      _Page.verify => 'One quick step to secure your Testagram account.',
+      _Page.reset => 'Choose a strong password you haven’t used before.',
+      _Page.identity => 'Complete your application and follow its review status.',
     };
-    final scheme = Theme.of(context).colorScheme;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: isDark
-                ? [const Color(0xFF080B10), const Color(0xFF101B2A), const Color(0xFF080B10)]
-                : [const Color(0xFFF2F7FC), const Color(0xFFFFFFFF), const Color(0xFFEAF3FC)],
+    final theme = Theme.of(context);
+    const ink = Color(0xFF10251D);
+    const muted = Color(0xFF63746C);
+    const green = Color(0xFF087C4A);
+    const pale = Color(0xFFEAF5EE);
+    final isDark = theme.brightness == Brightness.dark;
+
+    Widget field({
+      required TextEditingController controller,
+      required String label,
+      required IconData icon,
+      String? Function(String?)? validator,
+      TextInputType? keyboardType,
+      Iterable<String>? autofillHints,
+      bool obscure = false,
+      bool readOnly = false,
+      Widget? suffix,
+      TextInputAction? action,
+      void Function(String)? onSubmitted,
+      String? prefix,
+      TextCapitalization capitalization = TextCapitalization.none,
+      bool autocorrect = true,
+    }) {
+      return TextFormField(
+        controller: controller,
+        readOnly: readOnly,
+        obscureText: obscure,
+        keyboardType: keyboardType,
+        autofillHints: autofillHints,
+        textInputAction: action,
+        textCapitalization: capitalization,
+        autocorrect: autocorrect,
+        validator: validator,
+        onFieldSubmitted: onSubmitted,
+        style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, size: 20),
+          prefixText: prefix,
+          suffixIcon: suffix,
+          filled: true,
+          fillColor: isDark ? const Color(0xFF17231D) : const Color(0xFFF5F8F6),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 19),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE0E9E3)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: isDark ? Colors.white12 : const Color(0xFFE0E9E3)),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: const BorderSide(color: green, width: 1.6),
+          ),
+          errorBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(16),
+            borderSide: BorderSide(color: theme.colorScheme.error),
           ),
         ),
-        child: SafeArea(
-          child: Center(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 28),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 500),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: scheme.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    border: Border.all(color: scheme.outlineVariant.withValues(alpha: 0.7)),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: isDark ? 0.22 : 0.07),
-                        blurRadius: 36,
-                        offset: const Offset(0, 18),
+      );
+    }
+
+    Widget modeSwitch() {
+      final modes = <(_Page, String)>[
+        (_Page.signIn, 'Sign in'),
+        if (widget.enableIdentityRegistration) (_Page.signUp, 'Join'),
+        (_Page.forgot, 'Reset'),
+      ];
+      return Container(
+        padding: const EdgeInsets.all(4),
+        decoration: BoxDecoration(
+          color: isDark ? const Color(0xFF17231D) : const Color(0xFFF0F5F1),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            for (final mode in modes)
+              Expanded(
+                child: GestureDetector(
+                  onTap: _busy ? null : () => _go(mode.$1),
+                  child: AnimatedContainer(
+                    duration: const Duration(milliseconds: 180),
+                    padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
+                    decoration: BoxDecoration(
+                      color: _page == mode.$1 ? (isDark ? const Color(0xFF234B37) : Colors.white) : Colors.transparent,
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: _page == mode.$1 && !isDark
+                          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))]
+                          : null,
+                    ),
+                    child: Text(
+                      mode.$2,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        color: _page == mode.$1 ? (isDark ? Colors.white : ink) : muted,
+                        fontWeight: _page == mode.$1 ? FontWeight.w700 : FontWeight.w500,
+                        fontSize: 13,
                       ),
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      );
+    }
+
+    Widget statusMessage(String message, {required bool error}) {
+      final color = error ? theme.colorScheme.error : green;
+      return Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: isDark ? 0.16 : 0.08),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: color.withValues(alpha: 0.22)),
+        ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(error ? Icons.error_outline_rounded : Icons.info_outline_rounded, color: color, size: 20),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message, style: TextStyle(color: isDark ? Colors.white : ink, height: 1.4))),
+          ],
+        ),
+      );
+    }
+
+    Widget primaryAction(String label, VoidCallback? action) => SizedBox(
+      height: 54,
+      width: double.infinity,
+      child: FilledButton(
+        onPressed: _busy ? null : action,
+        style: FilledButton.styleFrom(
+          backgroundColor: green,
+          foregroundColor: Colors.white,
+          disabledBackgroundColor: green.withValues(alpha: 0.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          textStyle: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+        ),
+        child: _busy
+            ? const SizedBox(width: 21, height: 21, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+            : Text(label),
+      ),
+    );
+
+    Widget formContent({required bool compact}) {
+      return Form(
+        key: _form,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                const TestagramBrandMark(size: 46, radius: 14),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Testagram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.8, color: isDark ? Colors.white : ink)),
+                      Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
                     ],
                   ),
-                  padding: const EdgeInsets.fromLTRB(26, 28, 26, 24),
-                  child: Material(
-                    color: scheme.surface,
-                    borderRadius: BorderRadius.circular(28),
-                    child: Form(key: _form, child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const TestagramBrandMark(size: 58, radius: 17),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text('Testagram',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.w900,
-                            letterSpacing: -0.7,
-                          )),
-                    Text(
-                      'Your world. Your voice. Your community.',
-                      softWrap: true,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                  ],
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 30),
-          _modeNavigation(),
-          const SizedBox(height: 28),
-          Text(title,
-              textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                    letterSpacing: -0.8,
-                    height: 1.12,
-                  )),
-          const SizedBox(height: 8),
-          Text(subtitle, textAlign: TextAlign.center),
-          const SizedBox(height: 28),
-          if (_page == _Page.signUp) ...[
-            TextFormField(
-              controller: _name,
-              readOnly: _identityDraft != null,
-              textCapitalization: TextCapitalization.words,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Full name', border: OutlineInputBorder()),
-              validator: (value) => value == null || value.trim().length < 2 ? 'Enter your name.' : null,
+                if (!compact)
+                  Icon(Icons.public_rounded, color: green.withValues(alpha: 0.8), size: 22),
+              ],
             ),
-            const SizedBox(height: 14),
-          ],
-          if (_page == _Page.signUp) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _username,
-              readOnly: _identityDraft != null,
-              autocorrect: false,
-              textInputAction: TextInputAction.next,
-              decoration: const InputDecoration(labelText: 'Username', prefixText: '@', border: OutlineInputBorder()),
-              validator: _usernameValid,
-            ),
-          ],
-          if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page))
-            TextFormField(
-              controller: _email,
-              readOnly: _identityDraft != null,
-              keyboardType: TextInputType.emailAddress,
-              autocorrect: false,
-              autofillHints: const [AutofillHints.email],
-              decoration: const InputDecoration(labelText: 'Email', border: OutlineInputBorder()),
-              validator: _emailValid,
-            ),
-          if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _password,
-              obscureText: _obscure,
-              autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
-              decoration: InputDecoration(
-                labelText: _page == _Page.reset ? 'New password' : 'Password',
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  onPressed: () => setState(() => _obscure = !_obscure),
-                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined),
-                ),
-              ),
-              validator: _passwordValid,
-              onFieldSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
-            ),
-          ],
-          if (_page == _Page.reset) ...[
-            const SizedBox(height: 14),
-            TextFormField(
-              controller: _confirm,
-              obscureText: _obscure,
-              decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
-              validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
-            ),
-          ],
-          if (_page == _Page.signUp) ...[
-            if (_page == _Page.signUp) Card(
-              child: Padding(
-                padding: const EdgeInsets.all(14),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Icon(Icons.verified_user_outlined, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 10),
-                    const Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
-                          SizedBox(height: 4),
-                          Text('Submit your details and private age-assurance evidence. Two independent reviewers and two independent account approvers must approve your application before your Testagram account can be created.'),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _ageConfirmed,
-              onChanged: _busy ? null : (value) => setState(() => _ageConfirmed = value ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('I confirm that I am 18 years old or above.'),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _termsAccepted,
-              onChanged: _busy ? null : (value) => setState(() => _termsAccepted = value ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('I accept the Terms and Conditions.'),
-            ),
-            CheckboxListTile(
-              contentPadding: EdgeInsets.zero,
-              value: _privacyAccepted,
-              onChanged: _busy ? null : (value) => setState(() => _privacyAccepted = value ?? false),
-              controlAffinity: ListTileControlAffinity.leading,
-              title: const Text('I accept the Privacy Notice.'),
-            ),
-            Wrap(alignment: WrapAlignment.center, spacing: 8, children: [
-              TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read Terms and Conditions')),
-              TextButton(onPressed: _busy ? null : () => _showLegalDocument('Privacy Notice', _privacyText), child: const Text('Read Privacy Notice')),
-            ]),
+            const SizedBox(height: 28),
+            modeSwitch(),
+            const SizedBox(height: 28),
+            Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
             const SizedBox(height: 8),
-          ],
-          if (_page == _Page.identity) ...[
-            Card(
-              child: Padding(
+            Text(subtitle, style: TextStyle(fontSize: 14, height: 1.5, color: muted)),
+            const SizedBox(height: 24),
+            if (_page == _Page.signUp) ...[
+              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, readOnly: _identityDraft != null, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
+              const SizedBox(height: 14),
+              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', readOnly: _identityDraft != null, autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
+              const SizedBox(height: 14),
+            ],
+            if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page)) ...[
+              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, readOnly: _identityDraft != null, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
+              const SizedBox(height: 14),
+            ],
+            if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
+              field(
+                controller: _password,
+                label: _page == _Page.reset ? 'New password' : 'Password',
+                icon: Icons.lock_outline_rounded,
+                obscure: _obscure,
+                autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
+                validator: _passwordValid,
+                action: _page == _Page.signIn ? TextInputAction.done : TextInputAction.next,
+                onSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
+                suffix: IconButton(
+                  tooltip: _obscure ? 'Show password' : 'Hide password',
+                  onPressed: () => setState(() => _obscure = !_obscure),
+                  icon: Icon(_obscure ? Icons.visibility_outlined : Icons.visibility_off_outlined, size: 20),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (_page == _Page.reset) ...[
+              field(controller: _confirm, label: 'Confirm new password', icon: Icons.lock_reset_rounded, obscure: _obscure, validator: (v) => v != _password.text ? 'Passwords do not match.' : null),
+              const SizedBox(height: 14),
+            ],
+            if (_page == _Page.signUp) ...[
+              Container(
+                padding: const EdgeInsets.all(15),
+                decoration: BoxDecoration(color: pale.withValues(alpha: isDark ? 0.12 : 1), borderRadius: BorderRadius.circular(16), border: Border.all(color: green.withValues(alpha: 0.18))),
+                child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Icon(Icons.verified_user_outlined, color: green, size: 21),
+                  SizedBox(width: 11),
+                  Expanded(child: Text('Account safety comes first. Your application is reviewed independently before account activation.', style: TextStyle(height: 1.45, fontSize: 13))),
+                ]),
+              ),
+              const SizedBox(height: 12),
+              CheckboxListTile(contentPadding: EdgeInsets.zero, value: _ageConfirmed, onChanged: _busy ? null : (v) => setState(() => _ageConfirmed = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I confirm that I am 18 years old or above.'), dense: true),
+              CheckboxListTile(contentPadding: EdgeInsets.zero, value: _termsAccepted, onChanged: _busy ? null : (v) => setState(() => _termsAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Terms and Conditions.'), dense: true),
+              CheckboxListTile(contentPadding: EdgeInsets.zero, value: _privacyAccepted, onChanged: _busy ? null : (v) => setState(() => _privacyAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Privacy Notice.'), dense: true),
+              Wrap(alignment: WrapAlignment.start, spacing: 8, children: [
+                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read terms')),
+                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Privacy Notice', _privacyText), child: const Text('Read privacy notice')),
+              ]),
+              const SizedBox(height: 8),
+            ],
+            if (_page == _Page.identity) ...[
+              Container(
                 padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: pale.withValues(alpha: isDark ? 0.12 : 1), borderRadius: BorderRadius.circular(16)),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Text('Application submitted', style: TextStyle(fontWeight: FontWeight.w700)),
-                  const SizedBox(height: 8),
-                  Text('Application: ${_identityApplication?.applicationId ?? '—'}'),
+                  const Text('Your application', style: TextStyle(fontWeight: FontWeight.w800)),
+                  const SizedBox(height: 12),
+                  Text('Reference: ${_identityApplication?.applicationId ?? '—'}'),
                   Text('Status: ${_identityStatus?.status ?? 'awaiting evidence'}'),
                   Text('Age assurance: ${_identityStatus?.verificationStatus ?? 'pending'}'),
-                  const SizedBox(height: 12),
-                  if (_identityApplication?.sessionId.isNotEmpty == true &&
-                      _identityApplication?.sessionToken.isNotEmpty == true &&
-                      _identityStatus?.status == 'verification_pending')
-                    FilledButton.icon(
-                      onPressed: _busy ? null : _uploadIdentityEvidence,
-                      icon: const Icon(Icons.upload_file),
-                      label: const Text('Choose and submit evidence'),
-                    ),
-                  OutlinedButton.icon(
-                    onPressed: _busy ? null : _refreshIdentityStatus,
-                    icon: const Icon(Icons.refresh),
-                    label: const Text('Refresh application status'),
-                  ),
-                  if (const {'rejected', 'expired', 'cancelled'}.contains(_identityStatus?.status) &&
-                      widget.enableIdentityRegistration)
-                    OutlinedButton.icon(
-                      onPressed: _busy ? null : _startNewIdentityApplication,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Start a new application'),
-                    ),
+                  const SizedBox(height: 14),
+                  if (_identityApplication?.sessionId.isNotEmpty == true && _identityApplication?.sessionToken.isNotEmpty == true && _identityStatus?.status == 'verification_pending')
+                    FilledButton.icon(onPressed: _busy ? null : _uploadIdentityEvidence, icon: const Icon(Icons.upload_file), label: const Text('Submit evidence')),
+                  OutlinedButton.icon(onPressed: _busy ? null : _refreshIdentityStatus, icon: const Icon(Icons.refresh), label: const Text('Refresh status')),
+                  if (const {'rejected', 'expired', 'cancelled'}.contains(_identityStatus?.status) && widget.enableIdentityRegistration)
+                    OutlinedButton.icon(onPressed: _busy ? null : _startNewIdentityApplication, icon: const Icon(Icons.refresh), label: const Text('Start a new application')),
                   if (_identityStatus?.status == 'approved') ...[
+                    const SizedBox(height: 14),
+                    field(controller: _password, label: 'Create password', icon: Icons.lock_outline_rounded, obscure: _obscure, validator: _identityPasswordValid),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _password,
-                      obscureText: _obscure,
-                      decoration: const InputDecoration(labelText: 'Create password', border: OutlineInputBorder()),
-                      validator: _identityPasswordValid,
-                    ),
+                    field(controller: _confirm, label: 'Confirm password', icon: Icons.lock_reset_rounded, obscure: _obscure, validator: (v) => v != _password.text ? 'Passwords do not match.' : null),
                     const SizedBox(height: 12),
-                    TextFormField(
-                      controller: _confirm,
-                      obscureText: _obscure,
-                      decoration: const InputDecoration(labelText: 'Confirm password', border: OutlineInputBorder()),
-                      validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
-                    ),
-                    const SizedBox(height: 12),
-                    FilledButton(
-                      onPressed: _busy ? null : _completeIdentityProvisioning,
-                      child: _busy ? const CircularProgressIndicator() : const Text('Create and link my account'),
-                    ),
+                    primaryAction('Create and link my account', _completeIdentityProvisioning),
                   ],
                 ]),
               ),
-            ),
-          ],
-          if (_error != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: scheme.errorContainer,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: scheme.error.withValues(alpha: 0.22)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.error_outline_rounded, color: scheme.onErrorContainer, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(_error!, style: TextStyle(color: scheme.onErrorContainer))),
-                ],
-              ),
-            ),
-          ],
-          if (_notice != null) ...[
-            const SizedBox(height: 14),
-            Container(
-              padding: const EdgeInsets.all(13),
-              decoration: BoxDecoration(
-                color: scheme.primaryContainer.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: scheme.primary.withValues(alpha: 0.18)),
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.info_outline_rounded, color: scheme.primary, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(child: Text(_notice!, style: TextStyle(color: scheme.onSurface))),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 20),
-          if (_page == _Page.signIn) FilledButton(onPressed: _busy ? null : _signIn,
-            child: _busy ? const CircularProgressIndicator() : const Text('Sign in')),
-          if (_page == _Page.signUp)
-            FilledButton(
-              onPressed: _busy ? null : _signUp,
-              child: _busy ? const CircularProgressIndicator() : const Text('Submit identity application'),
-            ),
-          if (_page == _Page.forgot) FilledButton(onPressed: _busy ? null : _forgot,
-            child: _busy ? const CircularProgressIndicator() : const Text('Send reset link')),
-          if (_page == _Page.reset) FilledButton(onPressed: _busy ? null : _reset,
-            child: _busy ? const CircularProgressIndicator() : const Text('Update password')),
-          if (_page == _Page.verify) OutlinedButton(onPressed: _busy ? null : _resend,
-            child: const Text('Resend verification email')),
-          const SizedBox(height: 12),
-          if (_page == _Page.signIn) ...[
-            TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?')),
-            if (widget.enableIdentityRegistration) ...[
-              const SizedBox(height: 4),
-              Text('New to Testagram?', style: Theme.of(context).textTheme.bodyMedium),
-              const SizedBox(height: 6),
-              FilledButton.tonalIcon(
-                onPressed: _busy ? null : () => _go(_Page.signUp),
-                icon: const Icon(Icons.person_add_alt_1),
-                label: const Text('Create account'),
-              ),
             ],
-          ] else if (_page != _Page.verify)
-            TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
-          const SizedBox(height: 12),
-          Text(
-            'Testagram authenticates accounts and controls profile linking, sessions and product authorization.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
-          ),
-                  ])),
+            if (_error != null) ...[const SizedBox(height: 16), statusMessage(_error!, error: true)],
+            if (_notice != null) ...[const SizedBox(height: 16), statusMessage(_notice!, error: false)],
+            const SizedBox(height: 20),
+            if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
+            if (_page == _Page.signUp) primaryAction('Submit application', _signUp),
+            if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
+            if (_page == _Page.reset) primaryAction('Update password', _reset),
+            if (_page == _Page.verify)
+              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend verification email'))),
+            const SizedBox(height: 12),
+            if (_page == _Page.signIn) ...[
+              Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
+              if (widget.enableIdentityRegistration) ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  const Expanded(child: Divider()),
+                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
+                  const Expanded(child: Divider()),
+                ]),
+                const SizedBox(height: 12),
+                SizedBox(height: 52, child: OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _go(_Page.signUp),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: const Text('Create your account'),
+                  style: OutlinedButton.styleFrom(foregroundColor: green, side: const BorderSide(color: Color(0xFFB8D8C3)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                )),
+              ],
+            ] else if (_page != _Page.verify)
+              Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
+            const SizedBox(height: 18),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              const Icon(Icons.shield_outlined, size: 15, color: muted),
+              const SizedBox(width: 6),
+              Flexible(child: Text('Secure sign-in, built by Testagram', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: muted))),
+            ]),
+          ],
+        ),
+      );
+    }
+
+    Widget brandPanel() => Container(
+      padding: const EdgeInsets.all(32),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF063D29), Color(0xFF087C4A), Color(0xFF0A6843)]),
+        borderRadius: BorderRadius.all(Radius.circular(28)),
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Row(children: [
+          const TestagramBrandMark(size: 54, radius: 16),
+          const SizedBox(width: 13),
+          const Text('Testagram', style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
+        ]),
+        const SizedBox(height: 36),
+        const Text('More than a feed.\nA world of voices.', style: TextStyle(color: Colors.white, fontSize: 39, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -1.6)),
+        const SizedBox(height: 16),
+        const Text('Follow what moves you. Share what matters. Find your people.', style: TextStyle(color: Color(0xFFD8F1E2), fontSize: 16, height: 1.55)),
+        const SizedBox(height: 28),
+        Wrap(spacing: 8, runSpacing: 8, children: [
+          for (final item in ['Your voice', 'Open conversations', 'Communities'])
+            Container(padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9), decoration: BoxDecoration(color: Colors.white.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(30), border: Border.all(color: Colors.white.withValues(alpha: 0.2))), child: Text(item, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600))),
+        ]),
+        const SizedBox(height: 34),
+        const Text('ONE PLATFORM. MANY PERSPECTIVES.', style: TextStyle(color: Color(0xFFB6E2C8), fontSize: 10, letterSpacing: 1.5, fontWeight: FontWeight.w800)),
+      ]),
+    );
+
+    return Scaffold(
+      backgroundColor: isDark ? const Color(0xFF0D1511) : const Color(0xFFF4F8F5),
+      body: SafeArea(
+        child: LayoutBuilder(builder: (context, constraints) {
+          final wide = constraints.maxWidth >= 900;
+          final compact = constraints.maxWidth < 600;
+          if (wide) {
+            return Center(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(32),
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 1120),
+                  child: Container(
+                    decoration: BoxDecoration(color: theme.colorScheme.surface, borderRadius: BorderRadius.circular(30), boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 40, offset: const Offset(0, 18))]),
+                    padding: const EdgeInsets.all(12),
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Expanded(child: SizedBox(minHeight: 690, child: brandPanel())),
+                      const SizedBox(width: 12),
+                      Expanded(child: Padding(padding: const EdgeInsets.fromLTRB(40, 34, 40, 28), child: formContent(compact: false))),
+                    ]),
                   ),
                 ),
               ),
+            );
+          }
+          return Center(
+            child: SingleChildScrollView(
+              keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+              padding: EdgeInsets.fromLTRB(compact ? 18 : 28, compact ? 22 : 36, compact ? 18 : 28, 28),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 480),
+                child: Container(
+                  padding: EdgeInsets.all(compact ? 22 : 32),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surface,
+                    borderRadius: BorderRadius.circular(26),
+                    border: Border.all(color: isDark ? Colors.white12 : const Color(0xFFE5EDE7)),
+                    boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: isDark ? 0.16 : 0.045), blurRadius: 28, offset: const Offset(0, 12))],
+                  ),
+                  child: formContent(compact: compact),
+                ),
+              ),
             ),
-          ),
-        ),
+          );
+        }),
       ),
     );
   }
