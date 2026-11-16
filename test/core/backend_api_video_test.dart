@@ -10,7 +10,7 @@ void main() {
     final requests = <http.Request>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         requests.add(request);
         if (request.url.path == '/api/media/upload-intent') {
@@ -70,7 +70,7 @@ void main() {
     var requestCount = 0;
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         requestCount++;
         return http.Response('{}', 500);
