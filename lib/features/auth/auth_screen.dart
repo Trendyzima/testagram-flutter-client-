@@ -919,7 +919,7 @@ class _AuthScreenState extends State<AuthScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Testagram', style: TextStyle(fontSize: 22, fontWeight: FontWeight.w900, letterSpacing: -0.8, color: isDark ? Colors.white : ink)),
-                      Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
+                      const Text('A social world that moves with you', style: TextStyle(fontSize: 11, color: muted)),
                     ],
                   ),
                 ),
@@ -932,7 +932,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 28),
             Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
             const SizedBox(height: 8),
-            Text(subtitle, style: TextStyle(fontSize: 14, height: 1.5, color: muted)),
+            Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
               field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, readOnly: _identityDraft != null, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
@@ -1027,10 +1027,10 @@ class _AuthScreenState extends State<AuthScreen> {
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
               if (widget.enableIdentityRegistration) ...[
                 const SizedBox(height: 8),
-                Row(children: [
-                  const Expanded(child: Divider()),
-                  Padding(padding: const EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
-                  const Expanded(child: Divider()),
+                const Row(children: [
+                  Expanded(child: Divider()),
+                  Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
+                  Expanded(child: Divider()),
                 ]),
                 const SizedBox(height: 12),
                 SizedBox(height: 52, child: OutlinedButton.icon(
@@ -1043,9 +1043,9 @@ class _AuthScreenState extends State<AuthScreen> {
             ] else if (_page != _Page.verify)
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
             const SizedBox(height: 18),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              const Icon(Icons.shield_outlined, size: 15, color: muted),
-              const SizedBox(width: 6),
+            const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+              Icon(Icons.shield_outlined, size: 15, color: muted),
+              SizedBox(width: 6),
               Flexible(child: Text('Secure sign-in, built by Testagram', textAlign: TextAlign.center, style: TextStyle(fontSize: 11, color: muted))),
             ]),
           ],
@@ -1060,10 +1060,10 @@ class _AuthScreenState extends State<AuthScreen> {
         borderRadius: BorderRadius.all(Radius.circular(28)),
       ),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Row(children: [
-          const TestagramBrandMark(size: 54, radius: 16),
-          const SizedBox(width: 13),
-          const Text('Testagram', style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
+        const Row(children: [
+          TestagramBrandMark(size: 54, radius: 16),
+          SizedBox(width: 13),
+          Text('Testagram', style: TextStyle(color: Colors.white, fontSize: 25, fontWeight: FontWeight.w900, letterSpacing: -0.8)),
         ]),
         const SizedBox(height: 36),
         const Text('More than a feed.\nA world of voices.', style: TextStyle(color: Colors.white, fontSize: 39, height: 1.08, fontWeight: FontWeight.w900, letterSpacing: -1.6)),
