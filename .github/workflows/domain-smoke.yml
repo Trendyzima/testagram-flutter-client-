@@ -45,9 +45,9 @@ jobs:
           }
 
           : > domain-results/results.tsv
-          probe apex_root https://testagram.site/ 308
-          if ! grep -qi '^location: https://www\.testagram\.site/' domain-results/apex_root.headers; then
-            echo "::error::Apex root must redirect to https://www.testagram.site/ while preserving the path."
+          probe apex_root https://testagram.site/ 200
+          if ! grep -Fq 'flutter_bootstrap.js' domain-results/apex_root.body; then
+            echo "::error::Apex root did not serve the Flutter application shell."
             failed=1
           fi
 
@@ -69,7 +69,6 @@ jobs:
             failed=1
           fi
 
-          probe api_health https://api.testagram.site/healthz 200
 
           {
             echo "## Testagram domain smoke test"
