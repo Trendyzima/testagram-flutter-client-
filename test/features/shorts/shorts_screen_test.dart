@@ -12,7 +12,7 @@ void main() {
     final requested = <Uri>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         requested.add(request.url);
         if (request.url.path == '/api/feed/home') {
@@ -46,7 +46,7 @@ void main() {
     var requestCount = 0;
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async {
         requestCount++;
         return http.Response(jsonEncode({'ok': true, 'data': {'posts': []}}), 200);
@@ -64,7 +64,7 @@ void main() {
   testWidgets('Shorts offers a retry state when the Backend feed is unavailable', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
       client: MockClient((request) async => http.Response(
         jsonEncode({'ok': false, 'error': {'message': 'temporarily unavailable'}}),
         503,
