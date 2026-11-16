@@ -83,7 +83,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     if (kIsWeb) {
       setState(() {
         _loading = false;
-        _error = 'Browser playback is not enabled yet. Native mobile playback uses Testagram's dedicated HLS video service; web needs a browser-compatible HLS player.';
+        _error = 'Browser playback is not enabled yet. Native mobile playback uses the Testagram video service; web needs a browser-compatible HLS player.';
       });
       return;
     }
