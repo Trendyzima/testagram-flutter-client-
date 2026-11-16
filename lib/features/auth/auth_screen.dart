@@ -846,8 +846,8 @@ class _AuthScreenState extends State<AuthScreen> {
     Widget modeSwitch() {
       final modes = <(_Page, String)>[
         (_Page.signIn, 'Sign in'),
-        if (widget.enableIdentityRegistration) (_Page.signUp, 'Join'),
-        (_Page.forgot, 'Reset'),
+        if (widget.enableIdentityRegistration) (_Page.signUp, 'Sign up'),
+        (_Page.forgot, 'Reset password'),
       ];
       return Container(
         padding: const EdgeInsets.all(4),
