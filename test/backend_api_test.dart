@@ -12,7 +12,7 @@ void main() {
       final requests = <http.Request>[];
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           requests.add(request);
           return http.Response(jsonEncode({
@@ -36,14 +36,14 @@ void main() {
         'before': 'next-page',
       });
       expect(requests.every((request) =>
-          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+          request.headers['authorization'] == 'Bearer testagram-native-access-token'), isTrue);
       api.close();
     });
 
     test('rejects invalid hashtag values and limits before sending', () {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       expect(() => api.getTrendingHashtags(limit: 51), throwsArgumentError);
@@ -57,7 +57,7 @@ void main() {
       final requests = <http.Request>[];
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           requests.add(request);
           return http.Response(jsonEncode({
@@ -77,14 +77,14 @@ void main() {
       expect(requests[1].method, 'DELETE');
       expect(requests[1].url.path, '/api/hashtags/Testagram/follow');
       expect(requests.every((request) =>
-          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+          request.headers['authorization'] == 'Bearer testagram-native-access-token'), isTrue);
       api.close();
     });
 
     test('rejects malformed hashtags before follow requests are sent', () {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       expect(() => api.followHashtag('bad tag'), throwsArgumentError);
@@ -97,7 +97,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -115,7 +115,7 @@ void main() {
 
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/social/posts');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect(captured.headers['idempotency-key'], 'post-create-123456');
       expect(jsonDecode(captured.body), {
         'content': 'Hello Testagram #BuildInPublic',
@@ -128,7 +128,7 @@ void main() {
     test('rejects invalid post content, visibility and idempotency locally', () {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       expect(() => api.createPost(content: '  ', idempotencyKey: 'post-create-123456'),
@@ -144,7 +144,7 @@ void main() {
       var completionAttempts = 0;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           if (request.method == 'POST' && request.url.path == '/api/media/upload-intent') {
             return http.Response(jsonEncode({
@@ -201,7 +201,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -214,7 +214,7 @@ void main() {
       await api.attachPostMedia('post-1', 'media/key-1');
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/media/attach');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect(jsonDecode(captured.body), {'key': 'media/key-1', 'post_id': 'post-1'});
       api.close();
     });
@@ -226,7 +226,7 @@ void main() {
       const assertion = 'Bearer v1.payload.signature';
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -245,7 +245,7 @@ void main() {
       final access = await api.getPrivateMediaAccess(key);
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/media/cdn-download-url');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect(jsonDecode(captured.body), {'key': key});
       expect(access.url.toString(), 'https://media.testagram.site/v1/$key');
       expect(access.headers, {'Authorization': assertion});
@@ -254,11 +254,11 @@ void main() {
       api.close();
     });
 
-    test('accepts Appwrite owner IDs with underscores and periods', () async {
+    test('accepts legacy external owner IDs with underscores and periods', () async {
       const key = 'users/user_123.test/0123456789abcdef0123456789abcdef';
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async => http.Response(jsonEncode({
           'ok': true,
           'data': {
@@ -279,7 +279,7 @@ void main() {
       var calls = 0;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async {
           calls++;
           return http.Response(jsonEncode({
@@ -306,7 +306,7 @@ void main() {
       final requests = <http.Request>[];
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           requests.add(request);
           return http.Response(jsonEncode({'ok': true, 'data': {'status': 'ok'}}), 200);
@@ -327,7 +327,7 @@ void main() {
       expect(requests.every((request) => request.method == 'POST'), isTrue);
       expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
       expect(requests.every((request) =>
-          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+          request.headers['authorization'] == 'Bearer testagram-native-access-token'), isTrue);
       final payloads = requests.map((request) => jsonDecode(request.body) as Map).toList();
       expect(payloads[0], {'capability': 'testagram.wallet.balance', 'input': {'currency': 'KES'}});
       expect(payloads[1], {'capability': 'testagram.wallet.transactions.list', 'input': {'limit': 25}});
@@ -347,7 +347,7 @@ void main() {
     test('wallet API validates limits, recipient and idempotency locally', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       expect(() => api.listWalletTransactions(limit: 101), throwsArgumentError);
@@ -358,11 +358,11 @@ void main() {
       api.close();
     });
 
-    test('loads the canonical post feed using an Appwrite JWT', () async {
+    test('loads the canonical post feed using a Testagram native access token', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -381,7 +381,7 @@ void main() {
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/feed/home');
       expect(captured.url.queryParameters['following_only'], 'true');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['posts'], hasLength(1));
       api.close();
     });
@@ -390,7 +390,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -408,14 +408,14 @@ void main() {
       expect(captured.url.path,
           '/api/social/posts/00000000-0000-4000-8000-000000000001/interactions/likes');
       expect(captured.url.queryParameters['limit'], '100');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       api.close();
     });
 
     test('rejects unsupported interaction kinds and page limits locally', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
       expect(
@@ -433,7 +433,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -453,7 +453,7 @@ void main() {
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002/posts');
       expect(captured.url.queryParameters, {'limit': '20', 'before': 'previous-post'});
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['posts'], hasLength(1));
       api.close();
     });
@@ -462,7 +462,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -483,16 +483,16 @@ void main() {
         'limit': '30',
         'cursor': 'previous-page',
       });
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['has_more'], isTrue);
       api.close();
     });
 
-    test('resolves the current Appwrite session to a canonical Backend account', () async {
+    test('resolves the current native session to a canonical Backend account', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'verified-appwrite-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'verified-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -508,7 +508,7 @@ void main() {
       final profile = await api.getMyProfile();
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/me/profile');
-      expect(captured.headers['authorization'], 'Bearer verified-appwrite-jwt');
+      expect(captured.headers['authorization'], 'Bearer verified-native-access-token');
       expect((profile['data'] as Map)['username'], 'linked_member');
       api.close();
     });
@@ -517,7 +517,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -536,16 +536,16 @@ void main() {
       final response = await api.getProfile('00000000-0000-4000-8000-000000000002');
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['can_view_posts'], isFalse);
       api.close();
     });
 
-    test('loads a privacy-filtered post detail using the Appwrite JWT', () async {
+    test('loads a privacy-filtered post detail using a native access token', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -563,7 +563,7 @@ void main() {
       expect(captured.method, 'GET');
       expect(captured.url.path,
           '/api/social/posts/00000000-0000-4000-8000-000000000001');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['content'], 'A privacy-filtered post');
       api.close();
     });
@@ -572,7 +572,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'is_liked': true}}), 200);
@@ -591,7 +591,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'id': 'reply-1'}}), 201);
@@ -608,7 +608,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'users': [], 'posts': []}}), 200);
@@ -625,7 +625,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'id': 'thread-1'}}), 201);
@@ -641,7 +641,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -663,7 +663,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'id': 'poll-1'}}), 201);
@@ -689,7 +689,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'voted': true}}), 200);
@@ -713,7 +713,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'items': [], 'next_cursor': ''}}), 200);
@@ -730,7 +730,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'items': [], 'next_cursor': '', 'has_more': false}}), 200);
@@ -749,7 +749,7 @@ void main() {
       final requests = <http.Request>[];
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           requests.add(request);
           if (request.url.path == '/api/media/upload-intent') {
@@ -801,7 +801,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({'ok': true, 'data': {'attached': true}}), 200);
@@ -818,7 +818,7 @@ void main() {
     test('rejects unsupported image types before creating an upload intent', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
 
@@ -832,7 +832,7 @@ void main() {
     test('normalizes backend request timeouts into a readable API error', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async {
           throw TimeoutException('test timeout');
         }),
@@ -852,7 +852,7 @@ void main() {
     test('surfaces structured Backend errors', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response(
           jsonEncode({'error': {'code': 'IDENTITY_APPROVAL_REQUIRED', 'message': 'Identity review is required'}}),
           403,
@@ -867,11 +867,11 @@ void main() {
       );
       api.close();
     });
-    test('calls native Backend capabilities with the Appwrite session', () async {
+    test('calls native Backend capabilities with the Testagram session', () async {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(
@@ -888,7 +888,7 @@ void main() {
 
       expect(captured.method, 'POST');
       expect(captured.url.path, '/api/capability');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect(jsonDecode(captured.body), {
         'capability': 'testagram.wallet.recipient.resolve',
         'input': {'username': 'recipient'},
@@ -901,7 +901,7 @@ void main() {
       late http.Request captured;
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           captured = request;
           return http.Response(jsonEncode({
@@ -919,7 +919,7 @@ void main() {
       final response = await api.getPoll('00000000-0000-4000-8000-000000000001');
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/social/polls/00000000-0000-4000-8000-000000000001');
-      expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+      expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['question'], 'Which feature next?');
       api.close();
     });
@@ -928,7 +928,7 @@ void main() {
       final requests = <http.Request>[];
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
-        getJwt: () async => 'appwrite-session-jwt',
+        getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
         client: MockClient((request) async {
           requests.add(request);
           return http.Response(jsonEncode({
@@ -951,7 +951,7 @@ void main() {
         '/api/threads/$threadId/bookmarks/toggle',
       ]);
       expect(requests.every((request) =>
-          request.headers['authorization'] == 'Bearer appwrite-session-jwt'), isTrue);
+          request.headers['authorization'] == 'Bearer testagram-native-access-token'), isTrue);
       expect(requests.every((request) => request.body == '{}'), isTrue);
       expect(requests.every((request) => request.headers['content-type'] == 'application/json'), isTrue);
       api.close();

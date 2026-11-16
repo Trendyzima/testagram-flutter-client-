@@ -2,11 +2,11 @@
 import 'dart:convert';
 import 'dart:math';
 
-import 'package:appwrite/appwrite.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
 import '../../core/app_config.dart';
 import '../../core/backend_api.dart';
+import '../../core/auth/native_auth_client.dart';
 import 'auth_entry.dart';
 import 'identity_verification_client.dart';
 import 'identity_application_store.dart';
@@ -16,7 +16,7 @@ enum _Page { signIn, signUp, forgot, verify, reset, identity }
 class AuthScreen extends StatefulWidget {
   const AuthScreen({
     super.key,
-    required this.account,
+    required this.authClient,
     required this.onSignedIn,
     this.requireVerification = false,
     this.requireIdentityReview = false,
@@ -24,7 +24,7 @@ class AuthScreen extends StatefulWidget {
     this.enableIdentityRegistration = false,
     this.identityApplicationStore,
   });
-  final Account account;
+  final NativeAuthSession authClient;
   final VoidCallback onSignedIn;
   final bool requireVerification;
   final bool requireIdentityReview;
@@ -48,7 +48,7 @@ class _AuthScreenState extends State<AuthScreen> {
   IdentityApplication? _identityApplication;
   IdentityProvisioningAuthorization? _identityProvisioningAuthorization;
   IdentityApplicationStatus? _identityStatus;
-  String? _error, _notice, _recoveryUser, _recoverySecret;
+  String? _error, _notice, _recoveryToken;
 
   @override
   void initState() {
@@ -58,8 +58,7 @@ class _AuthScreenState extends State<AuthScreen> {
     final entry = AuthEntry.fromUri(Uri.base);
     switch (entry.mode) {
       case AuthEntryMode.resetPassword:
-        _recoveryUser = entry.userId;
-        _recoverySecret = entry.secret;
+        _recoveryToken = entry.token;
         _page = _Page.reset;
         if (!entry.hasCompleteCallback) {
           _error = 'This password reset link is incomplete. Request a new reset email.';
@@ -69,10 +68,10 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
           WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _verify(entry.userId!, entry.secret!),
+            (_) => _verify(entry.applicationId!, entry.token!),
           );
         } else {
-          _notice = 'Open the complete verification link from your email, or request another one.';
+          _notice = 'Open the complete Testagram verification link from your email, or request another one.';
         }
         break;
       case AuthEntryMode.signUp:
@@ -161,26 +160,29 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Testagram authentication is temporarily unavailable. Please retry.';
       }
       if (e.statusCode == 401 || e.statusCode == 403 || e.statusCode == 404) {
-        return 'Your Appwrite sign-in succeeded, but Testagram could not resolve your canonical account. Retry or contact support.';
+        return 'Testagram could not confirm your account. Retry or contact support.';
       }
       return e.message;
     }
-    if (e is AppwriteException) {
-      if (e.code == 401) {
+    if (e is NativeAuthException) {
+      if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
+        return 'Verify your email address before signing in.';
+      }
+      if (e.statusCode == 401) {
         return 'The email or password is incorrect.';
       }
-      if (e.code == 409) {
-        return 'We could not create this account. Try signing in or use password recovery if you already registered.';
+      if (e.statusCode == 409) {
+        return 'This account or application conflicts with an existing Testagram record. Check your details or contact support.';
       }
-      if (e.code == 429) {
+      if (e.statusCode == 429) {
         return 'Too many attempts. Wait and retry.';
       }
-      return e.message ?? 'The request failed.';
+      return e.message;
     }
     final s = e.toString();
     if (s.contains('ClientException') || s.contains('Failed to fetch') ||
         s.contains('SocketException') || s.contains('Failed host lookup')) {
-      return 'Cannot reach Appwrite. Check your connection, Appwrite endpoint, project Web platform and CORS settings.';
+      return 'Cannot reach Testagram. Check your connection and retry.';
     }
     if (s.contains('TimeoutException')) {
       return 'Request timed out. Check your connection and retry.';
@@ -214,24 +216,37 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _signIn() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
-      await widget.account.createEmailPasswordSession(
-        email: _email.text.trim().toLowerCase(),
-        password: _password.text,
-      );
-      final user = await widget.account.get();
-      if (!user.emailVerification) {
-        if (mounted) {
-          setState(() {
-            _page = _Page.verify;
-            _notice = 'Your email is not verified yet. Check your inbox or resend the verification link.';
-          });
+      try {
+        await widget.authClient.signIn(
+          email: _email.text.trim().toLowerCase(),
+          password: _password.text,
+        );
+      } on NativeAuthException catch (error) {
+        if (error.code == 'EMAIL_VERIFICATION_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = _Page.verify;
+              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh link from your saved application.';
+            });
+          }
+          return;
         }
-        return;
+        if (error.code == 'IDENTITY_APPROVAL_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
+              _notice = widget.enableIdentityRegistration
+                  ? 'This account has not completed Testagram identity review and two-person account approval. Submit an application to continue.'
+                  : 'This account has not completed identity review and two-person account approval. Registration is temporarily unavailable.';
+            });
+          }
+          return;
+        }
+        rethrow;
       }
-
       final backend = BackendApi(
         baseUri: AppConfig.backendOrigin,
-        getJwt: () async => (await widget.account.createJWT()).jwt,
+        getAccessToken: widget.authClient.accessToken,
       );
       try {
         await backend.getMyProfile();
@@ -239,21 +254,31 @@ class _AuthScreenState extends State<AuthScreen> {
         final message = error.message.toLowerCase();
         if (error.statusCode == 403 &&
             (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-             message.contains('identity review') ||
-             message.contains('two-person account approval')))  {
+                message.contains('identity review') ||
+                message.contains('two-person account approval'))) {
           if (mounted) {
             setState(() {
-              _name.text = user.name;
-              _email.text = user.email;
-              _username.text = user.email.split('@').first
+              _email.text = _email.text.trim().toLowerCase();
+              _username.text = _email.text.split('@').first
                   .toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
                   .replaceAll(RegExp(r'_+'), '_');
               if (_username.text.length < 3) _username.text = 'user_account';
-              if (_username.text.length > 30) _username.text = _username.text.substring(0, 30);
+              if (_username.text.length > 30) {
+                _username.text = _username.text.substring(0, 30);
+              }
               _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
               _notice = widget.enableIdentityRegistration
-                  ? 'Your Appwrite login is valid, but this account has not completed Testagram identity review and two-person approval. Submit an application to continue.'
-                  : 'Your Appwrite login is valid, but this account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
+                  ? 'This Testagram account has not completed identity review and two-person approval. Submit an application to continue.'
+                  : 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
+            });
+          }
+          return;
+        }
+        if (error.statusCode == 403 && error.code == 'EMAIL_VERIFICATION_REQUIRED') {
+          if (mounted) {
+            setState(() {
+              _page = _Page.verify;
+              _notice = 'Verify the email address linked to your approved Testagram application before signing in.';
             });
           }
           return;
@@ -358,12 +383,30 @@ class _AuthScreenState extends State<AuthScreen> {
           status = await api.getStatus(application);
         }
       }
-      if (mounted) {
+      if (status.provisioningStatus == 'active') {
+        try {
+          await _identityStore.clear();
+        } catch (_) {}
+        if (mounted) {
+          setState(() {
+            _identityDraft = null;
+            _identityApplication = null;
+            _identityStatus = status;
+            _page = _Page.signIn;
+            _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
+          });
+        }
+      } else if (mounted) {
         setState(() {
           _identityDraft = currentDraft;
           _identityApplication = application;
           _identityStatus = status;
-          _notice = 'Your application is ready to continue. Refresh its status at any time.';
+          _page = status.provisioningStatus == 'verification_pending'
+              ? _Page.verify
+              : _Page.identity;
+          _notice = status.provisioningStatus == 'verification_pending'
+              ? 'Your Testagram account has been created. Verify your email to activate it.'
+              : 'Your application is ready to continue. Refresh its status at any time.';
         });
       }
     } catch (_) {
@@ -424,53 +467,67 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _resend() async => _run(() async {
-    await widget.account.createVerification(url: '${AppConfig.authCallbackOrigin}/?mode=verification');
-    if (mounted) {
-      setState(() => _notice = 'A new verification email has been sent.');
+    final application = _identityApplication;
+    if (application == null) {
+      if (mounted) {
+        setState(() => _notice =
+            'If your approved application is awaiting email verification, reopen it on this device to request a new link.');
+      }
+      return;
+    }
+    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+    try {
+      await api.resendVerification(application);
+      if (mounted) {
+        setState(() => _notice =
+            'If your approved application is awaiting verification, a fresh Testagram email link has been requested.');
+      }
+    } finally {
+      api.close();
     }
   });
 
-  Future<void> _verify(String userId, String secret) async => _run(() async {
-    // Verification links are commonly opened on a different device/browser
-    // with no existing Appwrite session. The one-time Appwrite callback is
-    // the authority here; do not require account.get() after redeeming it.
-    await widget.account.updateVerification(userId: userId, secret: secret);
-    if (mounted) {
-      setState(() {
-        _page = _Page.signIn;
-        _notice = 'Email verified successfully. Sign in to continue.';
-      });
+  Future<void> _verify(String applicationId, String token) async => _run(() async {
+    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+    try {
+      await api.verifyEmail(applicationId: applicationId, token: token);
+      try {
+        await _identityStore.clear();
+      } catch (_) {
+        // The server has consumed the one-time token; local cleanup is best-effort.
+      }
+      if (mounted) {
+        setState(() {
+          _identityDraft = null;
+          _identityApplication = null;
+          _identityStatus = null;
+          _identityProvisioningAuthorization = null;
+          _recoveryToken = null;
+          _page = _Page.signIn;
+          _notice = 'Your Testagram email is verified. Sign in with your new Testagram password.';
+        });
+      }
+    } finally {
+      api.close();
     }
   });
 
   Future<void> _forgot() async {
-    if (!_form.currentState!.validate()) {
-      return;
-    }
+    if (!_form.currentState!.validate()) return;
     await _run(() async {
-      try {
-        await widget.account.createRecovery(
-          email: _email.text.trim().toLowerCase(),
-          url: '${AppConfig.authCallbackOrigin}/?mode=recovery');
-      } on AppwriteException catch (error) {
-        // Appwrite may distinguish an unknown email. Keep the public response
-        // identical so the form cannot be used to enumerate registered users.
-        if (error.code != 400 && error.code != 404) rethrow;
-      }
+      await widget.authClient.requestPasswordReset(_email.text.trim().toLowerCase());
       if (mounted) {
         setState(() {
           _page = _Page.signIn;
-          _notice = 'If the account exists, a password reset link has been sent.';
+          _notice = 'If the account exists, a Testagram password reset link has been sent.';
         });
       }
     });
   }
 
   Future<void> _reset() async {
-    if (!_form.currentState!.validate()) {
-      return;
-    }
-    if (_recoveryUser == null || _recoverySecret == null) {
+    if (!_form.currentState!.validate()) return;
+    if (_recoveryToken == null || _recoveryToken!.isEmpty) {
       setState(() {
         _error = 'Recovery link is incomplete. Request a new reset email.';
       });
@@ -478,12 +535,15 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     await _run(() async {
       try {
-        await widget.account.updateRecovery(
-          userId: _recoveryUser!, secret: _recoverySecret!, password: _password.text);
-      } on AppwriteException catch (error) {
-        if (error.code == 400 || error.code == 401 || error.code == 404) {
+        await widget.authClient.resetPassword(
+          token: _recoveryToken!,
+          password: _password.text,
+        );
+      } on NativeAuthException catch (error) {
+        if (error.statusCode == 400 || error.statusCode == 401 || error.statusCode == 404) {
           if (mounted) {
-            setState(() => _error = 'This reset link is invalid, expired or already used. Request a new reset email.');
+            setState(() => _error =
+                'This reset link is invalid, expired or already used. Request a new reset email.');
           }
           return;
         }
@@ -494,9 +554,8 @@ class _AuthScreenState extends State<AuthScreen> {
           _page = _Page.signIn;
           _password.clear();
           _confirm.clear();
-          _recoveryUser = null;
-          _recoverySecret = null;
-        _notice = 'Password changed. Sign in with your new password.';
+          _recoveryToken = null;
+          _notice = 'Password changed. Sign in with your new Testagram password.';
         });
       }
     });
@@ -562,77 +621,44 @@ class _AuthScreenState extends State<AuthScreen> {
           authorization = await api.requestProvisioningAuthorization(application);
           _identityProvisioningAuthorization = authorization;
         }
-        try {
-          await widget.account.create(
-            userId: ID.unique(),
-            email: _email.text.trim().toLowerCase(),
-            password: _password.text,
-            name: _name.text.trim(),
-          );
-        } on AppwriteException catch (error) {
-          // A previous attempt may already have created the Appwrite identity.
-          // Sign in with the same credentials and safely retry the backend link.
-          if (error.code != 409) rethrow;
-        }
-        await widget.account.createEmailPasswordSession(
-          email: _email.text.trim().toLowerCase(),
-          password: _password.text,
-        );
-        final user = await widget.account.get();
-        if (!user.emailVerification) {
-          try {
-            await widget.account.createVerification(
-              url: '${AppConfig.authCallbackOrigin}/?mode=verification',
-            );
-          } on AppwriteException catch (error) {
-            if (error.code != 409) rethrow;
-          }
-        }
-        final jwt = await widget.account.createJWT();
+
         Map<String, dynamic> result;
         try {
           result = await api.redeemProvisioningAuthorization(
             application: application,
             authorization: authorization,
-            appwriteJwt: jwt.jwt,
+            password: _password.text,
           );
         } on IdentityVerificationException catch (error) {
           if (error.statusCode != 409) rethrow;
           final latest = await api.getStatus(application);
           if (latest.status == 'approved') {
+            // The short-lived approval grant may have expired before redemption.
             authorization = await api.requestProvisioningAuthorization(application);
             _identityProvisioningAuthorization = authorization;
           }
-          // If the first redemption committed but its response was lost, the
-          // Backend recognizes the same Appwrite identity and safely returns
-          // the existing canonical link without consuming a second grant.
+          // If the first request committed but its response was lost, the same
+          // consumed grant returns the same native account without resetting its
+          // password or creating a duplicate profile.
           result = await api.redeemProvisioningAuthorization(
             application: application,
             authorization: authorization,
-            appwriteJwt: jwt.jwt,
+            password: _password.text,
           );
         }
+
+        final status = await api.getStatus(application);
         _identityProvisioningAuthorization = null;
-        try {
-          await _identityStore.clear();
-        } catch (_) {
-          // Provisioning has already committed; a local cache cleanup failure
-          // must not turn a successful account creation into a failed signup.
-        }
-        _identityDraft = null;
         if (!mounted) return;
         _password.clear();
         _confirm.clear();
-        if (user.emailVerification) {
-          widget.onSignedIn();
-        } else {
-          setState(() {
-            _page = _Page.verify;
-            _notice = result['email_verification_required'] == true
-                ? 'Your Appwrite identity is linked. Check your email and verify it before signing in to Testagram.'
-                : 'Your account is linked. Verify your email to continue.';
-          });
-        }
+        setState(() {
+          _identityStatus = status;
+          _page = _Page.verify;
+          _notice = result['email_delivery_pending'] == true
+              ? 'Your identity application is approved and your Testagram account has been created. Email delivery is being retried; use Resend verification when the email service is available.'
+              : 'Your identity application is approved and your Testagram account has been created. Check your email and verify it before signing in.';
+        });
       } finally {
         api.close();
       }
@@ -671,12 +697,30 @@ class _AuthScreenState extends State<AuthScreen> {
             status = await api.getStatus(application);
           }
         }
-        if (mounted) {
+        if (status.provisioningStatus == 'active') {
+          try {
+            await _identityStore.clear();
+          } catch (_) {}
+          if (mounted) {
+            setState(() {
+              _identityDraft = null;
+              _identityApplication = null;
+              _identityStatus = status;
+              _page = _Page.signIn;
+              _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
+            });
+          }
+        } else if (mounted) {
           setState(() {
             _identityDraft = currentDraft;
             _identityApplication = application;
             _identityStatus = status;
-            _notice = 'Application status refreshed.';
+            _page = status.provisioningStatus == 'verification_pending'
+                ? _Page.verify
+                : _Page.identity;
+            _notice = status.provisioningStatus == 'verification_pending'
+                ? 'Your Testagram account has been created. Verify your email to activate it.'
+                : 'Application status refreshed.';
           });
         }
       } finally {
@@ -911,7 +955,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         children: [
                           Text('Create your Testagram account', style: TextStyle(fontWeight: FontWeight.w600)),
                           SizedBox(height: 4),
-                          Text('Submit your details and private age-assurance evidence. Two independent reviewers must approve your application before an Appwrite account and Testagram profile can be created.'),
+                          Text('Submit your details and private age-assurance evidence. Two independent reviewers and two independent account approvers must approve your application before your Testagram account can be created.'),
                         ],
                       ),
                     ),
@@ -1072,7 +1116,7 @@ class _AuthScreenState extends State<AuthScreen> {
             TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in')),
           const SizedBox(height: 12),
           Text(
-            'Appwrite authenticates accounts. Testagram Backend remains responsible for canonical profile linking and product authorization.',
+            'Testagram authenticates accounts and controls profile linking, sessions and product authorization.',
             textAlign: TextAlign.center,
             style: TextStyle(fontSize: 12, color: Theme.of(context).hintColor),
           ),

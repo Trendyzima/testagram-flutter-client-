@@ -1,15 +1,16 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/app.dart';
+import 'package:testagram/core/app_config.dart';
 
 void main() {
-  testWidgets('shows the configuration guidance when runtime settings are absent',
+  testWidgets('uses canonical HTTPS defaults when no runtime overrides are supplied',
       (tester) async {
     await tester.pumpWidget(const TestagramApp());
 
-    expect(find.text('Testagram'), findsOneWidget);
+    expect(AppConfig.isConfigured, isTrue);
     expect(
-      find.textContaining('This build needs an Appwrite endpoint'),
-      findsOneWidget,
+      find.textContaining('This build needs a valid HTTPS Backend URL'),
+      findsNothing,
     );
   });
 }

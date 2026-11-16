@@ -3,11 +3,11 @@ import 'package:http/http.dart' as http;
 
 /// Explicit client for the separately hosted Testagram video service.
 class VideoApi {
-  VideoApi({required this.baseUri, required this.getJwt, http.Client? client})
+  VideoApi({required this.baseUri, required this.getAccessToken, http.Client? client})
       : _client = client ?? http.Client();
 
   final Uri baseUri;
-  final Future<String> Function() getJwt;
+  final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
   Future<List<Map<String, dynamic>>> feed() async {
@@ -52,22 +52,33 @@ class VideoApi {
     bool auth = false,
     Map<String, String> extraHeaders = const {},
   }) async {
-    final headers = <String, String>{'Accept': 'application/json', ...extraHeaders};
-    if (body != null) headers['Content-Type'] = 'application/json';
-    if (auth) {
-      final jwt = (await getJwt()).trim();
-      if (jwt.isEmpty) throw const VideoApiException('Sign in again to use this video action.');
-      headers['Authorization'] = 'Bearer $jwt';
-    }
     final uri = baseUri.resolve(path);
-    late final http.Response response;
-    if (method == 'GET') {
-      response = await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
-    } else if (method == 'POST') {
-      response = await _client.post(uri, headers: headers,
-          body: body == null ? null : jsonEncode(body)).timeout(const Duration(seconds: 20));
-    } else {
+
+    Future<http.Response> send({bool forceRefresh = false}) async {
+      final headers = <String, String>{'Accept': 'application/json', ...extraHeaders};
+      if (body != null) headers['Content-Type'] = 'application/json';
+      if (auth) {
+        final token = (await getAccessToken(forceRefresh: forceRefresh) ?? '').trim();
+        if (token.isEmpty) {
+          throw const VideoApiException('Sign in again to use this video action.');
+        }
+        headers['Authorization'] = 'Bearer $token';
+      }
+      if (method == 'GET') {
+        return _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+      }
+      if (method == 'POST') {
+        return _client.post(uri, headers: headers,
+            body: body == null ? null : jsonEncode(body)).timeout(const Duration(seconds: 20));
+      }
       throw ArgumentError.value(method, 'method');
+    }
+
+    var response = await send();
+    if (auth && response.statusCode == 401) {
+      // A single coordinated refresh/retry matches BackendApi's native session
+      // behavior. Never loop on repeated unauthorized responses.
+      response = await send(forceRefresh: true);
     }
     return _decode(response);
   }
