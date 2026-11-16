@@ -25,7 +25,47 @@ class SettingsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Text('Make Testagram yours', style: Theme.of(context).textTheme.titleLarge),
+          Card(
+            color: Theme.of(context).colorScheme.primaryContainer.withValues(
+                  alpha: Theme.of(context).brightness == Brightness.dark ? 0.34 : 0.62,
+                ),
+            child: Padding(
+              padding: const EdgeInsets.all(18),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(14),
+                    child: Image.asset(
+                      'assets/branding/testagram-icon.webp',
+                      width: 52,
+                      height: 52,
+                      fit: BoxFit.cover,
+                      semanticLabel: 'Testagram',
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Make Testagram yours',
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'A social space shaped around your voice, your people and your preferences.',
+                          style: Theme.of(context).textTheme.bodySmall,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 22),
           const SizedBox(height: 8),
           Card(
             child: RadioGroup<ThemeMode>(
