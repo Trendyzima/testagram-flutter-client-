@@ -178,7 +178,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('More than a feed.\\nA world of voices.'), findsOneWidget);
+    expect(find.text('More than a feed.\nA world of voices.'), findsOneWidget);
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Sign in'), findsWidgets);
     expect(find.text('Your voice'), findsOneWidget);
@@ -199,7 +199,7 @@ void main() {
       ),
     ));
 
-    expect(find.text('More than a feed.\\nA world of voices.'), findsOneWidget);
+    expect(find.text('More than a feed.\nA world of voices.'), findsOneWidget);
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Sign in'), findsWidgets);
   });
