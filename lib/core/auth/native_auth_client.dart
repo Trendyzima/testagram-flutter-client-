@@ -16,7 +16,7 @@ class FlutterNativeAuthStorage implements NativeAuthStorage {
   FlutterNativeAuthStorage({FlutterSecureStorage? storage})
       : _storage = storage ?? const FlutterSecureStorage();
 
-  final NativeAuthStorage _storage;
+  final FlutterSecureStorage _storage;
 
   @override
   Future<String?> read(String key) => _storage.read(key: key);
@@ -56,7 +56,7 @@ class NativeAuthClient implements NativeAuthSession {
         _http = httpClient ?? http.Client();
 
   final Uri baseUri;
-  final FlutterSecureStorage _storage;
+  final NativeAuthStorage _storage;
   final http.Client _http;
 
   static const _refreshKey = 'testagram.auth.refresh.v1';
