@@ -7,30 +7,30 @@ import 'package:testagram/core/auth/native_auth_client.dart';
 
 class _FailingNativeAuthStorage implements NativeAuthStorage {
   @override
-  Future<String?> read(String key) async => null;
+  Future<String?> read({required String key}) async => null;
 
   @override
-  Future<void> write(String key, String value) async {
+  Future<void> write({required String key, required String value}) async {
     throw StateError('secure storage unavailable');
   }
 
   @override
-  Future<void> delete(String key) async {}
+  Future<void> delete({required String key}) async {}
 }
 
 class _MemoryNativeAuthStorage implements NativeAuthStorage {
   final Map<String, String> values = {};
 
   @override
-  Future<String?> read(String key) async => values[key];
+  Future<String?> read({required String key}) async => values[key];
 
   @override
-  Future<void> write(String key, String value) async {
+  Future<void> write({required String key, required String value}) async {
     values[key] = value;
   }
 
   @override
-  Future<void> delete(String key) async {
+  Future<void> delete({required String key}) async {
     values.remove(key);
   }
 }
