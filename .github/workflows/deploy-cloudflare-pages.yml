@@ -30,7 +30,7 @@ jobs:
     timeout-minutes: 35
     environment: production
     env:
-      TESTAGRAM_API_URL: https://api.testagram.site
+      TESTAGRAM_API_URL: https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech
       TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'false' }}
       CONFIRM_IDENTITY_REGISTRATION_UI: ${{ inputs.confirm_identity_registration_ui }}
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
@@ -55,8 +55,9 @@ jobs:
             echo "::error::Production deployment blocked. CLOUDFLARE_ACCOUNT_ID plus CLOUDFLARE_API_TOKEN as repository secrets."
             exit 1
           fi
-          if [[ "$TESTAGRAM_API_URL" != "https://api.testagram.site" ]]; then
-            echo "::error::Production Flutter builds must use the canonical API hostname https://api.testagram.site, never a direct VPS port URL."
+          expected_api_url="https://8080-agq4me2xgrgx5ge52ts437tqea.instabox.tech"
+          if [[ "$TESTAGRAM_API_URL" != "$expected_api_url" ]]; then
+            echo "::error::Production Flutter builds must target the published InstaBox port 8080 URL: $expected_api_url"
             exit 1
           fi
           case "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" in
@@ -117,6 +118,48 @@ jobs:
             exit 1
           fi
           echo "Cloudflare Pages API access verified."
+
+      - name: Verify direct InstaBox API and browser CORS contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          health_body="$(mktemp)"
+          cors_headers="$(mktemp)"
+          trap 'rm -f "$health_body" "$cors_headers"' EXIT
+
+          health_status="$(curl --silent --show-error --max-time 60 -o "$health_body" -w '%{http_code}' "$TESTAGRAM_API_URL/healthz")"
+          if [[ "$health_status" != "200" ]] || ! jq -e '.ok == true and .service == "testagram-api"' "$health_body" >/dev/null; then
+            echo "::error::Published InstaBox API health contract failed (HTTP $health_status)."
+            cat "$health_body"
+            exit 1
+          fi
+
+          cors_status="$(curl --silent --show-error --max-time 60 -D "$cors_headers" -o /dev/null -w '%{http_code}' \
+            -X OPTIONS "$TESTAGRAM_API_URL/api/auth/login" \
+            -H 'Origin: https://www.testagram.site' \
+            -H 'Access-Control-Request-Method: POST' \
+            -H 'Access-Control-Request-Headers: content-type')"
+          if [[ "$cors_status" != "204" ]]; then
+            echo "::error::InstaBox authentication CORS preflight failed (HTTP $cors_status)."
+            cat "$cors_headers"
+            exit 1
+          fi
+          grep -iFq 'Access-Control-Allow-Origin: https://www.testagram.site' "$cors_headers" || {
+            echo "::error::InstaBox API did not allow the production Flutter origin."
+            cat "$cors_headers"
+            exit 1
+          }
+          grep -iEq 'Access-Control-Allow-Headers:.*content-type' "$cors_headers" || {
+            echo "::error::InstaBox API did not allow the JSON content-type request header."
+            cat "$cors_headers"
+            exit 1
+          }
+          grep -iEq 'Access-Control-Expose-Headers:.*retry-after' "$cors_headers" || {
+            echo "::error::InstaBox API did not expose Retry-After to browser JavaScript."
+            cat "$cors_headers"
+            exit 1
+          }
+          echo "Published InstaBox API health and Flutter browser CORS contract verified."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
