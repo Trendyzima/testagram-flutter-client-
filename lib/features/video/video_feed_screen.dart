@@ -38,8 +38,8 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     final nativeProvider = widget.api.getAccessToken;
     if (origin != null) {
       _videoApi = VideoApi(baseUri: origin, getAccessToken: nativeProvider);
-    } else if (origin != null) {
-      _error = 'A Testagram native session is required for video interactions.';
+    } else {
+      _error = 'Video is not connected yet. Set TESTAGRAM_VIDEO_API_URL after the video service has an approved HTTPS deployment.';
     }
     if (widget.isActive) _load();
   }
@@ -73,17 +73,17 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   Future<void> _load() async {
     _hasLoadedOnce = true;
-    if (kIsWeb) {
-      setState(() {
-        _loading = false;
-        _error = 'Web playback is not enabled yet. It needs a Backend video proxy with browser-safe HLS delivery; native mobile playback can use the dedicated video service.';
-      });
-      return;
-    }
     if (_videoApi == null) {
       setState(() {
         _loading = false;
         _error = 'Video is not connected yet. Set TESTAGRAM_VIDEO_API_URL after the video service has an approved HTTPS deployment.';
+      });
+      return;
+    }
+    if (kIsWeb) {
+      setState(() {
+        _loading = false;
+        _error = 'Browser playback is not enabled yet. The video service needs browser-safe HLS delivery; native mobile playback uses the dedicated Testagram video service.';
       });
       return;
     }
