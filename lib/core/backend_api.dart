@@ -17,14 +17,12 @@ class BackendApi {
   BackendApi({
     required this.baseUri,
     Future<String?> Function({bool forceRefresh})? getAccessToken,
+    @Deprecated('Use getAccessToken; this alias is for older test fixtures only.')
     Future<String?> Function()? getJwt,
     http.Client? client,
   })  : getAccessToken = _resolveAccessTokenProvider(getAccessToken, getJwt),
         _client = client ?? http.Client();
 
-  /// Temporary source-compatibility alias for pre-native token-provider
-  /// call sites in the PR base. New code must pass [getAccessToken]. This
-  /// adapter does not add an Appwrite SDK, session store, or auth fallback.
   static Future<String?> Function({bool forceRefresh}) _resolveAccessTokenProvider(
     Future<String?> Function({bool forceRefresh})? getAccessToken,
     Future<String?> Function()? getJwt,
@@ -37,9 +35,7 @@ class BackendApi {
   }
 
   final Uri baseUri;
-
-  /// Testagram-native session provider. A 401 response triggers one coordinated
-  /// refresh through the shared session manager, then retries the request once.
+  /// Testagram-native session provider. Access tokens remain in memory.
   final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
@@ -47,11 +43,16 @@ class BackendApi {
     int limit = 20,
     String? cursor,
     bool followingOnly = false,
+    bool videoOnly = false,
+    String? feed,
   }) async {
+    final normalizedFeed = feed?.trim().toLowerCase();
     final uri = baseUri.resolve('/api/feed/home').replace(queryParameters: {
       'limit': '$limit',
       if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+      if (normalizedFeed != null && normalizedFeed.isNotEmpty) 'feed': normalizedFeed,
       if (followingOnly) 'following_only': 'true',
+      if (videoOnly) 'video_only': 'true',
     });
     return _request('GET', uri);
   }
@@ -73,19 +74,47 @@ class BackendApi {
     required String name,
     required String contentType,
     required List<int> bytes,
+  }) => _uploadPublicMedia(
+        name: name,
+        contentType: contentType,
+        bytes: bytes,
+        allowedTypes: const {
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+          'image/avif',
+        },
+        mediaLabel: 'Image',
+      );
+
+  /// Uploads a small public MP4/WebM clip through the same verified media
+  /// lifecycle used by images. Public post attachments are capped at 20 MiB.
+  Future<Map<String, dynamic>> uploadPublicVideo({
+    required String name,
+    required String contentType,
+    required List<int> bytes,
+  }) => _uploadPublicMedia(
+        name: name,
+        contentType: contentType,
+        bytes: bytes,
+        allowedTypes: const {'video/mp4', 'video/webm'},
+        mediaLabel: 'Video',
+      );
+
+  Future<Map<String, dynamic>> _uploadPublicMedia({
+    required String name,
+    required String contentType,
+    required List<int> bytes,
+    required Set<String> allowedTypes,
+    required String mediaLabel,
   }) async {
-    const allowedTypes = {
-      'image/jpeg',
-      'image/png',
-      'image/webp',
-      'image/gif',
-      'image/avif',
-    };
-    if (!allowedTypes.contains(contentType.toLowerCase())) {
-      throw const BackendApiException('Choose a JPEG, PNG, WebP, GIF or AVIF image.');
+    final normalizedType = contentType.toLowerCase().trim();
+    if (!allowedTypes.contains(normalizedType)) {
+      throw BackendApiException('Unsupported $mediaLabel content type.');
     }
     if (bytes.isEmpty || bytes.length > 20 * 1024 * 1024) {
-      throw const BackendApiException('Images must be between 1 byte and 20 MiB.');
+      throw BackendApiException('$mediaLabel files must be between 1 byte and 20 MiB.');
     }
 
     final intent = await _request(
@@ -93,7 +122,7 @@ class BackendApi {
       baseUri.resolve('/api/media/upload-intent'),
       body: {
         'name': name,
-        'content_type': contentType.toLowerCase(),
+        'content_type': normalizedType,
         'visibility': 'public',
         'size_bytes': bytes.length,
       },
@@ -111,30 +140,29 @@ class BackendApi {
 
     final request = http.Request('PUT', baseUri.resolve(uploadUrl))
       ..headers.addAll(await _headers())
-      ..headers['Content-Type'] = contentType.toLowerCase()
+      ..headers['Content-Type'] = normalizedType
       ..bodyBytes = bytes;
     try {
       final streamed = await _client.send(request).timeout(const Duration(seconds: 90));
       if (streamed.statusCode < 200 || streamed.statusCode >= 300) {
         final response = await http.Response.fromStream(streamed);
         _decodeObject(response);
-        throw BackendApiException('Image upload failed with status ${streamed.statusCode}.',
+        throw BackendApiException('$mediaLabel upload failed with status ${streamed.statusCode}.',
             statusCode: streamed.statusCode);
       }
     } on TimeoutException {
-      throw const BackendApiException(
-        'Image upload timed out. Check your connection and try again.',
+      throw BackendApiException(
+        '$mediaLabel upload timed out. Check your connection and try again.',
       );
     } on http.ClientException {
-      throw const BackendApiException(
-        'Could not upload the image. Check your connection.',
+      throw BackendApiException(
+        'Could not upload the $mediaLabel. Check your connection.',
       );
     }
 
     final checksum = sha256.convert(bytes).toString();
-    // Backend may return 202 while Data Centre verifies the primary object
-    // and its independent replica. Do not expose a pending object as a ready
-    // asset: post attachment requires status=ready.
+    // Do not expose a pending object as ready. The Backend verifies the
+    // primary object and its independent replica before attachment.
     final deadline = DateTime.now().add(const Duration(minutes: 3));
     while (true) {
       late final Map<String, dynamic> completed;
@@ -145,13 +173,11 @@ class BackendApi {
           body: {
             'key': key,
             'visibility': 'public',
-            'content_type': contentType.toLowerCase(),
+            'content_type': normalizedType,
             'checksum_sha256': checksum,
           },
         );
       } on BackendApiException catch (error) {
-        // A transient replica failure is re-queued by the Backend when
-        // completion is retried. Keep retries bounded and never claim success.
         if ((error.statusCode == 502 || error.statusCode == 503) &&
             DateTime.now().isBefore(deadline)) {
           await Future<void>.delayed(const Duration(seconds: 1));
@@ -162,17 +188,17 @@ class BackendApi {
 
       final asset = completed['data'];
       if (asset is! Map) {
-        throw const BackendApiException('The server did not confirm the uploaded image.');
+        throw const BackendApiException('The server did not confirm the uploaded media.');
       }
       final result = Map<String, dynamic>.from(asset);
       final state = (result['status'] ?? '').toString();
       if (state == 'ready') return result;
       if (state != 'replication_pending') {
-        throw const BackendApiException('The uploaded image did not reach a valid ready state.');
+        throw const BackendApiException('The uploaded media did not reach a valid ready state.');
       }
       if (!DateTime.now().isBefore(deadline)) {
-        throw const BackendApiException(
-          'The image is still being replicated. Please retry; it has not been attached or published.',
+        throw BackendApiException(
+          'The $mediaLabel is still being replicated. Retry; it has not been attached or published.',
           statusCode: 503,
         );
       }
@@ -258,6 +284,11 @@ class BackendApi {
 
   Future<Map<String, dynamic>> getPost(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId'));
+
+  /// Records a view through the Backend's privacy-filtered social post route.
+  /// Callers should de-duplicate within a viewing session to avoid inflating counts.
+  Future<Map<String, dynamic>> recordPostView(String postId) =>
+      _request('POST', baseUri.resolve('/api/social/posts/$postId/view'));
 
   Future<Map<String, dynamic>> getPostInteractionSummary(String postId) =>
       _request('GET', baseUri.resolve('/api/social/posts/$postId/interaction-summary'));
