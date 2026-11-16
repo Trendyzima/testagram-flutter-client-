@@ -12,7 +12,7 @@ void main() {
     late http.Request captured;
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
-      getJwt: () async => 'appwrite-session-jwt',
+      getAccessToken: ({bool forceRefresh = false}) async => 'testagram-native-access-token',
       client: MockClient((request) async {
         captured = request;
         return http.Response(jsonEncode({
@@ -48,7 +48,7 @@ void main() {
 
     expect(captured.method, 'GET');
     expect(captured.url.path, '/api/hashtags/Testagram');
-    expect(captured.headers['authorization'], 'Bearer appwrite-session-jwt');
+    expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
     expect(find.text('#Testagram'), findsOneWidget);
     expect(find.text('A post about #Testagram'), findsOneWidget);
     expect(find.text('Alice'), findsOneWidget);
