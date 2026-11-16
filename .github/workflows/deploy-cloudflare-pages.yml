@@ -169,14 +169,24 @@ jobs:
       - name: Install Wrangler
         run: npm install --global wrangler@4
 
-      - name: Create Cloudflare Pages project if needed
+      - name: Confirm existing Cloudflare Pages project
         shell: bash
         run: |
           set -euo pipefail
-          projects="$(wrangler pages project list)"
-          if ! grep -Fq "$CLOUDFLARE_PAGES_PROJECT" <<<"$projects"; then
-            wrangler pages project create "$CLOUDFLARE_PAGES_PROJECT" --production-branch main
+          endpoint="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects"
+          projects="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            -H "Content-Type: application/json" "$endpoint")"
+          if [[ "$(jq -r '.success // false' <<<"$projects")" != "true" ]]; then
+            echo "::error::Unable to verify the existing Cloudflare Pages project. No new project will be created."
+            jq -c '{errors,messages}' <<<"$projects"
+            exit 1
           fi
+          if ! jq -e --arg project "$CLOUDFLARE_PAGES_PROJECT" '.result | any(.[]?; .name == $project)' <<<"$projects" >/dev/null; then
+            echo "::error::The existing Pages project $CLOUDFLARE_PAGES_PROJECT was not found in the selected Cloudflare account. Refusing to create a replacement project."
+            exit 1
+          fi
+          echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
       - name: Deploy to Cloudflare Pages
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
