@@ -34,20 +34,21 @@ class AuthEntry {
     final path = uri.path.toLowerCase();
     final isNativeVerification = applicationId != null && token != null;
     final isNativeReset = token != null && !isNativeVerification;
-    final mode = switch (true) {
-      isNativeVerification || path.endsWith('/verify-email') =>
-        AuthEntryMode.verifyEmail,
-      isNativeReset || path.endsWith('/reset-password') =>
-        AuthEntryMode.resetPassword,
-      _ => switch (rawMode) {
-          'signup' || 'sign-up' => AuthEntryMode.signUp,
-          'forgot' => AuthEntryMode.forgotPassword,
-          'reset' || 'recovery' => AuthEntryMode.resetPassword,
-          'verification' => AuthEntryMode.verifyEmail,
-          'signin' || 'sign-in' => AuthEntryMode.signIn,
-          _ => AuthEntryMode.signIn,
-        },
-    };
+    final AuthEntryMode mode;
+    if (isNativeVerification || path.endsWith('/verify-email')) {
+      mode = AuthEntryMode.verifyEmail;
+    } else if (isNativeReset || path.endsWith('/reset-password')) {
+      mode = AuthEntryMode.resetPassword;
+    } else {
+      mode = switch (rawMode) {
+        'signup' || 'sign-up' => AuthEntryMode.signUp,
+        'forgot' => AuthEntryMode.forgotPassword,
+        'reset' || 'recovery' => AuthEntryMode.resetPassword,
+        'verification' => AuthEntryMode.verifyEmail,
+        'signin' || 'sign-in' => AuthEntryMode.signIn,
+        _ => AuthEntryMode.signIn,
+      };
+    }
     return AuthEntry(
       mode: mode,
       isExplicit: isNativeVerification ||
