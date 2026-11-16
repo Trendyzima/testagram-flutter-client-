@@ -576,77 +576,44 @@ class _AuthScreenState extends State<AuthScreen> {
           authorization = await api.requestProvisioningAuthorization(application);
           _identityProvisioningAuthorization = authorization;
         }
-        try {
-          await widget.account.create(
-            userId: ID.unique(),
-            email: _email.text.trim().toLowerCase(),
-            password: _password.text,
-            name: _name.text.trim(),
-          );
-        } on AppwriteException catch (error) {
-          // A previous attempt may already have created the Appwrite identity.
-          // Sign in with the same credentials and safely retry the backend link.
-          if (error.code != 409) rethrow;
-        }
-        await widget.account.createEmailPasswordSession(
-          email: _email.text.trim().toLowerCase(),
-          password: _password.text,
-        );
-        final user = await widget.account.get();
-        if (!user.emailVerification) {
-          try {
-            await widget.account.createVerification(
-              url: '${AppConfig.authCallbackOrigin}/?mode=verification',
-            );
-          } on AppwriteException catch (error) {
-            if (error.code != 409) rethrow;
-          }
-        }
-        final jwt = await widget.account.createJWT();
+
         Map<String, dynamic> result;
         try {
           result = await api.redeemProvisioningAuthorization(
             application: application,
             authorization: authorization,
-            appwriteJwt: jwt.jwt,
+            password: _password.text,
           );
         } on IdentityVerificationException catch (error) {
           if (error.statusCode != 409) rethrow;
           final latest = await api.getStatus(application);
           if (latest.status == 'approved') {
+            // The short-lived approval grant may have expired before redemption.
             authorization = await api.requestProvisioningAuthorization(application);
             _identityProvisioningAuthorization = authorization;
           }
-          // If the first redemption committed but its response was lost, the
-          // Backend recognizes the same Appwrite identity and safely returns
-          // the existing canonical link without consuming a second grant.
+          // If the first request committed but its response was lost, the same
+          // consumed grant returns the same native account without resetting its
+          // password or creating a duplicate profile.
           result = await api.redeemProvisioningAuthorization(
             application: application,
             authorization: authorization,
-            appwriteJwt: jwt.jwt,
+            password: _password.text,
           );
         }
+
+        final status = await api.getStatus(application);
         _identityProvisioningAuthorization = null;
-        try {
-          await _identityStore.clear();
-        } catch (_) {
-          // Provisioning has already committed; a local cache cleanup failure
-          // must not turn a successful account creation into a failed signup.
-        }
-        _identityDraft = null;
         if (!mounted) return;
         _password.clear();
         _confirm.clear();
-        if (user.emailVerification) {
-          widget.onSignedIn();
-        } else {
-          setState(() {
-            _page = _Page.verify;
-            _notice = result['email_verification_required'] == true
-                ? 'Your Appwrite identity is linked. Check your email and verify it before signing in to Testagram.'
-                : 'Your account is linked. Verify your email to continue.';
-          });
-        }
+        setState(() {
+          _identityStatus = status;
+          _page = _Page.verify;
+          _notice = result['email_delivery_pending'] == true
+              ? 'Your identity application is approved and your Testagram account has been created. Email delivery is being retried; use Resend verification when the email service is available.'
+              : 'Your identity application is approved and your Testagram account has been created. Check your email and verify it before signing in.';
+        });
       } finally {
         api.close();
       }
