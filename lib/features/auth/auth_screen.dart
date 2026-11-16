@@ -836,25 +836,40 @@ class _AuthScreenState extends State<AuthScreen> {
           children: [
             for (final mode in modes)
               Expanded(
-                child: GestureDetector(
-                  onTap: _busy ? null : () => _go(mode.$1),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
-                    decoration: BoxDecoration(
-                      color: _page == mode.$1 ? (isDark ? const Color(0xFF234B37) : Colors.white) : Colors.transparent,
-                      borderRadius: BorderRadius.circular(10),
-                      boxShadow: _page == mode.$1 && !isDark
-                          ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))]
-                          : null,
-                    ),
-                    child: Text(
-                      mode.$2,
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: _page == mode.$1 ? (isDark ? Colors.white : ink) : muted,
-                        fontWeight: _page == mode.$1 ? FontWeight.w700 : FontWeight.w500,
-                        fontSize: 13,
+                child: Material(
+                  color: Colors.transparent,
+                  child: InkWell(
+                    onTap: _busy ? null : () => _go(mode.$1),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Semantics(
+                      button: true,
+                      selected: _page == mode.$1,
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 180),
+                        constraints: const BoxConstraints(minHeight: 44),
+                        padding: const EdgeInsets.symmetric(vertical: 11, horizontal: 5),
+                        decoration: BoxDecoration(
+                          color: _page == mode.$1 ? (isDark ? const Color(0xFF234B37) : Colors.white) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(10),
+                          boxShadow: _page == mode.$1 && !isDark
+                              ? [BoxShadow(color: Colors.black.withValues(alpha: 0.06), blurRadius: 8, offset: const Offset(0, 2))]
+                              : null,
+                        ),
+                        child: Center(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              mode.$2,
+                              textAlign: TextAlign.center,
+                              maxLines: 1,
+                              style: TextStyle(
+                                color: _page == mode.$1 ? (isDark ? Colors.white : ink) : muted,
+                                fontWeight: _page == mode.$1 ? FontWeight.w700 : FontWeight.w500,
+                                fontSize: 13,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
                     ),
                   ),
