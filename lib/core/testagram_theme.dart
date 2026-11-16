@@ -72,12 +72,12 @@ class TestagramTheme {
       ),
       headlineLarge: baseText.headlineLarge?.copyWith(
         color: foreground,
-        fontWeight: FontWeight.w850,
+        fontWeight: FontWeight.w800,
         letterSpacing: -1.0,
       ),
       headlineMedium: baseText.headlineMedium?.copyWith(
         color: foreground,
-        fontWeight: FontWeight.w850,
+        fontWeight: FontWeight.w800,
         letterSpacing: -0.8,
       ),
       headlineSmall: baseText.headlineSmall?.copyWith(
@@ -107,7 +107,7 @@ class TestagramTheme {
         height: 1.4,
       ),
       labelLarge: baseText.labelLarge?.copyWith(
-        fontWeight: FontWeight.w750,
+        fontWeight: FontWeight.w700,
         letterSpacing: 0.1,
       ),
     );
