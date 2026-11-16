@@ -7,9 +7,9 @@ import 'package:http/http.dart' as http;
 /// UI-facing contract so auth screens and gates do not depend on a
 /// particular transport implementation.
 abstract interface class NativeAuthStorage {
-  Future<String?> read(String key);
-  Future<void> write(String key, String value);
-  Future<void> delete(String key);
+  Future<String?> read({required String key});
+  Future<void> write({required String key, required String value});
+  Future<void> delete({required String key});
 }
 
 class FlutterNativeAuthStorage implements NativeAuthStorage {
