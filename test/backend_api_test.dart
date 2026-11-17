@@ -920,6 +920,127 @@ void main() {
       api.close();
     });
 
+    test('retries a safe GET once after the gateway wakes an idle machine', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          if (requests.length == 1) {
+            return http.Response(
+              jsonEncode({'ok': false, 'error': 'machine_waking_or_unavailable'}),
+              503,
+              headers: {
+                'x-testagram-recovery': 'attempted',
+                'retry-after': '0',
+              },
+            );
+          }
+          return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+        }),
+      );
+
+      final result = await api.getHomeFeed();
+
+      expect(result['ok'], isTrue);
+      expect(requests, hasLength(2));
+      expect(requests.every((request) => request.method == 'GET'), isTrue);
+      api.close();
+    });
+
+    test('does not replay a non-idempotent POST after machine recovery', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            jsonEncode({'ok': false, 'error': 'machine_awake_retry_required'}),
+            503,
+            headers: {
+              'x-testagram-recovery': 'attempted',
+              'retry-after': '0',
+            },
+          );
+        }),
+      );
+
+      await expectLater(
+        api.createThread('do not duplicate'),
+        throwsA(isA<BackendApiException>()
+            .having((error) => error.statusCode, 'statusCode', 503)
+            .having((error) => error.code, 'code', 'machine_awake_retry_required')),
+      );
+      expect(requests, hasLength(1));
+      api.close();
+    });
+
+    test('replays a POST only when its endpoint supplies an idempotency key', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          if (requests.length == 1) {
+            return http.Response(
+              jsonEncode({'ok': false, 'error': 'machine_waking_or_unavailable'}),
+              503,
+              headers: {
+                'x-testagram-recovery': 'attempted',
+                'retry-after': '0',
+              },
+            );
+          }
+          return http.Response(jsonEncode({'ok': true, 'data': {'id': 'post-1'}}), 201);
+        }),
+      );
+
+      final result = await api.createPost(
+        content: 'wake-safe post',
+        idempotencyKey: 'wake-safe-post-001',
+      );
+
+      expect(result['ok'], isTrue);
+      expect(requests, hasLength(2));
+      expect(requests[0].headers['idempotency-key'], 'wake-safe-post-001');
+      expect(requests[1].headers['idempotency-key'], 'wake-safe-post-001');
+      api.close();
+    });
+
+    test('does not wait through a long machine cooldown and exposes Retry-After', () async {
+      final requests = <http.Request>[];
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((request) async {
+          requests.add(request);
+          return http.Response(
+            jsonEncode({'ok': false, 'error': 'machine_wake_failed'}),
+            503,
+            headers: {
+              'x-testagram-recovery': 'attempted',
+              'retry-after': '120',
+            },
+          );
+        }),
+      );
+
+      await expectLater(
+        api.getHomeFeed(),
+        throwsA(isA<BackendApiException>()
+            .having((error) => error.statusCode, 'statusCode', 503)
+            .having((error) => error.code, 'code', 'machine_wake_failed')
+            .having((error) => error.retryAfter, 'retryAfter', const Duration(seconds: 120))
+            .having((error) => error.message, 'message',
+                'Testagram is temporarily unavailable. Please try again in 120 seconds.')),
+      );
+      expect(requests, hasLength(1));
+      api.close();
+    });
+
     test('surfaces structured Backend errors', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
