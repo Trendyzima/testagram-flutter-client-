@@ -233,7 +233,6 @@ class NativeAuthClient implements NativeAuthSession {
     }
   }
 
-  @override
   Future<void> _revokeAndClear(String action) async {
     // Do not destroy the only retry credential when the Backend is unreachable.
     // A 401/403 means the server already considers this session unusable; all
