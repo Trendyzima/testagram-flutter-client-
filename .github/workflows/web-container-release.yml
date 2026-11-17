@@ -13,6 +13,17 @@ on:
       - "cloudflare-pages/_headers"
       - "deploy/web/**"
       - ".github/workflows/web-container-release.yml"
+  pull_request:
+    paths:
+      - "lib/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "tool/**"
+      - "cloudflare-pages/build.sh"
+      - "cloudflare-pages/_headers"
+      - "deploy/web/**"
+      - ".github/workflows/web-container-release.yml"
   workflow_dispatch:
 
 permissions:
@@ -57,7 +68,27 @@ jobs:
           grep -Fq 'flutter_bootstrap.js' build/web/index.html
           grep -Fq 'try_files $uri $uri/ /index.html' deploy/web/nginx.conf
 
+      - name: Build container locally for pull-request validation
+        if: github.event_name == 'pull_request'
+        run: docker build --pull --file deploy/web/Dockerfile --tag testagram-web:ci .
+
+      - name: Smoke-test pull-request container
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          container_id="$(docker run -d --read-only --tmpfs /tmp:rw,noexec,nosuid,size=64m -p 127.0.0.1:18080:8080 testagram-web:ci)"
+          trap 'docker rm -f "$container_id" >/dev/null 2>&1 || true' EXIT
+          ready=false
+          for attempt in $(seq 1 20); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep -Fq '"service":"testagram-web"'; then ready=true; break; fi
+            sleep 2
+          done
+          [[ "$ready" == "true" ]] || { docker logs "$container_id"; exit 1; }
+          curl --fail --silent http://127.0.0.1:18080/ | grep -Fq 'flutter_bootstrap.js'
+
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v3
         with:
           registry: ghcr.io
@@ -65,6 +96,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and publish immutable commit-tagged web image
+        if: github.event_name != 'pull_request'
         id: image
         uses: docker/build-push-action@v6
         with:
@@ -81,6 +113,7 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
 
       - name: Smoke-test the published image
+        if: github.event_name != 'pull_request'
         shell: bash
         env:
           IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
