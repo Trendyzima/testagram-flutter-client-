@@ -82,8 +82,9 @@ jobs:
             exit 1
           fi
           deploy_body="$(mktemp)"
+          deploy_auth=(-H "Authorization: Bearer $CF_API_TOKEN")
           deploy_status="$(curl --silent --show-error --max-time 60 -o "$deploy_body" -w '%{http_code}' \
-            -X POST "${auth[@]}" \
+            -X POST "${deploy_auth[@]}" \
             --form-string "branch=$GITHUB_REF_NAME" \
             --form-string "commit_hash=$GITHUB_SHA" \
             --form-string "commit_dirty=false" \
