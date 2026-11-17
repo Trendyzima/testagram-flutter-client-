@@ -17,13 +17,62 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Testagram Pages, Access, Workers, routes, DNS and live hosts
+      - name: Repair Testagram Pages build configuration and inspect edge
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
           base="https://api.cloudflare.com/client/v4"
           account="$base/accounts/$CF_ACCOUNT_ID"
+          project="$account/pages/projects/$CF_PROJECT"
+
+          # Flutter's checked-in build script produces build/web. The previous
+          # Pages Git integration had empty build/output settings, so previews
+          # could report success while publishing no site files. Keep production
+          # Git auto-deploy disabled: production remains behind the explicit
+          # confirmation workflow in this repository.
+          payload="$(jq -n '{
+            build_config: {
+              build_command: "bash cloudflare-pages/build.sh",
+              destination_dir: "build/web",
+              root_dir: "/",
+              build_caching: true
+            },
+            source: {
+              type: "github",
+              config: {
+                owner: "Trendyzima",
+                owner_id: "251381317",
+                repo_name: "testagram-flutter-client-",
+                repo_id: "1451885976",
+                production_branch: "main",
+                pr_comments_enabled: true,
+                deployments_enabled: true,
+                production_deployments_enabled: false,
+                preview_deployment_setting: "all",
+                preview_branch_includes: ["*"],
+                preview_branch_excludes: [],
+                path_includes: ["*"],
+                path_excludes: []
+              }
+            }
+          }')"
+          patch_body="$(mktemp)"
+          patch_status="$(curl --silent --show-error --max-time 60 -o "$patch_body" -w '%{http_code}' -X PATCH "${auth[@]}" --data "$payload" "$project" || true)"
+          echo "===== PAGES_PROJECT_PATCH HTTP $patch_status ====="
+          jq -c '{success,errors:[.errors[]? | {code,message}],result:{name:.result.name,build_config:.result.build_config,source:.result.source}}' "$patch_body" || head -c 3000 "$patch_body"
+          if [[ "$patch_status" != "200" ]] || [[ "$(jq -r '.success // false' "$patch_body")" != "true" ]]; then
+            echo "::error::Cloudflare Pages project update was not accepted. No production deployment was triggered."
+            exit 1
+          fi
+          jq -e '
+            .result.build_config.build_command == "bash cloudflare-pages/build.sh" and
+            .result.build_config.destination_dir == "build/web" and
+            .result.source.config.production_deployments_enabled == false and
+            .result.source.config.preview_deployment_setting == "all"
+          ' "$patch_body" >/dev/null
+          rm -f "$patch_body"
+          echo "Verified: Flutter preview build is configured; automatic production deployments are disabled."
 
           request() {
             local label="$1" url="$2" body status
@@ -35,9 +84,9 @@ jobs:
             printf '%s' "$body"
           }
 
-          body="$(request PAGES_PROJECT "$account/pages/projects/$CF_PROJECT")"
+          body="$(request PAGES_PROJECT "$project")"
           rm -f "$body"
-          body="$(request PAGES_PREVIEW_DEPLOYMENTS "$account/pages/projects/$CF_PROJECT/deployments?env=preview&per_page=20")"
+          body="$(request PAGES_PREVIEW_DEPLOYMENTS "$project/deployments?env=preview&per_page=20")"
           rm -f "$body"
           body="$(request ACCESS_APPLICATIONS "$account/access/apps?per_page=1000")"
           rm -f "$body"
