@@ -112,6 +112,16 @@ jobs:
             org.opencontainers.image.source=https://github.com/Trendyzima/testagram-flutter-client-
             org.opencontainers.image.revision=${{ github.sha }}
 
+      - name: Verify anonymous GHCR pull for InstaBox
+        if: github.event_name != 'pull_request'
+        shell: bash
+        env:
+          IMAGE_DIGEST: ${{ steps.image.outputs.digest }}
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io >/dev/null 2>&1 || true
+          docker pull "$IMAGE@$IMAGE_DIGEST"
+
       - name: Smoke-test the published image
         if: github.event_name != 'pull_request'
         shell: bash
