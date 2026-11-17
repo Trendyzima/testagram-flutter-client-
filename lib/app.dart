@@ -121,15 +121,26 @@ class _AuthGateState extends State<AuthGate> {
   Future<void> _signOut() async {
     try {
       await widget.authClient.signOut();
-    } finally {
-      _api?.close();
+    } catch (error) {
       if (mounted) {
-        setState(() {
-          _signedIn = false;
-          _restoreError = null;
-          _api = null;
-        });
+        final message = error is NativeAuthException
+            ? error.message
+            : 'Testagram could not confirm sign-out. Check your connection and retry.';
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+          SnackBar(content: Text(message)),
+        );
       }
+      // Keep the authenticated shell and its secure refresh credential so the
+      // user can retry server-side revocation when connectivity returns.
+      return;
+    }
+    _api?.close();
+    if (mounted) {
+      setState(() {
+        _signedIn = false;
+        _restoreError = null;
+        _api = null;
+      });
     }
   }
 
