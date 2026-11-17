@@ -1,45 +1,32 @@
-# Flutter authentication and hybrid media acceptance
+# Native authentication and media client acceptance
 
-This is a client integration checklist, not a production identity or media-provider cutover.
+This checklist distinguishes source-level tests from live staging acceptance.
 
-## Authentication compatibility
+## Automated client checks
 
-- Appwrite remains the production credential/session provider until the native migration is explicitly approved.
-- Flutter obtains Appwrite sessions through the supported SDK and sends the session JWT only to Backend over HTTPS.
-- A local Appwrite session alone does not unlock the product shell. Backend must confirm the canonical Testagram UUID mapping and account/provisioning status.
-- Never ship Appwrite server API keys, PostgreSQL credentials, MinIO/R2/B2 credentials, Backend service tokens or signing keys in the app.
-- Do not use email equality to link identities or silently create replacement accounts.
-- On startup and protected API calls, handle revoked, expired, unverified, inactive and unmapped accounts as locked states; do not silently fall back to unauthenticated data.
-- Native authentication screens/endpoints remain gated until the Backend migration and API contract are approved. Do not point clients at legacy native endpoints prematurely.
+- Native login request and response parsing.
+- Refresh-token storage and access-token memory handling.
+- Refresh rotation and 401 retry through the shared Backend client.
+- Session restoration and profile validation before the authenticated shell.
+- Logout/logout-all success, already-revoked responses and retry behavior when the Backend cannot confirm revocation.
+- Anti-enumerating password-recovery response and single-use reset-token handling.
+- Identity application idempotency, applicant-scoped status/evidence tokens, email verification and resend contract behavior.
+- No direct Flutter calls to Data Centre, CDN origin, Federation or Algorithm private routes.
+- No storage-provider credentials, service tokens or raw private origin URLs in the client.
 
-## Session UX acceptance
+## Required live staging acceptance
 
-Test sign-in, app restart, token expiry, SDK reauthentication, logout, account recovery, email verification, device replacement, account deactivation and offline/network failure. Avoid logging tokens or placing them in URLs, analytics or crash reports. Store only supported SDK session state in platform-secure storage.
+1. Sign in with a real, approved, email-verified native test account.
+2. Restart the app and confirm session restoration succeeds without prompting for a password.
+3. Expire the access token and confirm refresh rotates the opaque refresh token.
+4. Replay the old refresh token and confirm the Backend revokes the session family.
+5. Sign out and verify the current session is rejected by Backend and Data Centre.
+6. Use logout-all and verify every device session is rejected.
+7. Request password recovery, receive the real email, reset the password and confirm all old sessions are rejected.
+8. Verify an unverified, disabled, pending-provisioning or reset-required account cannot sign in.
+9. Complete a staging identity application through private evidence, two independent reviews, two independent approvals, native provisioning and real email verification.
+10. Confirm private media is denied without a valid Backend viewer assertion and public media is served only after Backend confirms public/ready visibility.
 
-## Media upload acceptance
+## Not yet a production claim
 
-1. Client asks Backend for an upload intent using the current authenticated session.
-2. Backend determines owner UUID, namespace, visibility, quota, content policy, maximum size and expiry.
-3. Client uploads using the short-lived scoped capability; no provider-specific credential or bucket identity is embedded in the app.
-4. Client computes SHA-256 incrementally (not by loading very large files into a second full-size in-memory buffer).
-5. Client completes the upload with canonical key and declared digest.
-6. Client treats the asset as pending until Backend reports verified readiness. A successful HTTP PUT alone is not a ready media asset.
-7. Retry is idempotent and must not create duplicate post attachments or bypass quota.
-8. Playback uses the canonical Go CDN URL. Private media includes the Backend-issued viewer assertion and must not be converted into a public URL.
-
-## Storage provider boundary
-
-VPS MinIO, Cloudflare R2 and Backblaze B2 are server-side durable copies managed by Backend/Data Centre. Flutter never chooses a physical provider, receives a provider URL as a permanent media identity, or has credentials to read/write/delete buckets. Cloudflare Pages hosts the web bundle only; it is not a storage authority.
-
-## Acceptance matrix
-
-- Upload image and video within namespace limits.
-- Reject oversized, unsupported MIME, mismatched checksum and expired upload capability.
-- Handle delayed replication and degraded provider state without showing a broken public URL.
-- Resume/retry safely after app backgrounding and transient network loss.
-- Playback public and private assets with correct visibility behavior.
-- Verify HEAD/Range and video seeking on supported devices.
-- Delete asset and confirm the UI reflects Backend tombstone state.
-- Exercise low-memory Android devices and ensure incremental hashing does not duplicate full video buffers.
-
-No production auth provider, storage provider, public hostname or feature flag is changed by this document.
+The mainline Flutter code uses native auth, but production provider cutover, deployed Backend revision, existing-account reconciliation and full device acceptance must be evidenced separately. Registration stays fail-closed until the storage, email, policy, approval and provisioning gates pass. Do not treat a preview build, mock HTTP test or green unit suite as production authentication acceptance.
