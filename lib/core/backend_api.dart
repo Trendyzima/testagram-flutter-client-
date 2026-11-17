@@ -741,7 +741,14 @@ class BackendApi {
     // an endpoint-supported Idempotency-Key; never duplicate an arbitrary POST.
     final hasIdempotencyKey = headers.entries.any((entry) =>
         entry.key.toLowerCase() == 'idempotency-key' && entry.value.trim().isNotEmpty);
-    final replaySafe = const {'GET', 'HEAD', 'OPTIONS'}.contains(method) || hasIdempotencyKey;
+    // Today, post creation is the only mutation endpoint whose backend contract
+    // guarantees idempotent replay. Do not let a future caller accidentally
+    // make an unrelated mutation replayable merely by adding this header.
+    final idempotentPostCreate = method == 'POST' &&
+        uri.path == '/api/social/posts' &&
+        hasIdempotencyKey;
+    final replaySafe =
+        const {'GET', 'HEAD', 'OPTIONS'}.contains(method) || idempotentPostCreate;
     if (response.statusCode == 503 &&
         response.headers['x-testagram-recovery'] == 'attempted' &&
         replaySafe) {
