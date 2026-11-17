@@ -17,17 +17,17 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Cloudflare deployment records through API
+      - name: Inspect Pages preview and production worker resources
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
-          base="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT"
-          for id in d1ba3c67-5b0e-47fd-bd9c-8cd33987ecae 34991aba-afb9-4f3e-866c-3f0a38a5d0d7 9f391558-ecb5-44bb-a6a5-357bc1248edd; do
+          base="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID"
+          for script in pages-worker--23716892-preview pages-worker--23716892-production; do
             body="$(mktemp)"
-            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$base/deployments/$id" || true)"
-            echo "DEPLOYMENT_DETAIL $id HTTP $status:"
-            jq -c '{success,errors:[.errors[]? | {code,message}],result:{id:.result.id,url:.result.url,aliases:.result.aliases,environment:.result.environment,latest_stage:.result.latest_stage,stages:.result.stages,source:.result.source,is_skipped:.result.is_skipped,skip_reason:.result.skip_reason}}' "$body" 2>/dev/null || head -c 2000 "$body"
+            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$base/workers/scripts/$script" || true)"
+            echo "WORKER_SCRIPT $script HTTP $status:"
+            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null || head -c 1500 "$body"
             rm -f "$body"
           done
           for host in \
