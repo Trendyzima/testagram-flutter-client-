@@ -1,0 +1,59 @@
+name: Cloudflare Pages API forensic audit
+
+on:
+  push:
+    branches:
+      - ops/cloudflare-pages-api-audit
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CF_PROJECT: testagram-flutter-web
+    steps:
+      - name: Verify API token and inspect Pages project
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${CF_ACCOUNT_ID:-}" || -z "${CF_API_TOKEN:-}" ]]; then
+            echo "::error::Missing CLOUDFLARE_ACCOUNT_ID or CLOUDFLARE_API_TOKEN GitHub configuration."
+            exit 1
+          fi
+          auth=(-H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
+          base="https://api.cloudflare.com/client/v4"
+          verify="$(curl --silent --show-error --fail-with-body "${auth[@]}" "$base/accounts/$CF_ACCOUNT_ID/tokens/verify")"
+          echo "TOKEN_VERIFY:"
+          jq -c '{success, status:.result.status, errors:[.errors[]? | {code,message}]}' <<<"$verify"
+          [[ "$(jq -r '.success' <<<"$verify")" == "true" && "$(jq -r '.result.status' <<<"$verify")" == "active" ]]
+          projects="$(curl --silent --show-error --fail-with-body "${auth[@]}" "$base/accounts/$CF_ACCOUNT_ID/pages/projects")"
+          echo "PROJECT_MATCH:"
+          jq -c --arg p "$CF_PROJECT" '[.result[]? | select(.name==$p) | {name,subdomain,domains,production_branch,build_config,deployment_configs,created_on,latest_deployment}]' <<<"$projects"
+          project="$(jq -c --arg p "$CF_PROJECT" '[.result[]? | select(.name==$p)] | first // empty' <<<"$projects")"
+          [[ -n "$project" ]]
+          details="$(curl --silent --show-error --fail-with-body "${auth[@]}" "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT")"
+          echo "PROJECT_DETAILS:"
+          jq -c '{success,result:{name:.result.name,subdomain:.result.subdomain,domains:.result.domains,production_branch:.result.production_branch,build_config:.result.build_config,deployment_configs:.result.deployment_configs,latest_deployment:.result.latest_deployment,canonical_deployment:.result.canonical_deployment},errors}' <<<"$details"
+          deployments="$(curl --silent --show-error --fail-with-body "${auth[@]}" "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/deployments?per_page=100")"
+          echo "DEPLOYMENTS:"
+          jq -c '{success,errors:[.errors[]? | {code,message}],result:[.result[]? | {id,short_id,project_name,environment, url, aliases, created_on, modified_on, latest_stage, deployment_trigger, source}]}' <<<"$deployments"
+          domains="$(curl --silent --show-error --fail-with-body "${auth[@]}" "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains")"
+          echo "CUSTOM_DOMAINS:"
+          jq -c '{success,errors:[.errors[]? | {code,message}],result:[.result[]? | {name,status,validation_data,verification_data}]}' <<<"$domains"
+      - name: Confirm public hostname responses
+        shell: bash
+        run: |
+          set -euo pipefail
+          for host in \
+            d1ba3c67.testagram-flutter-web.pages.dev \
+            feat-auth-mobile-visual-over.testagram-flutter-web.pages.dev \
+            34991aba.testagram-flutter-web.pages.dev \
+            testagram-flutter-web.pages.dev; do
+            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
+            printf '%s %s\n' "$code" "$host"
+          done
