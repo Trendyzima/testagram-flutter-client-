@@ -43,21 +43,27 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('registration is hidden by default when the identity UI flag is disabled',
+  testWidgets('account creation stays visible while application submission remains gated',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
         identityApplicationStore: identityStore,
-        requireIdentityReview: true,
       ),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Sign up'), findsNothing);
-    expect(find.widgetWithText(FilledButton, 'Create account'), findsNothing);
-    expect(find.textContaining('Registration is temporarily unavailable'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Create your account'), findsOneWidget);
+    expect(find.text('Forgot password?'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Create your account'));
+    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Full name'), findsOneWidget);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
+    expect(find.textContaining('Registration is currently closed'), findsOneWidget);
+    expect(identityStore, isNotNull);
   });
 
   testWidgets('sign-in page links to account creation and recovery',
