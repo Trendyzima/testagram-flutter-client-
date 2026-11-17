@@ -1,6 +1,6 @@
 name: Deploy Testagram Flutter Web Preview
 
-# Cloudflare Pages is preview-only. Production www is served by the self-hosted Flutter container behind Caddy; the apex remains the Backend/Federation identity origin.
+# Cloudflare Pages deployments target the preview branch only and never manage custom domains. The separate guarded Worker cutover moves production www to the self-hosted Flutter origin; the apex remains the Backend/Federation identity origin.
 
 on:
   workflow_dispatch:
@@ -186,7 +186,7 @@ jobs:
           fi
           echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
-      - name: Protect apex and www production hostnames from Pages
+      - name: Protect the apex federation hostname from Pages
         shell: bash
         run: |
           set -euo pipefail
@@ -195,19 +195,22 @@ jobs:
             response_file="$(mktemp)"
             status="$(curl --silent --show-error --max-time 20 -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain" || true)"
             if [[ "$status" == "200" ]] && jq -e --arg domain "$domain" '.success == true and .result.name == $domain' "$response_file" >/dev/null; then
-              echo "::error::$domain is still attached to Cloudflare Pages. Production hostnames are owned by the Testagram Worker/Caddy routing layer, not Pages."
-              jq -c '.result | {name,status,validation_data,verification_data}' "$response_file"
-              rm -f "$response_file"
-              exit 1
-            fi
-            if [[ "$status" != "404" ]]; then
-              echo "::error::Could not safely verify Pages ownership for $domain (HTTP $status). Refusing to deploy a preview while production hostname ownership is ambiguous."
+              if [[ "$domain" == "testagram.site" ]]; then
+                echo "::error::testagram.site is still attached to Cloudflare Pages. The apex is reserved for Backend/Federation routing."
+                jq -c '.result | {name,status,validation_data,verification_data}' "$response_file"
+                rm -f "$response_file"
+                exit 1
+              fi
+              echo "::notice::www.testagram.site remains on its legacy Pages association until the separate guarded Worker cutover; this preview workflow will not modify that association."
+            elif [[ "$status" != "404" ]]; then
+              echo "::error::Could not safely verify Pages ownership for $domain (HTTP $status). Refusing to deploy a preview while ownership is ambiguous."
               jq -c '{success,errors,messages}' "$response_file" || true
               rm -f "$response_file"
               exit 1
+            else
+              echo "$domain is not attached to Pages."
             fi
             rm -f "$response_file"
-            echo "$domain is not attached to Pages."
           done
 
       - name: Deploy to Cloudflare Pages
