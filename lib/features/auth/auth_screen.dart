@@ -123,8 +123,13 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     return RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(s) ? null : 'Enter a valid email address.';
   }
-  String? _passwordValid(String? v) =>
-      v == null || v.length < 8 ? 'Use at least 8 characters.' : v.length > 256 ? 'Password is too long.' : null;
+  String? _passwordValid(String? v) {
+    final value = v ?? '';
+    final byteLength = utf8.encode(value).length;
+    if (byteLength < 12) return 'Use at least 12 bytes for your password.';
+    if (byteLength > 128) return 'Password must not exceed 128 bytes.';
+    return null;
+  }
 
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
@@ -144,6 +149,21 @@ class _AuthScreenState extends State<AuthScreen> {
       return e.message;
     }
     if (e is NativeAuthException) {
+      if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
+        return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
+      }
+      if (e.code == 'REGISTRATION_DISABLED' || e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
+        return 'New account registration is temporarily unavailable while secure identity storage is being prepared.';
+      }
+      if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
+        return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
+      }
+      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
+        return 'Your account is waiting for the required independent Testagram identity approvals.';
+      }
+      if (e.code == 'PASSWORD_RESET_REQUIRED') {
+        return 'Set a new Testagram password using the recovery link before signing in.';
+      }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before signing in.';
       }
