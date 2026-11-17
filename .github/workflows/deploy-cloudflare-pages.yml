@@ -1,12 +1,12 @@
-name: Deploy Testagram Flutter Web
+name: Deploy Testagram Flutter Web Preview
 
-# Pages owns the www frontend only. The apex remains the Backend/Federation identity origin and redirects ordinary web traffic to www.
+# Cloudflare Pages is preview-only. Production www is served by the self-hosted Flutter container behind Caddy; the apex remains the Backend/Federation identity origin.
 
 on:
   workflow_dispatch:
     inputs:
-      confirm_production_pages_deploy:
-        description: Confirm an intentional production Pages deployment to www.testagram.site; the apex remains on the Backend federation edge.
+      confirm_pages_preview_deploy:
+        description: Confirm an intentional Pages preview deployment only; production www remains on the self-hosted Caddy origin.
         required: true
         type: boolean
         default: false
@@ -17,7 +17,7 @@ on:
         default: false
 
 concurrency:
-  group: testagram-pages-production
+  group: testagram-pages-preview
   cancel-in-progress: false
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
 
 jobs:
   deploy:
-    if: github.ref == 'refs/heads/main' && inputs.confirm_production_pages_deploy == true
+    if: github.ref == 'refs/heads/main' && inputs.confirm_pages_preview_deploy == true
     runs-on: ubuntu-latest
     timeout-minutes: 35
     environment: production
@@ -40,7 +40,7 @@ jobs:
       - name: Check out source
         uses: actions/checkout@v5
 
-      - name: Validate production configuration
+      - name: Validate preview build configuration
         shell: bash
         run: |
           set -euo pipefail
@@ -52,11 +52,11 @@ jobs:
             fi
           done
           if [[ "$missing" == "1" ]]; then
-            echo "::error::Production deployment blocked. CLOUDFLARE_ACCOUNT_ID plus CLOUDFLARE_API_TOKEN as repository secrets."
+            echo "::error::Pages preview deployment blocked. CLOUDFLARE_ACCOUNT_ID plus CLOUDFLARE_API_TOKEN as repository secrets."
             exit 1
           fi
           if [[ "$TESTAGRAM_API_URL" != "https://api.testagram.site" ]]; then
-            echo "::error::Production Flutter builds must use the canonical API hostname https://api.testagram.site, never a direct VPS port URL."
+            echo "::error::Flutter builds must use the canonical API hostname https://api.testagram.site, never a direct VPS port URL."
             exit 1
           fi
           case "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" in
@@ -186,95 +186,34 @@ jobs:
           fi
           echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
-      - name: Protect the apex federation hostname
-        shell: bash
-        run: |
-          set -euo pipefail
-          apex_url="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains/testagram.site"
-          status="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS -o /tmp/apex-pages-domain.json -w '%{http_code}' \\
-            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$apex_url")"
-          if [[ "$status" == "200" ]] && [[ "$(jq -r '.success // false' /tmp/apex-pages-domain.json)" == "true" ]]; then
-            echo "::error::testagram.site is still associated with Cloudflare Pages. The apex is reserved for Backend ActivityPub discovery and must remain on the Backend edge; detach it from Pages only after confirming the Backend apex route is active."
-            jq -c '.result | {name,status,validation_data,verification_data}' /tmp/apex-pages-domain.json
-            exit 1
-          fi
-          if [[ "$status" != "404" ]]; then
-            echo "::error::Could not safely verify apex ownership (HTTP $status). Refusing to deploy Pages while apex ownership is ambiguous."
-            jq -c '{success,errors,messages}' /tmp/apex-pages-domain.json || true
-            exit 1
-          fi
-          echo "Apex is not attached to Pages; Backend/Federation retains testagram.site."
-
-      - name: Deploy to Cloudflare Pages
-        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
-
-      - name: Associate production hostnames with Pages
+      - name: Protect apex and www production hostnames from Pages
         shell: bash
         run: |
           set -euo pipefail
           base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
-
-          for domain in www.testagram.site; do
-            current="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS \
-              -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
-            if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
-              response="$(curl --retry 3 --retry-all-errors --retry-delay 2 -sS -X POST \
-                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
-                -H "Content-Type: application/json" \
-                --data "$(jq -nc --arg name "$domain" '{name:$name}')" "$base")"
-              if [[ "$(jq -r '.success // false' <<<"$response")" != "true" ]]; then
-                echo "::error::Could not associate $domain with Pages before changing its DNS."
-                jq -c '{errors,messages}' <<<"$response"
-                exit 1
-              fi
-            fi
-            echo "$domain is associated with the Pages project."
-          done
-
-      - name: Verify production Pages domains
-        shell: bash
-        run: |
-          set -euo pipefail
-          base="https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains"
-
-          for domain in www.testagram.site; do
-            active=false
-            for attempt in $(seq 1 90); do
-              current="$(curl --retry 2 --retry-all-errors --retry-delay 2 -sS \
-                -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain")"
-              if [[ "$(jq -r '.success // false' <<<"$current")" != "true" ]]; then
-                echo "::error::Could not read Pages domain status for $domain."
-                jq -c '{errors,messages}' <<<"$current"
-                exit 1
-              fi
-
-              status="$(jq -r '.result.status // "unknown"' <<<"$current")"
-              validation="$(jq -r '.result.validation_data.status // "unknown"' <<<"$current")"
-              verification="$(jq -r '.result.verification_data.status // "unknown"' <<<"$current")"
-              echo "$domain: status=$status validation=$validation verification=$verification (attempt $attempt/90)"
-
-              if [[ "$status" == "active" && "$validation" == "active" && "$verification" == "active" ]]; then
-                active=true
-                break
-              fi
-              if [[ "$status" == "error" || "$status" == "blocked" || "$status" == "deactivated" || \
-                    "$validation" == "error" || "$validation" == "deactivated" || \
-                    "$verification" == "error" || "$verification" == "blocked" || "$verification" == "deactivated" ]]; then
-                echo "::error::Cloudflare rejected validation for $domain."
-                jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
-                exit 1
-              fi
-              sleep 10
-            done
-
-            if [[ "$active" != "true" ]]; then
-              echo "::error::Timed out after up to 15 minutes waiting for $domain to become active."
-              jq -c '.result | {status,validation_data,verification_data}' <<<"$current"
+          for domain in testagram.site www.testagram.site; do
+            response_file="$(mktemp)"
+            status="$(curl --silent --show-error --max-time 20 -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain" || true)"
+            if [[ "$status" == "200" ]] && jq -e --arg domain "$domain" '.success == true and .result.name == $domain' "$response_file" >/dev/null; then
+              echo "::error::$domain is still attached to Cloudflare Pages. Production hostnames are owned by the Testagram Worker/Caddy routing layer, not Pages."
+              jq -c '.result | {name,status,validation_data,verification_data}' "$response_file"
+              rm -f "$response_file"
               exit 1
             fi
+            if [[ "$status" != "404" ]]; then
+              echo "::error::Could not safely verify Pages ownership for $domain (HTTP $status). Refusing to deploy a preview while production hostname ownership is ambiguous."
+              jq -c '{success,errors,messages}' "$response_file" || true
+              rm -f "$response_file"
+              exit 1
+            fi
+            rm -f "$response_file"
+            echo "$domain is not attached to Pages."
           done
 
-      - name: Smoke-test production auth entry, callback URLs and versioned bundle
+      - name: Deploy to Cloudflare Pages
+        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch preview --commit-dirty=true
+
+      - name: Smoke-test Pages preview auth entry and versioned bundle
         shell: bash
         run: |
           set -euo pipefail
@@ -287,8 +226,8 @@ jobs:
             '/?mode=verification&userId=smoke-user&secret=smoke-secret'
             '/?mode=recovery&userId=smoke-user&secret=smoke-secret'
           )
-          # Pages owns www only. The apex is the Backend federation edge and must redirect, not serve Flutter assets.
-          for hostname in www.testagram.site; do
+          # Pages serves only the preview branch. The apex is the Backend federation edge and must redirect, not serve Flutter assets.
+          for hostname in preview.testagram-flutter-web.pages.dev; do
             page="$(mktemp)"
             headers="$(mktemp)"
             for path in "${paths[@]}"; do
@@ -356,4 +295,4 @@ jobs:
             200|400|404) ;;
             *) echo "::error::Apex WebFinger did not reach the Backend Federation service (HTTP $apex_webfinger)."; cat /tmp/apex-webfinger.json 2>/dev/null || true; exit 1 ;;
           esac
-          echo "Verified apex federation redirect and WebFinger routing; Flutter Pages is serving www.testagram.site only."
+          echo "Verified the Pages preview bundle plus apex federation redirect and WebFinger routing; production www remains on the self-hosted origin."
