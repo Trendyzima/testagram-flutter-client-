@@ -17,7 +17,7 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Testagram Pages, Workers, routes, DNS and live hosts
+      - name: Inspect Testagram Pages, Access, Workers, routes, DNS and live hosts
         shell: bash
         run: |
           set -euo pipefail
@@ -30,14 +30,16 @@ jobs:
             body="$(mktemp)"
             status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$url" || true)"
             echo "===== $label HTTP $status =====" >&2
-            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null | head -c 12000 >&2 || head -c 2000 "$body" >&2
+            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null | head -c 16000 >&2 || head -c 2000 "$body" >&2
             echo >&2
             printf '%s' "$body"
           }
 
           body="$(request PAGES_PROJECT "$account/pages/projects/$CF_PROJECT")"
           rm -f "$body"
-          body="$(request PAGES_DEPLOYMENTS "$account/pages/projects/$CF_PROJECT/deployments?per_page=10")"
+          body="$(request PAGES_PREVIEW_DEPLOYMENTS "$account/pages/projects/$CF_PROJECT/deployments?env=preview&per_page=20")"
+          rm -f "$body"
+          body="$(request ACCESS_APPLICATIONS "$account/access/apps?per_page=1000")"
           rm -f "$body"
 
           for script in pages-worker--23716892-preview pages-worker--23716892-production; do
@@ -51,6 +53,8 @@ jobs:
           zone_id="$(jq -r '.result[0].id // empty' "$body" 2>/dev/null || true)"
           rm -f "$body"
           if [[ -n "$zone_id" ]]; then
+            body="$(request ZONE_ACCESS_APPLICATIONS "$base/zones/$zone_id/access/apps?per_page=1000")"
+            rm -f "$body"
             body="$(request DNS_RECORDS "$base/zones/$zone_id/dns_records?per_page=100")"
             rm -f "$body"
             body="$(request WORKER_ROUTES "$base/zones/$zone_id/workers/routes")"
@@ -65,12 +69,19 @@ jobs:
             34991aba.testagram-flutter-web.pages.dev \
             9f391558.testagram-flutter-web.pages.dev \
             65df4f6a.testagram-flutter-web.pages.dev \
+            5c731131.testagram-flutter-web.pages.dev \
             ops-cloudflare-pages-api-aud.testagram-flutter-web.pages.dev \
             testagram-flutter-web.pages.dev; do
             headers="$(mktemp)"
-            code="$(curl -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
+            response="$(mktemp)"
+            code="$(curl -sS -D "$headers" -o "$response" -w '%{http_code}' --max-time 20 "https://$host/" || true)"
             printf 'LIVE_HOST %s %s ' "$code" "$host"
-            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:)' | tr '\n' ' ' || true
+            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:|www-authenticate:)' | tr '\n' ' ' || true
             echo
-            rm -f "$headers"
+            if [[ "$code" != "200" ]]; then
+              printf 'BODY_PREFIX %s ' "$host"
+              head -c 500 "$response" | tr '\n' ' '
+              echo
+            fi
+            rm -f "$headers" "$response"
           done
