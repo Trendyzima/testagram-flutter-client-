@@ -11,13 +11,13 @@ permissions:
 jobs:
   audit:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 25
     env:
       CF_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Repair Testagram Pages build configuration and inspect edge
+      - name: Repair Testagram Pages build configuration and verify preview
         shell: bash
         run: |
           set -euo pipefail
@@ -74,6 +74,55 @@ jobs:
           rm -f "$patch_body"
           echo "Verified: Flutter preview build is configured; automatic production deployments are disabled."
 
+          # Wait for the Pages Git integration to publish this exact commit
+          # using the corrected build settings. A green stage alone is not
+          # enough: the deployed root must return the Flutter app shell.
+          deployment=""
+          for attempt in $(seq 1 60); do
+            deployments="$(curl --silent --show-error --max-time 30 "${auth[@]}" "$project/deployments?env=preview&per_page=100")"
+            deployment="$(jq -c --arg sha "$GITHUB_SHA" '[.result[]? | select(.deployment_trigger.metadata.commit_hash == $sha)][0] // empty' <<<"$deployments")"
+            if [[ -n "$deployment" ]]; then
+              stage="$(jq -r '.latest_stage.name // "unknown"' <<<"$deployment")"
+              status="$(jq -r '.latest_stage.status // "unknown"' <<<"$deployment")"
+              preview_url="$(jq -r '.url' <<<"$deployment")"
+              alias_url="$(jq -r '.aliases[0] // empty' <<<"$deployment")"
+              echo "Preview commit $GITHUB_SHA: stage=$stage status=$status attempt=$attempt/60"
+              if [[ "$status" == "failure" || "$status" == "canceled" ]]; then
+                jq -c '{id,url,latest_stage,stages}' <<<"$deployment"
+                echo "::error::Cloudflare failed to build the Flutter preview."
+                exit 1
+              fi
+              if [[ "$stage" == "deploy" && "$status" == "success" ]]; then
+                break
+              fi
+            else
+              echo "Waiting for Cloudflare to register preview commit $GITHUB_SHA (attempt $attempt/60)"
+            fi
+            sleep 20
+          done
+          if [[ -z "$deployment" || "$(jq -r '.latest_stage.status // "unknown"' <<<"$deployment")" != "success" || "$(jq -r '.latest_stage.name // "unknown"' <<<"$deployment")" != "deploy" ]]; then
+            echo "::error::Timed out waiting for the exact commit's Pages preview deployment."
+            exit 1
+          fi
+
+          preview_url="$(jq -r '.url' <<<"$deployment")"
+          alias_url="$(jq -r '.aliases[0] // empty' <<<"$deployment")"
+          for host_url in "$preview_url" "$alias_url"; do
+            [[ -n "$host_url" ]] || continue
+            page="$(mktemp)"
+            headers="$(mktemp)"
+            status="$(curl --silent --show-error --location --max-time 45 -D "$headers" -o "$page" -w '%{http_code}' "$host_url/" || true)"
+            echo "PREVIEW_SMOKE $status $host_url"
+            if [[ "$status" != "200" ]] || ! grep -Fq 'flutter_bootstrap.js?v=' "$page" || ! grep -Fq 'main.dart.js?v=' "$page"; then
+              echo "::error::Preview host did not serve the Flutter web shell and versioned assets: $host_url"
+              head -c 1000 "$page" || true
+              rm -f "$page" "$headers"
+              exit 1
+            fi
+            rm -f "$page" "$headers"
+          done
+          echo "Verified the exact commit's hash URL and branch alias serve the Flutter web app."
+
           request() {
             local label="$1" url="$2" body status
             body="$(mktemp)"
@@ -85,8 +134,6 @@ jobs:
           }
 
           body="$(request PAGES_PROJECT "$project")"
-          rm -f "$body"
-          body="$(request PAGES_PREVIEW_DEPLOYMENTS "$project/deployments?env=preview&per_page=20")"
           rm -f "$body"
           body="$(request ACCESS_APPLICATIONS "$account/access/apps?per_page=1000")"
           rm -f "$body"
@@ -112,25 +159,11 @@ jobs:
             echo "ZONE_LOOKUP did not return a readable zone id; DNS and route inspection cannot proceed."
           fi
 
-          for host in \
-            d1ba3c67.testagram-flutter-web.pages.dev \
-            feat-auth-mobile-visual-over.testagram-flutter-web.pages.dev \
-            34991aba.testagram-flutter-web.pages.dev \
-            9f391558.testagram-flutter-web.pages.dev \
-            65df4f6a.testagram-flutter-web.pages.dev \
-            5c731131.testagram-flutter-web.pages.dev \
-            ops-cloudflare-pages-api-aud.testagram-flutter-web.pages.dev \
-            testagram-flutter-web.pages.dev; do
+          for host in testagram-flutter-web.pages.dev www.testagram.site testagram.site; do
             headers="$(mktemp)"
-            response="$(mktemp)"
-            code="$(curl -sS -D "$headers" -o "$response" -w '%{http_code}' --max-time 20 "https://$host/" || true)"
+            code="$(curl -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
             printf 'LIVE_HOST %s %s ' "$code" "$host"
-            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:|www-authenticate:)' | tr '\n' ' ' || true
+            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:)' | tr '\n' ' ' || true
             echo
-            if [[ "$code" != "200" ]]; then
-              printf 'BODY_PREFIX %s ' "$host"
-              head -c 500 "$response" | tr '\n' ' '
-              echo
-            fi
-            rm -f "$headers" "$response"
+            rm -f "$headers"
           done
