@@ -234,27 +234,26 @@ class NativeAuthClient implements NativeAuthSession {
   }
 
   @override
-  Future<void> signOut() async {
-    try {
-      // Backend revocation is authorized by the short-lived access token,
-      // not by submitting the refresh secret in a logout request body.
-      final token = await accessToken();
-      if (token != null) await _revokeWithBearer('logout', token);
-    } finally {
-      _clearMemory();
-      await _storage.delete(key: _refreshKey);
+  Future<void> _revokeAndClear(String action) async {
+    // Do not destroy the only retry credential when the Backend is unreachable.
+    // A 401/403 means the server already considers this session unusable; all
+    // other failures must be surfaced so the caller can retry revocation.
+    final token = await accessToken();
+    if (token != null) {
+      try {
+        await _revokeWithBearer(action, token);
+      } on NativeAuthException catch (error) {
+        if (error.statusCode != 401 && error.statusCode != 403) rethrow;
+      }
     }
+    _clearMemory();
+    await _storage.delete(key: _refreshKey);
   }
 
-  Future<void> signOutAll() async {
-    try {
-      final token = await accessToken();
-      if (token != null) await _revokeWithBearer('logout-all', token);
-    } finally {
-      _clearMemory();
-      await _storage.delete(key: _refreshKey);
-    }
-  }
+  @override
+  Future<void> signOut() => _revokeAndClear('logout');
+
+  Future<void> signOutAll() => _revokeAndClear('logout-all');
 
   @override
   Future<void> requestPasswordReset(String email) async {
