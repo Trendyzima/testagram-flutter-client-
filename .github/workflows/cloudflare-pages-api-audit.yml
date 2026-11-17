@@ -17,7 +17,7 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Pages configuration, deployments, Worker routing and DNS
+      - name: Inspect Testagram Pages, Workers, routes, DNS and live hosts
         shell: bash
         run: |
           set -euo pipefail
@@ -29,9 +29,9 @@ jobs:
             local label="$1" url="$2" body status
             body="$(mktemp)"
             status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$url" || true)"
-            echo "===== $label HTTP $status ====="
-            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null | head -c 12000 || head -c 2000 "$body"
-            echo
+            echo "===== $label HTTP $status =====" >&2
+            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null | head -c 12000 >&2 || head -c 2000 "$body" >&2
+            echo >&2
             printf '%s' "$body"
           }
 
@@ -64,12 +64,13 @@ jobs:
             feat-auth-mobile-visual-over.testagram-flutter-web.pages.dev \
             34991aba.testagram-flutter-web.pages.dev \
             9f391558.testagram-flutter-web.pages.dev \
+            65df4f6a.testagram-flutter-web.pages.dev \
             ops-cloudflare-pages-api-aud.testagram-flutter-web.pages.dev \
             testagram-flutter-web.pages.dev; do
             headers="$(mktemp)"
             code="$(curl -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
             printf 'LIVE_HOST %s %s ' "$code" "$host"
-            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:)' | tr '\n' ' '
+            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:)' | tr '\n' ' ' || true
             echo
             rm -f "$headers"
           done
