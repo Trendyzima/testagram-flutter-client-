@@ -74,9 +74,44 @@ jobs:
           rm -f "$patch_body"
           echo "Verified: Flutter preview build is configured; automatic production deployments are disabled."
 
-          # Wait for the Pages Git integration to publish this exact commit
-          # using the corrected build settings. A green stage alone is not
-          # enough: the deployed root must return the Flutter app shell.
+          # A project PATCH does not enqueue a build for an existing commit.
+          # Explicitly ask the Git-integrated Pages project to build this preview.
+          # This workflow is restricted to the ops preview branch; never deploy main.
+          if [[ "$GITHUB_REF_NAME" == "main" ]]; then
+            echo "::error::Refusing to create a deployment from the production branch."
+            exit 1
+          fi
+          deploy_body="$(mktemp)"
+          deploy_status="$(curl --silent --show-error --max-time 60 -o "$deploy_body" -w '%{http_code}' \
+            -X POST "${auth[@]}" \
+            --form-string "branch=$GITHUB_REF_NAME" \
+            --form-string "commit_hash=$GITHUB_SHA" \
+            --form-string "commit_dirty=false" \
+            --form-string "commit_message=Testagram preview audit $GITHUB_SHA" \
+            "$project/deployments" || true)"
+          echo "===== PAGES_PREVIEW_DEPLOYMENT_CREATE HTTP $deploy_status ====="
+          jq -c '{success,errors:[.errors[]? | {code,message}],result:{id:.result.id,environment:.result.environment,url:.result.url,deployment_trigger:.result.deployment_trigger,latest_stage:.result.latest_stage}}' "$deploy_body" || head -c 3000 "$deploy_body"
+          if [[ "$deploy_status" != "200" ]] || [[ "$(jq -r '.success // false' "$deploy_body")" != "true" ]]; then
+            echo "::error::Cloudflare did not accept the explicit preview deployment request."
+            rm -f "$deploy_body"
+            exit 1
+          fi
+          jq -e --arg sha "$GITHUB_SHA" --arg branch "$GITHUB_REF_NAME" '
+            .result.environment == "preview" and
+            .result.deployment_trigger.metadata.commit_hash == $sha and
+            .result.deployment_trigger.metadata.branch == $branch and
+            .result.is_skipped != true
+          ' "$deploy_body" >/dev/null || {
+            echo "::error::Cloudflare returned a deployment that does not match the requested preview commit and branch."
+            rm -f "$deploy_body"
+            exit 1
+          }
+          rm -f "$deploy_body"
+          echo "Cloudflare accepted an explicit preview deployment for $GITHUB_SHA on $GITHUB_REF_NAME."
+
+          # Poll for this exact deployment until it reaches a terminal stage.
+          # A green workflow step alone is not enough: the deployed root must
+          # return the Flutter app shell and its versioned assets.
           deployment=""
           for attempt in $(seq 1 60); do
             deployments="$(curl --silent --show-error --max-time 30 "${auth[@]}" "$project/deployments?env=preview&per_page=100")"
