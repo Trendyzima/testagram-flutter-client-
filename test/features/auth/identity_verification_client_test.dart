@@ -312,4 +312,123 @@ void main() {
     expect(status.provisioningStatus, 'verification_pending');
     client.close();
   });
+
+  test('completes the applicant HTTP contract from intake through verified redemption', () async {
+    final requests = <http.Request>[];
+    const evidenceId = '33333333-3333-4333-8333-333333333333';
+    final client = IdentityVerificationClient(
+      backendOrigin: Uri.parse('https://api.testagram.site'),
+      client: MockClient((request) async {
+        requests.add(request);
+        final path = request.url.path;
+        if (request.method == 'POST' && path == '/api/identity/applications') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'application_id': application.applicationId,
+            'application_token': application.applicationToken,
+            'verification_session_id': application.sessionId,
+            'verification_session_token': application.sessionToken,
+            'status': 'verification_pending',
+          }), 202, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && path.endsWith('/evidence/upload-url')) {
+          return http.Response(jsonEncode({
+            'evidence_id': evidenceId,
+            'upload_url': '/api/identity/sessions/${application.sessionId}/evidence/$evidenceId/upload',
+            'method': 'PUT',
+            'content_type': 'image/jpeg',
+            'size_bytes': 4,
+            'expires_in_seconds': 120,
+          }), 201, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'PUT' && path.endsWith('/evidence/$evidenceId/upload')) {
+          return http.Response('', 204);
+        }
+        if (request.method == 'POST' && path.endsWith('/evidence/submit')) {
+          return http.Response(jsonEncode({'ok': true, 'status': 'manual_review'}), 202,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'GET' && path.endsWith('/${application.applicationId}')) {
+          return http.Response(jsonEncode({
+            'status': 'under_review',
+            'adult_verification_status': 'pending',
+            'verification_session_id': application.sessionId,
+            'account_provisioning_status': 'not_started',
+          }), 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && path.endsWith('/resend-verification')) {
+          return http.Response(jsonEncode({'ok': true, 'message': 'If eligible, a new link will be sent.'}), 202,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && path.endsWith('/verify-email')) {
+          return http.Response(jsonEncode({'status': 'active', 'email_verified': true}), 200,
+              headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && path.endsWith('/provisioning-token')) {
+          return http.Response(jsonEncode({
+            'approval_token': 'approval-token-abcdefghijklmnopqrstuvwxyz',
+            'jti': 'jti-token-abcdefghijklmnopqrstuvwxyz',
+            'expires_in_seconds': 900,
+          }), 200, headers: {'content-type': 'application/json'});
+        }
+        if (request.method == 'POST' && path.endsWith('/redeem')) {
+          return http.Response(jsonEncode({
+            'status': 'provisioned',
+            'canonical_user_id': '44444444-4444-4444-8444-444444444444',
+            'email_verification_required': true,
+          }), 200, headers: {'content-type': 'application/json'});
+        }
+        return http.Response('unexpected route: ${request.method} $path', 404);
+      }),
+    );
+
+    final created = await client.createApplication(
+      email: ' Person@example.test ',
+      username: '@person_123',
+      displayName: 'Person Example',
+      adultConfirmed: true,
+      termsAccepted: true,
+      privacyAccepted: true,
+      idempotencyKey: List<String>.filled(43, 'z').join(),
+    );
+    expect(created.hasApplication, isTrue);
+    final savedApplication = created.application!;
+    expect(savedApplication.applicationId, application.applicationId);
+
+    await client.uploadAndSubmitEvidence(
+      application: savedApplication,
+      bytes: Uint8List.fromList([0xff, 0xd8, 0xff, 0xe0]),
+      contentType: 'image/jpeg',
+    );
+    final status = await client.getStatus(savedApplication);
+    expect(status.status, 'under_review');
+    await client.resendVerification(savedApplication);
+    await client.verifyEmail(
+      applicationId: savedApplication.applicationId,
+      token: 'one-time-email-token-abcdefghijklmnopqrstuvwxyz',
+    );
+    final authorization =
+        await client.requestProvisioningAuthorization(savedApplication);
+    final redeemed = await client.redeemProvisioningAuthorization(
+      application: savedApplication,
+      authorization: authorization,
+      password: 'test-only-strong-password-123',
+    );
+
+    expect(redeemed['status'], 'provisioned');
+    expect(requests, hasLength(9));
+    expect(requests.first.url.path, '/api/identity/applications');
+    expect(requests.first.headers['Idempotency-Key'], List<String>.filled(43, 'z').join());
+    expect(requests[1].headers['X-Verification-Session-Token'], application.sessionToken);
+    expect(requests[2].headers['X-Verification-Session-Token'], application.sessionToken);
+    expect(requests[3].headers['X-Verification-Session-Token'], application.sessionToken);
+    expect(requests[4].headers['X-Application-Token'], application.applicationToken);
+    expect(requests[5].headers['X-Application-Token'], application.applicationToken);
+    expect(requests[7].headers['X-Application-Token'], application.applicationToken);
+    expect(requests[8].headers['X-Identity-Approval-Token'], authorization.token);
+    expect(requests[8].headers['X-Identity-Approval-JTI'], authorization.jti);
+    expect(requests.every((request) => !request.headers.containsKey('Authorization')), isTrue);
+    client.close();
+  });
+
 }
