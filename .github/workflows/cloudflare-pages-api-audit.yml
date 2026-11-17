@@ -17,35 +17,25 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Cloudflare Pages API resources
+      - name: Inspect Cloudflare deployment records through API
         shell: bash
         run: |
           set -euo pipefail
-          [[ -n "${CF_ACCOUNT_ID:-}" && -n "${CF_API_TOKEN:-}" ]]
           auth=(-H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
-          base="https://api.cloudflare.com/client/v4"
-          request() {
-            local label="$1" url="$2" body status
+          base="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT"
+          for id in d1ba3c67-5b0e-47fd-bd9c-8cd33987ecae 34991aba-afb9-4f3e-866c-3f0a38a5d0d7 9f391558-ecb5-44bb-a6a5-357bc1248edd; do
             body="$(mktemp)"
-            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$url" || true)"
-            echo "$label HTTP $status:"
-            jq -c 'if type=="object" then {success,errors:[.errors[]? | {code,message}],messages,result} else . end' "$body" 2>/dev/null || head -c 3000 "$body"
+            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$base/deployments/$id" || true)"
+            echo "DEPLOYMENT_DETAIL $id HTTP $status:"
+            jq -c '{success,errors:[.errors[]? | {code,message}],result:{id:.result.id,url:.result.url,aliases:.result.aliases,environment:.result.environment,latest_stage:.result.latest_stage,stages:.result.stages,source:.result.source,is_skipped:.result.is_skipped,skip_reason:.result.skip_reason}}' "$body" 2>/dev/null || head -c 2000 "$body"
             rm -f "$body"
-          }
-          request TOKEN_VERIFY "$base/accounts/$CF_ACCOUNT_ID/tokens/verify"
-          request PROJECTS "$base/accounts/$CF_ACCOUNT_ID/pages/projects"
-          request PROJECT_DETAILS "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT"
-          request DEPLOYMENTS_NO_PAGING "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/deployments"
-          request DEPLOYMENTS_PAGED "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/deployments?page=1&per_page=20"
-          request PROJECT_DOMAINS "$base/accounts/$CF_ACCOUNT_ID/pages/projects/$CF_PROJECT/domains"
-      - name: Confirm public hostname responses
-        shell: bash
-        run: |
-          set -euo pipefail
+          done
           for host in \
             d1ba3c67.testagram-flutter-web.pages.dev \
             feat-auth-mobile-visual-over.testagram-flutter-web.pages.dev \
             34991aba.testagram-flutter-web.pages.dev \
+            9f391558.testagram-flutter-web.pages.dev \
+            ops-cloudflare-pages-api-aud.testagram-flutter-web.pages.dev \
             testagram-flutter-web.pages.dev; do
             code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
             printf '%s %s\n' "$code" "$host"
