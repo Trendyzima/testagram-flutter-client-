@@ -77,11 +77,9 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
       case AuthEntryMode.signUp:
-        if (widget.enableIdentityRegistration) {
-          _page = _Page.signUp;
-        } else {
-          _page = _Page.signIn;
-          _notice = 'Registration is temporarily unavailable. Please try again later.';
+        _page = _Page.signUp;
+        if (!widget.enableIdentityRegistration) {
+          _notice = 'Registration is not accepting applications yet. You can review the process, but submissions are currently closed.';
         }
         break;
       case AuthEntryMode.forgotPassword:
@@ -112,8 +110,13 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _go(_Page p) {
-    if (p == _Page.signUp && !widget.enableIdentityRegistration) return;
-    setState(() { _page = p; _error = null; _notice = null; });
+    setState(() {
+      _page = p;
+      _error = null;
+      _notice = p == _Page.signUp && !widget.enableIdentityRegistration
+          ? 'Registration is not accepting applications yet. You can review the process, but submissions are currently closed.'
+          : null;
+    });
   }
 
   String? _emailValid(String? v) {
@@ -420,6 +423,16 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signUp() async {
+    // The visible account-creation entry is independent from the server-side
+    // registration switch. Never submit or persist an application while the
+    // frontend release gate is closed.
+    if (!widget.enableIdentityRegistration) {
+      if (mounted) {
+        setState(() => _notice =
+            'Registration is currently closed. Your details have not been submitted or saved.');
+      }
+      return;
+    }
     if (!_form.currentState!.validate()) return;
     if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
       setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
@@ -1051,7 +1064,13 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_notice != null) ...[const SizedBox(height: 16), statusMessage(_notice!, error: false)],
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
-            if (_page == _Page.signUp) primaryAction('Submit application', _signUp),
+            if (_page == _Page.signUp && widget.enableIdentityRegistration)
+              primaryAction('Submit application', _signUp),
+            if (_page == _Page.signUp && !widget.enableIdentityRegistration)
+              statusMessage(
+                'Registration is currently closed. No application or account can be created yet.',
+                error: false,
+              ),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
             if (_page == _Page.verify)
@@ -1059,21 +1078,19 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
-              if (widget.enableIdentityRegistration) ...[
-                const SizedBox(height: 8),
-                const Row(children: [
-                  Expanded(child: Divider()),
-                  Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
-                  Expanded(child: Divider()),
-                ]),
-                const SizedBox(height: 12),
-                SizedBox(height: 52, child: OutlinedButton.icon(
-                  onPressed: _busy ? null : () => _go(_Page.signUp),
-                  icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Create your account'),
-                  style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-                )),
-              ],
+              const SizedBox(height: 8),
+              const Row(children: [
+                Expanded(child: Divider()),
+                Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
+                Expanded(child: Divider()),
+              ]),
+              const SizedBox(height: 12),
+              SizedBox(height: 52, child: OutlinedButton.icon(
+                onPressed: _busy ? null : () => _go(_Page.signUp),
+                icon: const Icon(Icons.person_add_alt_1_rounded),
+                label: const Text('Create your account'),
+                style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+              )),
             ] else if (_page != _Page.verify)
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
             const SizedBox(height: 18),
