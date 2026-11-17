@@ -787,14 +787,14 @@ class BackendApi {
       final message = decoded is Map
           ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
           : null;
-      final errorCode = error is Map
-          ? error['code']?.toString()
-          : error is String
-              ? error
-              : null;
       final retryAfterSeconds = _retryAfterSeconds(response);
       final isMachineRecovery = response.statusCode == 503 &&
           response.headers['x-testagram-recovery'] == 'attempted';
+      final errorCode = error is Map
+          ? error['code']?.toString()
+          : isMachineRecovery && error is String
+              ? error
+              : null;
       final readableMessage = isMachineRecovery
           ? (retryAfterSeconds != null && retryAfterSeconds > 30
               ? 'Testagram is temporarily unavailable. Please try again in $retryAfterSeconds seconds.'
