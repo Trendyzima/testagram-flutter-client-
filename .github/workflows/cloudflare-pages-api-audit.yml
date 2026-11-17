@@ -17,19 +17,48 @@ jobs:
       CF_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CF_PROJECT: testagram-flutter-web
     steps:
-      - name: Inspect Pages preview and production worker resources
+      - name: Inspect Pages configuration, deployments, Worker routing and DNS
         shell: bash
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json")
-          base="https://api.cloudflare.com/client/v4/accounts/$CF_ACCOUNT_ID"
-          for script in pages-worker--23716892-preview pages-worker--23716892-production; do
+          base="https://api.cloudflare.com/client/v4"
+          account="$base/accounts/$CF_ACCOUNT_ID"
+
+          request() {
+            local label="$1" url="$2" body status
             body="$(mktemp)"
-            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$base/workers/scripts/$script" || true)"
-            echo "WORKER_SCRIPT $script HTTP $status:"
-            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null || head -c 1500 "$body"
+            status="$(curl --silent --show-error --max-time 30 -o "$body" -w '%{http_code}' "${auth[@]}" "$url" || true)"
+            echo "===== $label HTTP $status ====="
+            jq -c '{success,errors:[.errors[]? | {code,message}],result}' "$body" 2>/dev/null | head -c 12000 || head -c 2000 "$body"
+            echo
+            printf '%s' "$body"
+          }
+
+          body="$(request PAGES_PROJECT "$account/pages/projects/$CF_PROJECT")"
+          rm -f "$body"
+          body="$(request PAGES_DEPLOYMENTS "$account/pages/projects/$CF_PROJECT/deployments?per_page=10")"
+          rm -f "$body"
+
+          for script in pages-worker--23716892-preview pages-worker--23716892-production; do
+            body="$(request WORKER_SCRIPT "$account/workers/scripts/$script")"
             rm -f "$body"
           done
+          body="$(request WORKER_SCRIPTS_LIST "$account/workers/scripts")"
+          rm -f "$body"
+
+          body="$(request ZONE_LOOKUP "$base/zones?name=testagram.site")"
+          zone_id="$(jq -r '.result[0].id // empty' "$body" 2>/dev/null || true)"
+          rm -f "$body"
+          if [[ -n "$zone_id" ]]; then
+            body="$(request DNS_RECORDS "$base/zones/$zone_id/dns_records?per_page=100")"
+            rm -f "$body"
+            body="$(request WORKER_ROUTES "$base/zones/$zone_id/workers/routes")"
+            rm -f "$body"
+          else
+            echo "ZONE_LOOKUP did not return a readable zone id; DNS and route inspection cannot proceed."
+          fi
+
           for host in \
             d1ba3c67.testagram-flutter-web.pages.dev \
             feat-auth-mobile-visual-over.testagram-flutter-web.pages.dev \
@@ -37,6 +66,10 @@ jobs:
             9f391558.testagram-flutter-web.pages.dev \
             ops-cloudflare-pages-api-aud.testagram-flutter-web.pages.dev \
             testagram-flutter-web.pages.dev; do
-            code="$(curl -sS -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
-            printf '%s %s\n' "$code" "$host"
+            headers="$(mktemp)"
+            code="$(curl -sS -D "$headers" -o /dev/null -w '%{http_code}' --max-time 20 "https://$host/" || true)"
+            printf 'LIVE_HOST %s %s ' "$code" "$host"
+            tr -d '\r' < "$headers" | grep -iE '^(server:|cf-ray:|content-type:|location:|cf-cache-status:)' | tr '\n' ' '
+            echo
+            rm -f "$headers"
           done
