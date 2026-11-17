@@ -194,4 +194,68 @@ void main() {
     expect(storage.values.containsKey('testagram.auth.refresh.v1'), isFalse);
     client.close();
   });
+  test('requests password recovery with a normalized email and no account disclosure', () async {
+    final storage = _MemoryNativeAuthStorage();
+    late http.Request seen;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        seen = request;
+        return http.Response(
+          jsonEncode({
+            'ok': true,
+            'message': 'If the account exists, password recovery instructions will be sent.',
+          }),
+          202,
+        );
+      }),
+    );
+
+    await client.requestPasswordReset('  User@Example.Test  ');
+    expect(seen.url.path, '/api/auth/forgot-password');
+    expect(jsonDecode(seen.body), {'email': 'user@example.test'});
+    expect(storage.values, isEmpty);
+    client.close();
+  });
+
+  test('submits a reset capability once and clears the saved session after success', () async {
+    final storage = _MemoryNativeAuthStorage();
+    final requests = <http.Request>[];
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path.endsWith('/login')) {
+          return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+        }
+        if (request.url.path.endsWith('/reset-password')) {
+          return http.Response(
+            jsonEncode({'ok': true, 'message': 'Password reset. Sign in with your new password.'}),
+            200,
+          );
+        }
+        return http.Response('unexpected route', 404);
+      }),
+    );
+
+    await client.signIn(email: 'user@example.test', password: 'OldPassword-123!');
+    await client.resetPassword(
+      token: 'single-use-recovery-capability',
+      password: 'NewPassword-456!',
+    );
+
+    final reset = requests.last;
+    expect(reset.url.path, '/api/auth/reset-password');
+    expect(jsonDecode(reset.body), {
+      'token': 'single-use-recovery-capability',
+      'password': 'NewPassword-456!',
+    });
+    expect(reset.headers.containsKey('Authorization'), isFalse);
+    expect(storage.values, isEmpty);
+    expect(await client.accessToken(), isNull);
+    client.close();
+  });
+
 }
