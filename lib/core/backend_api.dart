@@ -734,6 +734,34 @@ class BackendApi {
       };
       response = await send(headers);
     }
+
+    // An idle InstaBox machine is woken by the real request through the
+    // Cloudflare gateway. The gateway marks recovery responses explicitly and
+    // supplies Retry-After. Retry once only for safe reads or requests carrying
+    // an endpoint-supported Idempotency-Key; never duplicate an arbitrary POST.
+    final hasIdempotencyKey = headers.entries.any((entry) =>
+        entry.key.toLowerCase() == 'idempotency-key' && entry.value.trim().isNotEmpty);
+    // Today, post creation is the only mutation endpoint whose backend contract
+    // guarantees idempotent replay. Do not let a future caller accidentally
+    // make an unrelated mutation replayable merely by adding this header.
+    final idempotentPostCreate = method == 'POST' &&
+        uri.path == '/api/social/posts' &&
+        hasIdempotencyKey;
+    final replaySafe =
+        const {'GET', 'HEAD', 'OPTIONS'}.contains(method) || idempotentPostCreate;
+    if (response.statusCode == 503 &&
+        response.headers['x-testagram-recovery'] == 'attempted' &&
+        replaySafe) {
+      final retryAfterSeconds = _retryAfterSeconds(response) ?? 5;
+      // Long max-run cooldowns should be shown to the caller, not hold an
+      // interactive request open for minutes.
+      if (retryAfterSeconds <= 30) {
+        if (retryAfterSeconds > 0) {
+          await Future<void>.delayed(Duration(seconds: retryAfterSeconds));
+        }
+        response = await send(headers);
+      }
+    }
     return _decodeObject(response);
   }
 
@@ -746,6 +774,11 @@ class BackendApi {
       'Accept': 'application/json',
       'Authorization': 'Bearer $token',
     };
+  }
+
+  int? _retryAfterSeconds(http.Response response) {
+    final value = int.tryParse(response.headers['retry-after']?.trim() ?? '');
+    return value != null && value >= 0 ? value : null;
   }
 
   Map<String, dynamic> _decodeObject(http.Response response) {
@@ -761,11 +794,24 @@ class BackendApi {
       final message = decoded is Map
           ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
           : null;
-      final errorCode = error is Map ? error['code']?.toString() : null;
+      final retryAfterSeconds = _retryAfterSeconds(response);
+      final isMachineRecovery = response.statusCode == 503 &&
+          response.headers['x-testagram-recovery'] == 'attempted';
+      final errorCode = error is Map
+          ? error['code']?.toString()
+          : isMachineRecovery && error is String
+              ? error
+              : null;
+      final readableMessage = isMachineRecovery
+          ? (retryAfterSeconds != null && retryAfterSeconds > 30
+              ? 'Testagram is temporarily unavailable. Please try again in $retryAfterSeconds seconds.'
+              : 'Testagram is waking up. Please try again shortly.')
+          : (message?.isNotEmpty == true ? message! : 'Request failed. Please try again.');
       throw BackendApiException(
-        message?.isNotEmpty == true ? message! : 'Request failed. Please try again.',
+        readableMessage,
         statusCode: response.statusCode,
         code: errorCode,
+        retryAfter: retryAfterSeconds == null ? null : Duration(seconds: retryAfterSeconds),
       );
     }
     if (decoded is Map<String, dynamic>) return decoded;
@@ -776,11 +822,13 @@ class BackendApi {
 }
 
 class BackendApiException implements Exception {
-  const BackendApiException(this.message, {this.statusCode, this.code});
+  const BackendApiException(this.message, {this.statusCode, this.code, this.retryAfter});
   final String message;
   final int? statusCode;
   /// Stable machine-readable Backend error code, when supplied by the API.
   final String? code;
+  /// Server-provided wait before retrying a temporarily unavailable service.
+  final Duration? retryAfter;
 
   @override
   String toString() => message;
