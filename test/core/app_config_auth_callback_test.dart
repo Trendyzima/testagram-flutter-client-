@@ -9,10 +9,10 @@ void main() {
       expect(AppConfig.isConfigured, isTrue);
     });
 
-    test('does not enable identity registration by default', () {
+    test('enables identity registration by default for public account creation', () {
       expect(
         AppConfig.enableIdentityRegistrationUi,
-        const bool.fromEnvironment('TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED', defaultValue: false),
+        isTrue,
       );
     });
 
