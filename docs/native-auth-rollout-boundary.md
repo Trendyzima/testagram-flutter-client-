@@ -1,77 +1,25 @@
 # Native authentication rollout boundary
 
-This document describes the current staged Testagram-owned authentication path.
-The Flutter branch and Backend pull requests are not production deployments.
+## Current Flutter source implementation
 
-## Implemented in the Flutter native-auth branch
+The current Flutter mainline uses the Testagram-native `NativeAuthClient`. It does not acquire an Appwrite user session.
 
-- The application entry point and AuthGate restore sessions through the
-  Testagram Backend; they no longer construct an Appwrite client or account.
-- The native client persists only the rotating refresh token in secure storage.
-  Access tokens remain in memory. A 401 causes one coordinated refresh and
-  retry for BackendApi and video interactions.
-- Sign-in, password recovery, password reset, logout and session restoration
-  use Testagram-owned endpoints.
-- Identity application creation, evidence upload and review-status retrieval
-  continue to use the existing application-scoped workflow.
-- Approved applicants submit a native password to the Backend redemption
-  endpoint. Flutter no longer creates an Appwrite account or obtains an
-  Appwrite JWT for provisioning.
-- Email verification and resend use application-scoped Testagram endpoints.
-  The saved application capability is retained until the account is active.
-- The Appwrite Flutter SDK and its obsolete web-auth override have been
-  removed from this branch.
+- Sign-in calls Backend `POST /api/auth/login`.
+- Session restoration and token rotation call Backend `POST /api/auth/refresh`.
+- Access tokens remain in memory; only the opaque refresh token is stored in platform secure storage.
+- `BackendApi` obtains the current access token from the shared auth client and attaches `Authorization: Bearer` to public Backend requests.
+- The app validates the restored session through the Backend profile endpoint before rendering the authenticated shell.
+- Password recovery/reset uses the Backend's anti-enumerating request and single-use reset-token endpoints.
+- Logout and logout-all request Backend revocation before clearing local credentials. If the Backend cannot confirm revocation, the app keeps the session available for retry rather than reporting a false success.
 
-## Backend implementation and remaining work
+## Registration boundary
 
-Backend PR #294 supplies Argon2id password storage with legacy PBKDF2
-verification and lazy upgrade. Backend PR #296 adds native approved-identity
-provisioning, hashed one-time email verification and a PostgreSQL provisioning
-ledger. PR #296 is stacked on #294; both remain draft and unmerged.
+The Create your account entry can be visible while public registration remains fail-closed. New accounts must complete the Testagram-owned application, private evidence, two independent identity reviews, two independent account approvals, native provisioning and email verification flow. The Flutter client must not create an account directly or bypass the approval ledger.
 
-The redemption transaction checks the evidence-review ledger and the separate
-two-person account-approval ledger. It creates one native identity and one
-canonical profile, consumes the approval grant, and leaves the identity unable
-to obtain a session until email verification activates the provisioning row.
-Ordinary public signup remains fail-closed.
+## Legacy account migration
 
-The following are not yet complete:
+Existing Appwrite account IDs are reconciliation inputs only. Appwrite password hashes are not imported; reconciled users must complete native password reset. Do not auto-link by email equality, accept Appwrite JWTs as a native bearer fallback, or disable the legacy production provider until a separately approved migration and live cutover are complete.
 
-1. Staff reviewer authentication and staff-role grants still use Appwrite
-   identifiers in the review and sensitive-action ledgers. Preserve the
-   historical audit trail while introducing native staff principals and
-   two-person authorization for staff-role activation.
-2. Remove the remaining Backend Appwrite login bridges, provider adapters,
-   callback routes and unused Appwrite configuration only after the native
-   staff workflow and account reconciliation are proven.
-3. Audit every Flutter API/media client and every Backend route for legacy
-   bearer/JWT assumptions. Video likes and comments now use native access
-   tokens, but the separate video service still needs its own end-to-end
-   authorization acceptance.
-4. Run PostgreSQL migration ordering and idempotency, concurrent redemption,
-   email-token replay, account disablement, session refresh, Android and Web
-   builds, widget tests and end-to-end feed acceptance.
-5. Reconcile existing Appwrite users to canonical Testagram UUIDs using
-   explicit evidence and controlled account-preservation rules. Never link
-   accounts on email equality alone.
-6. Configure native auth issuer secrets and email delivery only after the
-   reviewed migrations and release gates pass. Do not switch the production
-   provider or deploy from these draft branches.
+## Release boundary
 
-## Video authorization boundary
-
-The Flutter video client uses the same Testagram native access-token provider
-as BackendApi and performs at most one refresh/retry after a 401. Playback
-authorization remains a separate service boundary: the video service must not
-accept caller-supplied user IDs or trust client-generated identity claims.
-Private manifests, child playlists, segments and encryption keys must all be
-authorized by the Backend-issued capability/session boundary.
-
-## Release rule
-
-This is a staged migration. Keep production authentication and infrastructure
-unchanged until the first approved applicant can verify email, sign in with
-Testagram-owned credentials, restore and rotate a session, and reach the
-authenticated Testagram feed on Android and Web with no Appwrite dependency in
-that user path. Staff authorization, legacy-account reconciliation and all
-release tests must also pass before declaring Appwrite fully retired.
+Source code and CI passing do not prove that the deployed Flutter build and Backend are using the same native auth revision. Production API routing, provider cutover, registration activation and real-user account migration remain separate gates. No production deployment or registration enablement is authorized by this document.
