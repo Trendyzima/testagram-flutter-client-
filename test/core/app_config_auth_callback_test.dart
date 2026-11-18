@@ -12,7 +12,7 @@ void main() {
     test('enables identity registration by default for public account creation', () {
       expect(
         AppConfig.enableIdentityRegistrationUi,
-        const bool.fromEnvironment('TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED', defaultValue: true),
+        isTrue,
       );
     });
 
