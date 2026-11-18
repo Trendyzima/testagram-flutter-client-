@@ -258,4 +258,58 @@ void main() {
     client.close();
   });
 
+
+  test('retains refresh credential and permits retry when Backend logout is unavailable', () async {
+    final storage = _MemoryNativeAuthStorage();
+    var backendAvailable = false;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/login')) {
+          return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+        }
+        if (request.url.path.endsWith('/logout')) {
+          if (!backendAvailable) return http.Response('unavailable', 503);
+          return http.Response(jsonEncode({'ok': true}), 200);
+        }
+        return http.Response('unexpected route', 404);
+      }),
+    );
+
+    await client.signIn(email: 'user@example.test', password: 'correct-password-123');
+    await expectLater(client.signOut(), throwsA(isA<NativeAuthException>()));
+    expect(storage.values['testagram.auth.refresh.v1'], refreshOne);
+    expect(await client.accessToken(), accessOne);
+
+    backendAvailable = true;
+    await client.signOut();
+    expect(storage.values.containsKey('testagram.auth.refresh.v1'), isFalse);
+    expect(await client.accessToken(), isNull);
+    client.close();
+  });
+
+  test('clears local credentials when Backend confirms the session is already invalid', () async {
+    final storage = _MemoryNativeAuthStorage();
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        if (request.url.path.endsWith('/login')) {
+          return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+        }
+        if (request.url.path.endsWith('/logout')) {
+          return http.Response('invalid session', 401);
+        }
+        return http.Response('unexpected route', 404);
+      }),
+    );
+
+    await client.signIn(email: 'user@example.test', password: 'correct-password-123');
+    await client.signOut();
+    expect(storage.values.containsKey('testagram.auth.refresh.v1'), isFalse);
+    expect(await client.accessToken(), isNull);
+    client.close();
+  });
+
 }
