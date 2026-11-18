@@ -84,6 +84,7 @@ void main() {
     await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
     expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
 
     await tapVisible(tester, find.text('Reset password'));
     await tester.pumpAndSettle();
