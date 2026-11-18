@@ -49,6 +49,7 @@ void main() {
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
+        enableIdentityRegistration: false,
         identityApplicationStore: identityStore,
       ),
     ));
@@ -69,7 +70,7 @@ void main() {
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
