@@ -40,7 +40,7 @@ The Flutter client needs only the public Testagram Backend URL. For local develo
 
 ## Current implementation status
 
-The Android application ID is generated as `com.legacy client.app` to preserve the existing legacy client installation identity for a carefully staged upgrade. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
+The Android application ID is currently `com.xclone.app`. It is retained solely as an installation-compatibility identifier for previously distributed builds, not as Testagram branding, a runtime service, or a dependency. Changing it would prevent in-place Android upgrades and requires a separately approved migration/reinstall plan. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
 
 The native foundation includes Testagram-owned email/password login, rotating native sessions, Backend access-token transport, authenticated home-feed retrieval, post creation, loading/error/empty states, and a dark-green Testagram visual foundation. Native Polls list, create, vote and results are now available through the Backend polls API.
 
