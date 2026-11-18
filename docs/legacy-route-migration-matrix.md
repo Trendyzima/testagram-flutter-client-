@@ -1,13 +1,13 @@
-# XClone → standalone Flutter route migration matrix
+# legacy client → standalone Flutter route migration matrix
 
-Source: `Trendyzima/XClone-9b4dz1-9b4dz1-8936-20260809tr/mobile` at the inspected `main` snapshot.
+Source: `Trendyzima/legacy client-9b4dz1-9b4dz1-8936-20260809tr/mobile` at the inspected `main` snapshot.
 Destination: `Trendyzima/testagram-flutter-client-`.
 
 ## Audit baseline
 
 - The source mobile client contains **121 Dart files** under `mobile/lib/`.
 - Its GoRouter configuration declares **214 route entries** (214 unique path patterns).
-- The destination is deliberately a clean Flutter application, not a copy of the XClone monorepo.
+- The destination is deliberately a clean Flutter application, not a copy of the legacy client monorepo.
 - The destination currently has native authentication plus Home/Feed, Explore, Notifications, Threads and Polls surfaces. The source's remaining route families are not yet feature-parity migrated.
 - A route is not counted as migrated merely because a generic page, navigation link or migration notice exists.
 
@@ -268,4 +268,4 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 
 ## Cutover
 
-XClone remains the source of truth and fallback during migration. Do not delete, archive, redirect, or overwrite it. Retire it only after all routes are migrated or explicitly approved for retirement and production data/session/deep-link/signing cutover is verified.
+legacy client remains the source of truth and fallback during migration. Do not delete, archive, redirect, or overwrite it. Retire it only after all routes are migrated or explicitly approved for retirement and production data/session/deep-link/signing cutover is verified.

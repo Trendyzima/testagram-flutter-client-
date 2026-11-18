@@ -1,6 +1,6 @@
 # Testagram Flutter Client
 
-The canonical native Flutter application for Testagram. This repository is intended to replace the Flutter/mobile client currently nested under the legacy XClone frontend. It is not a second backend and it does not own account, post, social-graph, ranking, federation, or media-storage records.
+The canonical native Flutter application for Testagram. This repository is intended to replace the Flutter/mobile client currently nested under the legacy legacy client frontend. It is not a second backend and it does not own account, post, social-graph, ranking, federation, or media-storage records.
 
 ## Six runtime repositories + API contract control plane
 
@@ -28,7 +28,7 @@ The canonical native Flutter application for Testagram. This repository is inten
 Install the stable Flutter SDK, then provide environment-specific public endpoints at build/run time:
 
 ```sh
-flutter create --org com.xclone --project-name app --platforms=android,ios,web .
+flutter create --org com.legacy client --project-name app --platforms=android,ios,web .
 flutter pub get
 flutter analyze
 flutter test
@@ -40,22 +40,22 @@ The Flutter client needs only the public Testagram Backend URL. For local develo
 
 ## Current implementation status
 
-The Android application ID is generated as `com.xclone.app` to preserve the existing XClone installation identity for a carefully staged upgrade. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
+The Android application ID is currently `com.xclone.app`. It is retained solely as an installation-compatibility identifier for previously distributed builds, not as Testagram branding, a runtime service, or a dependency. Changing it would prevent in-place Android upgrades and requires a separately approved migration/reinstall plan. Keep the release signing key stable; do not ship a production update signed with a temporary CI key.
 
 The native foundation includes Testagram-owned email/password login, rotating native sessions, Backend access-token transport, authenticated home-feed retrieval, post creation, loading/error/empty states, and a dark-green Testagram visual foundation. Native Polls list, create, vote and results are now available through the Backend polls API.
 
-This is an expanding migration slice, **not full XClone feature parity or a production release**. The source XClone Flutter app contains 121 Dart files and 214 GoRouter route patterns; the route-by-route parity ledger is in `docs/xclone-route-migration-matrix.md`. The destination intentionally does not copy the legacy monorepo or its dependencies. The native main-feed composer now publishes through the Backend's idempotent `POST /api/social/posts` route. It supports text and optional public-image uploads/attachments through Backend-owned media APIs. Post creation commits before media uploads and attachments; if a later media step fails, the client explicitly reports that the text post was published with incomplete media and attempts to delete unattached uploads. This is a deliberate partial-success flow, not an atomic post-plus-media transaction. It does not establish private-media/CDN authorization readiness, which still requires cross-repository staging tests. Profiles and complete graph flows, messaging/E2EE/calls, stories, video/live/TV, creator tools, commerce/wallet/M-Pesa, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests remain open. Each feature must be implemented against a verified Backend contract before being marked complete.
+This is an expanding migration slice, **not full legacy client feature parity or a production release**. The source legacy client Flutter app contains 121 Dart files and 214 GoRouter route patterns; the route-by-route parity ledger is in `docs/legacy client-route-migration-matrix.md`. The destination intentionally does not copy the legacy monorepo or its dependencies. The native main-feed composer now publishes through the Backend's idempotent `POST /api/social/posts` route. It supports text and optional public-image uploads/attachments through Backend-owned media APIs. Post creation commits before media uploads and attachments; if a later media step fails, the client explicitly reports that the text post was published with incomplete media and attempts to delete unattached uploads. This is a deliberate partial-success flow, not an atomic post-plus-media transaction. It does not establish private-media/CDN authorization readiness, which still requires cross-repository staging tests. Profiles and complete graph flows, messaging/E2EE/calls, stories, video/live/TV, creator tools, commerce/wallet/M-Pesa, moderation/admin, federation UI, offline behavior, accessibility, deep links, push, and full integration tests remain open. Each feature must be implemented against a verified Backend contract before being marked complete.
 
 ## Migration acceptance gates
 
-1. Every XClone user-facing route has a native equivalent or an explicitly approved retirement.
+1. Every legacy client user-facing route has a native equivalent or an explicitly approved retirement.
 2. No Supabase SDK/import/env/URL/Edge Function/database operation remains in the Flutter client.
 3. No Upstash/Redis dependency is introduced in the client.
 4. All authenticated operations use Testagram native access tokens and Backend authorization.
 5. Backend, Algorithm, Data Centre, Federation and CDN integration contracts pass across the six runtime repositories, with API contract-governance checks.
 6. `flutter analyze`, `flutter test`, Android debug/release builds and real-device smoke tests pass.
-7. Existing XClone data, deep links, app identity/signing and user sessions are migrated safely before retiring the old client.
-8. XClone is not deleted or archived until the native client reaches verified feature parity and production cutover is approved.
+7. Existing legacy client data, deep links, app identity/signing and user sessions are migrated safely before retiring the old client.
+8. legacy client is not deleted or archived until the native client reaches verified feature parity and production cutover is approved.
 
 
 ## Current native migration tranche
