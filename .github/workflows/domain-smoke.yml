@@ -76,7 +76,7 @@ jobs:
           webfinger_type="$(content_type "$webfinger_headers")"
           echo "Real-account WebFinger: HTTP $webfinger_status; Content-Type: ${webfinger_type:-none}"
           if [[ "$webfinger_status" != "200" || "$webfinger_type" != *"application/jrd+json"* ]] ||
-             ! jq -e '.subject == "acct:crissbeat@testagram.site" and (.links | any(.rel == "self" and .type == "application/activity+json" and (.href | startswith("https://testagram.site/users/"))))' "$tmp/webfinger.json" >/dev/null 2>&1; then
+             ! jq -e '.subject == "acct:crissbeat@testagram.site" and (.links | any(.rel == "self" and .type == "application/activity+json" and (.href == "https://testagram.site/users/crissbeat")))' "$tmp/webfinger.json" >/dev/null 2>&1; then
             echo "::error::The real Testagram account must resolve through WebFinger to its canonical ActivityPub actor."
             cat "$tmp/webfinger.json" 2>/dev/null || true
             failed=1
@@ -97,7 +97,7 @@ jobs:
           unknown_type="$(content_type "$tmp/unknown.headers")"
           echo "Unknown-account negative control: HTTP $unknown_status; Content-Type: ${unknown_type:-none}"
           if [[ "$unknown_status" != "404" || "$unknown_type" != *"application/json"* ]] ||
-             ! jq -e '.error.code == "account_not_found"' "$tmp/unknown.json" >/dev/null 2>&1; then
+             ! jq -e '.error == "account_not_found"' "$tmp/unknown.json" >/dev/null 2>&1; then
             echo "::error::Unknown account must produce the Federation service's structured account_not_found response, not a proxy or frontend response."
             cat "$tmp/unknown.json" 2>/dev/null || true
             failed=1
