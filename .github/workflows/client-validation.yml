@@ -54,6 +54,9 @@ jobs:
           assert "/internal/tv/catalog" in monitor and "/internal/tv/health" in monitor, "TV monitor must use the protected Backend catalogue and health routes"
           PY
 
+      - name: Validate Node.js production monitor syntax
+        run: node --check tool/tv_health_monitor.mjs
+
       - name: Resolve dependencies
         run: flutter pub get
 
