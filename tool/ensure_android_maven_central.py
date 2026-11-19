@@ -7,7 +7,7 @@ def ensure_maven_central(source: str) -> tuple[str, bool]:
     changed = False
     for block_name in ("pluginManagement", "dependencyResolutionManagement"):
         pattern = re.compile(
-            rf"({block_name}\\s*\\{{\\s*repositories\\s*\\{{)(.*?)(\\}})",
+            rf"({block_name}\s*\{{\s*repositories\s*\{{)(.*?)(\})",
             re.DOTALL,
         )
         match = pattern.search(source)
@@ -16,16 +16,16 @@ def ensure_maven_central(source: str) -> tuple[str, bool]:
                 raise ValueError("Android settings.gradle.kts has no pluginManagement.repositories block")
             continue
         body = match.group(2)
-        if re.search(r"\\bmavenCentral\\s*\\(\\s*\\)", body):
+        if re.search(r"\bmavenCentral\s*\(\s*\)", body):
             continue
         if "gradlePluginPortal()" in body:
             body = body.replace(
                 "gradlePluginPortal()",
-                "mavenCentral()\\n        gradlePluginPortal()",
+                "mavenCentral()\n        gradlePluginPortal()",
                 1,
             )
         else:
-            body = body.rstrip() + "\\n        mavenCentral()\\n"
+            body = body.rstrip() + "\n        mavenCentral()\n"
         source = source[: match.start(2)] + body + source[match.end(2) :]
         changed = True
     return source, changed
