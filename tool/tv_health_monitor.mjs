@@ -82,7 +82,11 @@ async function fetchCatalogue() {
     },
     signal: AbortSignal.timeout(30000),
   });
-  if (!response.ok) {\n    const detail = (await response.text()).slice(0, 1000);\n    const contentType = response.headers.get("content-type") || "unknown content type";\n    throw new Error(`TV catalogue request failed: HTTP ${response.status}; ${contentType}; ${detail}`);\n  }
+  if (!response.ok) {
+    const detail = (await response.text()).slice(0, 1000);
+    const contentType = response.headers.get("content-type") || "unknown content type";
+    throw new Error(`TV catalogue request failed: HTTP ${response.status}; ${contentType}; ${detail}`);
+  }
   const payload = await response.json();
   const channels = Array.isArray(payload?.channels) ? payload.channels :
     Array.isArray(payload?.data?.channels) ? payload.data.channels : null;
