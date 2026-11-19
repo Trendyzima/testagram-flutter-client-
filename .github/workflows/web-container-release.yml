@@ -42,7 +42,7 @@ concurrency:
 
 jobs:
   build-and-publish:
-    if: github.repository == 'Trendyzima/testagram-flutter-client-'
+    if: github.repository == 'Trendyzima/testagram-flutter-client-' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
