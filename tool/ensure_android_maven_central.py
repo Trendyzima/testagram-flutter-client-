@@ -4,36 +4,36 @@ import sys
 
 
 def _ensure_section_repositories(source: str, section: str, required: tuple[str, ...]) -> tuple[str, bool]:
-    section_pattern = re.compile(r"(?m)^\\s*" + re.escape(section) + r"\\s*\\{")
+    section_pattern = re.compile(r"(?m)^\s*" + re.escape(section) + r"\s*\{")
     section_match = section_pattern.search(source)
     if section_match is None:
         if section != "pluginManagement":
             return source, False
         block = (
-            "pluginManagement {\\n"
-            "    repositories {\\n"
-            "        google()\\n"
-            "        mavenCentral()\\n"
-            "        gradlePluginPortal()\\n"
-            "    }\\n"
-            "}\\n\\n"
+            "pluginManagement {\n"
+            "    repositories {\n"
+            "        google()\n"
+            "        mavenCentral()\n"
+            "        gradlePluginPortal()\n"
+            "    }\n"
+            "}\n\n"
         )
         return block + source, True
 
     if section == "pluginManagement":
-        section_end = source.find("\\nplugins {", section_match.end())
+        section_end = source.find("\nplugins {", section_match.end())
         if section_end < 0:
             section_end = len(source)
     else:
         section_end = len(source)
     block = source[section_match.start():section_end]
-    repositories_pattern = re.compile(r"repositories\\s*\\{(.*?)\\}", re.DOTALL)
+    repositories_pattern = re.compile(r"repositories\s*\{(.*?)\}", re.DOTALL)
     repositories_match = repositories_pattern.search(block)
     if repositories_match is None:
         insertion = (
-            "\\n    repositories {\\n"
-            + "".join(f"        {repository}()\\n" for repository in required)
-            + "    }\\n"
+            "\n    repositories {\n"
+            + "".join(f"        {repository}()\n" for repository in required)
+            + "    }\n"
         )
         position = section_match.end()
         return source[:position] + insertion + source[position:], True
@@ -42,16 +42,15 @@ def _ensure_section_repositories(source: str, section: str, required: tuple[str,
     missing = [
         repository
         for repository in required
-        if re.search(r"\\b" + re.escape(repository) + r"\\s*\\(", body) is None
+        if re.search(r"\b" + re.escape(repository) + r"\s*\(", body) is None
     ]
     if not missing:
         return source, False
-    additions = "".join(f"        {repository}()\\n" for repository in missing)
-    updated_body = body
+    additions = "".join(f"        {repository}()\n" for repository in missing)
     if "gradlePluginPortal()" in body and "gradlePluginPortal" in missing:
         updated_body = body.replace("gradlePluginPortal()", additions + "        gradlePluginPortal()", 1)
     else:
-        updated_body = body.rstrip() + "\\n" + additions.rstrip("\\n") + "\\n"
+        updated_body = body.rstrip() + "\n" + additions.rstrip("\n") + "\n"
     start = section_match.start() + repositories_match.start(1)
     end = section_match.start() + repositories_match.end(1)
     return source[:start] + updated_body + source[end:], True
