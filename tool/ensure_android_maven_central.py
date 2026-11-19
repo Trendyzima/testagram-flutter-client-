@@ -7,7 +7,7 @@ def ensure_maven_central(source: str) -> tuple[str, bool]:
     changed = False
     for block_name in ("pluginManagement", "dependencyResolutionManagement"):
         pattern = re.compile(
-            rf"({block_name}\s*\{{\s*repositories\s*\{{)(.*?)(\})",
+            r"(" + re.escape(block_name) + r"\s*\{\s*repositories\s*\{)(.*?)(\})",
             re.DOTALL,
         )
         match = pattern.search(source)
