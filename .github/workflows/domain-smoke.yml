@@ -1,6 +1,9 @@
 name: Testagram production domain smoke test
 
 on:
+  pull_request:
+    paths:
+      - ".github/workflows/domain-smoke.yml"
   workflow_dispatch:
   schedule:
     - cron: "*/15 * * * *"
@@ -14,11 +17,11 @@ concurrency:
 
 jobs:
   smoke:
-    name: Check apex redirect, www frontend and federation discovery
+    name: Check apex, Flutter, NodeInfo and real-account WebFinger
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 7
     steps:
-      - name: Probe production hostnames
+      - name: Probe production hostnames and federation contracts
         shell: bash
         run: |
           set -euo pipefail
@@ -46,18 +49,39 @@ jobs:
             fi
           done
 
-          webfinger_status="$(curl --silent --show-error --max-time 25 -o "$tmp/webfinger.body" -w '%{http_code}' "https://testagram.site/.well-known/webfinger?resource=acct:nonexistent-probe@invalid.testagram.site" || true)"
-          echo "WebFinger: HTTP $webfinger_status"
-          case "$webfinger_status" in
-            200|400|404) ;;
-            *) echo "::error::The dedicated WebFinger endpoint did not reach the federation service."; failed=1 ;;
-          esac
+          nodeinfo_headers="$tmp/nodeinfo.headers"
+          nodeinfo_status="$(curl --silent --show-error --connect-timeout 10 --max-time 25 -D "$nodeinfo_headers" -o "$tmp/nodeinfo-discovery.json" -w '%{http_code}' https://testagram.site/.well-known/nodeinfo || true)"
+          nodeinfo_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$nodeinfo_headers" | tail -n1 | tr '[:upper:]' '[:lower:]')"
+          echo "NodeInfo discovery: HTTP $nodeinfo_status; Content-Type: ${nodeinfo_type:-missing}"
+          if [[ "$nodeinfo_status" != "200" || "$nodeinfo_type" != application/json* ]] || ! jq -e '.links | type == "array" and any(.[]; .rel == "http://nodeinfo.diaspora.software/ns/schema/2.1" and (.href | type == "string" and startswith("https://")))' "$tmp/nodeinfo-discovery.json" >/dev/null 2>&1; then
+            echo "::error::Apex NodeInfo discovery must return JSON with a valid HTTPS NodeInfo 2.1 link, not the Flutter HTML shell."
+            failed=1
+          else
+            nodeinfo_url="$(jq -r '.links[] | select(.rel == "http://nodeinfo.diaspora.software/ns/schema/2.1") | .href' "$tmp/nodeinfo-discovery.json" | head -n1)"
+            nodeinfo_doc_status="$(curl --silent --show-error --connect-timeout 10 --max-time 25 -o "$tmp/nodeinfo-2.1.json" -w '%{http_code}' "$nodeinfo_url" || true)"
+            echo "NodeInfo 2.1 document: HTTP $nodeinfo_doc_status"
+            if [[ "$nodeinfo_doc_status" != "200" ]] || ! jq -e '(.software.name | type == "string" and length > 0) and (.protocols | type == "array" and index("activitypub") != null)' "$tmp/nodeinfo-2.1.json" >/dev/null 2>&1; then
+              echo "::error::NodeInfo 2.1 must return a valid ActivityPub server document."
+              failed=1
+            fi
+          fi
+
+          resource="acct:crissbeat@testagram.site"
+          webfinger_headers="$tmp/webfinger.headers"
+          webfinger_status="$(curl --silent --show-error --connect-timeout 10 --max-time 25 --get --data-urlencode "resource=$resource" -D "$webfinger_headers" -o "$tmp/webfinger.json" -w '%{http_code}' https://testagram.site/.well-known/webfinger || true)"
+          webfinger_type="$(awk 'BEGIN{IGNORECASE=1} /^content-type:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$webfinger_headers" | tail -n1 | tr '[:upper:]' '[:lower:]')"
+          echo "WebFinger $resource: HTTP $webfinger_status; Content-Type: ${webfinger_type:-missing}"
+          if [[ "$webfinger_status" != "200" || ( "$webfinger_type" != application/jrd+json* && "$webfinger_type" != application/json* ) ]] || ! jq -e --arg resource "$resource" '.subject == $resource and (.links | type == "array" and any(.[]; .rel == "self" and .type == "application/activity+json" and (.href | type == "string" and startswith("https://"))))' "$tmp/webfinger.json" >/dev/null 2>&1; then
+            echo "::error::The real production account must resolve to a valid WebFinger JRD document with its ActivityPub self link."
+            failed=1
+          fi
 
           {
             echo "## Testagram production domain smoke test"
-            echo "- Apex ordinary web traffic: expected HTTP 308 to www.testagram.site"
-            echo "- www and Pages.dev: expected HTTP 200 with Flutter bootstrap"
-            echo "- WebFinger: expected federation-origin response (200, 400 or 404)"
+            echo "- Apex ordinary web traffic: HTTP 308 to www.testagram.site"
+            echo "- www and Pages.dev: HTTP 200 with Flutter bootstrap"
+            echo "- NodeInfo: valid JSON discovery and ActivityPub NodeInfo 2.1 document"
+            echo "- WebFinger: acct:crissbeat@testagram.site must resolve to HTTP 200 JRD and an ActivityPub self link"
             echo "- Read-only: no DNS, Pages, Worker, deployment or application changes"
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
