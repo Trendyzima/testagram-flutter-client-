@@ -28,6 +28,10 @@ jobs:
           cache: true
       - name: Generate missing platform scaffolding
         run: flutter create --org com.testagram --project-name app --platforms=android,ios,web .
+      - name: Ensure Android Gradle plugin dependencies use Maven Central
+        run: python3 tool/ensure_android_maven_central.py
+      - name: Test Android Gradle repository guard
+        run: python3 -m unittest tool/test_android_gradle_repositories.py
       - name: Resolve dependencies
         run: flutter pub get
       - name: Enforce backend-only dependency boundary
