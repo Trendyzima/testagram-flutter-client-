@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 import re
 import sys
 
@@ -69,18 +70,35 @@ def ensure_maven_central(source: str) -> tuple[str, bool]:
     return source, changed
 
 
-def main() -> int:
-    settings = Path("android/settings.gradle.kts")
+def _ensure_settings_file(settings: Path, label: str) -> int:
     if not settings.is_file():
-        print("::error::Flutter Android settings.gradle.kts was not generated.")
+        print(f"::error::{label} settings.gradle.kts was not found: {settings}")
         return 1
     original = settings.read_text(encoding="utf-8")
     updated, changed = ensure_maven_central(original)
     if changed:
         settings.write_text(updated, encoding="utf-8")
-        print("Ensured Google, Maven Central, and Gradle Plugin Portal repositories in Android Gradle settings.")
+        print(f"Ensured plugin and dependency repositories in {label} Gradle settings.")
     else:
-        print("Android Gradle settings already include the required repositories.")
+        print(f"{label} Gradle settings already include the required repositories.")
+    return 0
+
+
+def main() -> int:
+    android_settings = Path("android/settings.gradle.kts")
+    flutter_root = os.environ.get("FLUTTER_ROOT", "").strip()
+    if not flutter_root:
+        print("::error::FLUTTER_ROOT is not set; cannot verify the Flutter Gradle included build.")
+        return 1
+    flutter_included_build_settings = (
+        Path(flutter_root) / "packages" / "flutter_tools" / "gradle" / "settings.gradle.kts"
+    )
+    for settings, label in (
+        (android_settings, "Android app"),
+        (flutter_included_build_settings, "Flutter included build"),
+    ):
+        if _ensure_settings_file(settings, label) != 0:
+            return 1
     return 0
 
 
