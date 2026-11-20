@@ -20,6 +20,23 @@ plugins {
         self.assertLess(updated.index("mavenCentral()"), updated.index("gradlePluginPortal()"))
         self.assertIn("google()", updated)
 
+    def test_adds_plugin_management_to_flutter_sdk_included_build_settings(self):
+        source = """dependencyResolutionManagement {
+    repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+    repositories {
+        google()
+        mavenCentral()
+    }
+}
+"""
+        updated, changed = ensure_maven_central(source)
+        self.assertTrue(changed)
+        self.assertLess(updated.index("pluginManagement {"), updated.index("dependencyResolutionManagement {"))
+        plugin_repositories = updated.split("pluginManagement {", 1)[1].split("}", 1)[0]
+        self.assertIn("google()", plugin_repositories)
+        self.assertIn("mavenCentral()", plugin_repositories)
+        self.assertIn("gradlePluginPortal()", plugin_repositories)
+
     def test_adds_repositories_when_plugin_management_has_no_repository_block(self):
         source = """pluginManagement {
     val flutterSdkPath = "/opt/flutter"
