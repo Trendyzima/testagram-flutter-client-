@@ -93,7 +93,7 @@ jobs:
             fi
           fi
 
-          unknown_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/jrd+json' -D "$tmp/unknown.headers" -o "$tmp/unknown.json" -w '%{http_code}' 'https://testagram.site/.well-known/webfinger?resource=acct:testagram-smoke-nonexistent-2026@testagram.site' || true)"
+          unknown_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/jrd+json' -D "$tmp/unknown.headers" -o "$tmp/unknown.json" -w '%{http_code}' 'https://testagram.site/.well-known/webfinger?resource=acct:testagramprobe2026@testagram.site' || true)"
           unknown_type="$(content_type "$tmp/unknown.headers")"
           echo "Unknown-account negative control: HTTP $unknown_status; Content-Type: ${unknown_type:-none}"
           if [[ "$unknown_status" != "404" || "$unknown_type" != *"application/json"* ]] ||
