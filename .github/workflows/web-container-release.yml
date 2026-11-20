@@ -57,7 +57,7 @@ jobs:
           status="$(curl --silent --show-error --max-time 20 -o "$response_file" -w '%{http_code}' -X POST \
             "$TESTAGRAM_API_URL/api/identity/applications" \
             -H 'Content-Type: application/json' \
-            -H "Idempotency-Key: $(openssl rand -hex 32)" \
+            -H "Idempotency-Key: $(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')" \
             --data-binary '{"registration_gate_probe":')"
           error_code="$(jq -r '.error.code // empty' "$response_file" 2>/dev/null || true)"
           if [[ "$status" != "400" || "$error_code" != "INVALID_JSON" ]]; then
