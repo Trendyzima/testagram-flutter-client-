@@ -9,11 +9,8 @@ void main() {
       expect(AppConfig.isConfigured, isTrue);
     });
 
-    test('enables identity registration by default for public account creation', () {
-      expect(
-        AppConfig.enableIdentityRegistrationUi,
-        isTrue,
-      );
+    test('keeps identity registration closed by default until explicitly enabled', () {
+      expect(AppConfig.enableIdentityRegistrationUi, isFalse);
     });
 
     test('routes the video service through the canonical HTTPS API origin', () {

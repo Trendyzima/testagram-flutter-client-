@@ -20,7 +20,7 @@ class AppConfig {
 
   static const enableIdentityRegistrationUi = bool.fromEnvironment(
     'TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED',
-    defaultValue: true,
+    defaultValue: false,
   );
 
   static const enableTvCatalogue = bool.fromEnvironment(

@@ -77,9 +77,11 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
       case AuthEntryMode.signUp:
-        _page = _Page.signUp;
-        if (!widget.enableIdentityRegistration) {
-          _notice = 'Registration is not accepting applications yet. You can review the process, but submissions are currently closed.';
+        if (widget.enableIdentityRegistration) {
+          _page = _Page.signUp;
+        } else {
+          _page = _Page.signIn;
+          _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
         }
         break;
       case AuthEntryMode.forgotPassword:
@@ -110,12 +112,18 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _go(_Page p) {
+    if (p == _Page.signUp && !widget.enableIdentityRegistration) {
+      setState(() {
+        _page = _Page.signIn;
+        _error = null;
+        _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
+      });
+      return;
+    }
     setState(() {
       _page = p;
       _error = null;
-      _notice = p == _Page.signUp && !widget.enableIdentityRegistration
-          ? 'Registration is not accepting applications yet. You can review the process, but submissions are currently closed.'
-          : null;
+      _notice = null;
     });
   }
 
@@ -1078,19 +1086,21 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
-              const SizedBox(height: 8),
-              const Row(children: [
-                Expanded(child: Divider()),
-                Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
-                Expanded(child: Divider()),
-              ]),
-              const SizedBox(height: 12),
-              SizedBox(height: 52, child: OutlinedButton.icon(
-                onPressed: _busy ? null : () => _go(_Page.signUp),
-                icon: const Icon(Icons.person_add_alt_1_rounded),
-                label: const Text('Create your account'),
-                style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
-              )),
+              if (widget.enableIdentityRegistration) ...[
+                const SizedBox(height: 8),
+                const Row(children: [
+                  Expanded(child: Divider()),
+                  Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('NEW HERE?', style: TextStyle(fontSize: 10, letterSpacing: 1.2, color: muted, fontWeight: FontWeight.w700))),
+                  Expanded(child: Divider()),
+                ]),
+                const SizedBox(height: 12),
+                SizedBox(height: 52, child: OutlinedButton.icon(
+                  onPressed: _busy ? null : () => _go(_Page.signUp),
+                  icon: const Icon(Icons.person_add_alt_1_rounded),
+                  label: const Text('Create your account'),
+                  style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                )),
+              ],
             ] else if (_page != _Page.verify)
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
             const SizedBox(height: 18),

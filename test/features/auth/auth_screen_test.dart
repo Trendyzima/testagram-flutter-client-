@@ -43,8 +43,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('account creation stays visible while application submission remains gated',
-      (tester) async {
+  testWidgets('disabled registration removes every sign-up entry point', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: authClient,
@@ -55,22 +54,19 @@ void main() {
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Create your account'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
-
-    await tapVisible(tester, find.text('Create your account'));
-    expect(find.text('Join the conversation'), findsOneWidget);
-    expect(find.text('Full name'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('NEW HERE?'), findsNothing);
+    expect(find.text('Create your account'), findsNothing);
+    expect(find.text('Sign up'), findsNothing);
+    expect(find.text('Join the conversation'), findsNothing);
     expect(find.text('Submit application'), findsNothing);
-    expect(find.textContaining('Registration is currently closed'), findsOneWidget);
-    expect(identityStore, isNotNull);
+    expect(find.textContaining('New account registration is temporarily unavailable'), findsNothing);
   });
 
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, onSignedIn: () {}, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Welcome back'), findsOneWidget);
