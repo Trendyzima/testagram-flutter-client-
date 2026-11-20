@@ -16,9 +16,9 @@ The current Flutter mainline uses the Testagram-native `NativeAuthClient`. It do
 
 The Create your account entry can be visible while public registration remains fail-closed. New accounts must complete the Testagram-owned application, private evidence, two independent identity reviews, two independent account approvals, native provisioning and email verification flow. The Flutter client must not create an account directly or bypass the approval ledger.
 
-## Legacy account migration
+## External identity-provider exclusion
 
-Existing Appwrite account IDs are reconciliation inputs only. Appwrite password hashes are not imported; reconciled users must complete native password reset. Do not auto-link by email equality, accept Appwrite JWTs as a native bearer fallback, or disable the legacy production provider until a separately approved migration and live cutover are complete.
+The Flutter runtime has no external identity-provider SDK, login screen, token exchange, hosted auth endpoint, provider session storage or bearer fallback. It authenticates only through the Testagram Backend native login and refresh routes. Do not add a second identity provider or restore a provider-token compatibility path. Account recovery and ownership verification remain Testagram-native.
 
 ## Release boundary
 
