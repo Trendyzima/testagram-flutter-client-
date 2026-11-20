@@ -103,7 +103,12 @@ class _AuthScreenState extends State<AuthScreen> {
         _notice = 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
       }
     }
-    WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSavedIdentityApplication());
+    // A saved draft must not reopen the application workflow after the
+    // registration release gate has been disabled. Keep the encrypted draft
+    // intact so it can be resumed if registration is deliberately re-enabled.
+    if (widget.enableIdentityRegistration) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSavedIdentityApplication());
+    }
   }
 
   @override
