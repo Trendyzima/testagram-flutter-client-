@@ -83,3 +83,26 @@ The Flutter CI runs `tool/check_dependency_boundary.dart`, which fails if Supaba
 - **Public-image attachment is implemented as a sequential, partial-success flow, not an atomic transaction.** Flutter creates the text post first, uploads each image through `POST /api/media/upload-intent` → bounded `PUT /api/media/upload` → `POST /api/media/complete`, waits for `status=ready`, then attaches each verified key. If upload/attachment fails after post creation, the text post remains published and the UI reports that partial success; unattached uploaded objects are best-effort deleted and the Backend janitor remains the recovery mechanism. Only public posts currently allow photo attachments. This is not evidence of three-provider replication or CDN authorization in staging.
 - **Media lifecycle production acceptance remains open.** The Backend media endpoints and Flutter client transport exist, but real Instabox/R2/B2 read-back, checksum verification, outage/repair, private-media authorization, CDN cache isolation/purge, and physical Android/web upload journeys must pass before enabling the fresh media path.
 - Profile read/update, direct messages, voice/video calls, wallet and M-Pesa, TV studio, creator/advertising, admin/moderation and federation: no feature is marked complete merely because a legacy route exists.
+
+
+## Seven-repository Testagram integration
+
+This repository is one component of a single Testagram product. The shared ownership map, runtime request flow, security boundaries, hostname ownership and release gates are maintained in the [Testagram API integration control plane](https://github.com/Trendyzima/testagram-api). That repository is build-time contract governance only; it is not a runtime gateway.
+
+| Repository | Responsibility |
+|---|---|
+| [Flutter Client](https://github.com/Trendyzima/testagram-flutter-client-) | Native Android/web UI and public Backend transport |
+| [Backend](https://github.com/Trendyzima/Testagram-backend-) | Canonical identity, sessions, authorization, PostgreSQL and public APIs |
+| [Data Centre](https://github.com/Trendyzima/Testagram-data-centre-) | Private infrastructure, storage, processing, backups and restore |
+| [CDN](https://github.com/Trendyzima/cdn-) | Authorized media byte delivery, edge cache and streaming transport |
+| [Federated Content](https://github.com/Trendyzima/federated-content) | ActivityPub/WebFinger protocol state and remote delivery |
+| [The Algorithm](https://github.com/Trendyzima/the-algorithm) | Private ranking of Backend-authorized candidates |
+| [Testagram API](https://github.com/Trendyzima/testagram-api) | OpenAPI, private contracts, SDKs, immutable source pins and compatibility CI |
+
+**This repository's boundary:** Native Android/web presentation, navigation, device features and public Backend API transport.
+
+**Contract entry points:** [Public API contract](https://github.com/Trendyzima/testagram-api/blob/main/contracts/openapi/testagram-v1.yaml) · [Dart client SDK](https://github.com/Trendyzima/testagram-api/tree/main/packages/dart)
+
+**Shared integration references:** [Seven-repository ownership and request flow](https://github.com/Trendyzima/testagram-api/blob/main/docs/architecture/service-ownership.md) · [Locked end-to-end acceptance gates](https://github.com/Trendyzima/testagram-api/blob/main/docs/integration/locked-seven-repository-acceptance.md) · [Machine-readable service registry](https://github.com/Trendyzima/testagram-api/blob/main/contracts/registry/services.json)
+
+Keep the ownership boundaries intact: Flutter calls only the public Backend API and approved media URLs; Backend remains the authority for user identity and product authorization; Data Centre owns storage mechanics; CDN transports bytes but does not authorize access; Federation owns protocol state but not local accounts or canonical posts; Algorithm ranks but does not authorize or hydrate product records. Never place private service credentials, database credentials or storage-provider keys in client code.
