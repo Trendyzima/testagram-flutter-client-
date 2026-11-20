@@ -78,6 +78,7 @@ void main() {
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
+        requireIdentityReview: true,
         enableIdentityRegistration: false,
         identityApplicationStore: identityStore,
       ),
