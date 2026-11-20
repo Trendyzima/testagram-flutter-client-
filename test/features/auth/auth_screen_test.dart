@@ -63,6 +63,36 @@ void main() {
     expect(find.textContaining('New account registration is temporarily unavailable'), findsNothing);
   });
 
+  testWidgets('disabled registration does not restore a saved identity application',
+      (tester) async {
+    final draft = IdentityApplicationDraft(
+      email: 'saved-applicant@example.test',
+      username: 'saved_applicant',
+      displayName: 'Saved Applicant',
+      idempotencyKey: List.filled(43, 'a').join(),
+      createdAt: DateTime.utc(2026, 11, 20),
+    );
+    await identityStore.save(draft);
+
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: authClient,
+        onSignedIn: () {},
+        requireIdentityReview: true,
+        enableIdentityRegistration: false,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Join the conversation'), findsNothing);
+    expect(find.text('Submit application'), findsNothing);
+    expect(find.text('saved-applicant@example.test'), findsNothing);
+    // Preserve the user's encrypted draft for a future, deliberate reopening.
+    expect((await identityStore.load())?.email, 'saved-applicant@example.test');
+  });
+
   testWidgets('sign-in page links to account creation and recovery',
       (tester) async {
     await tester.pumpWidget(MaterialApp(
