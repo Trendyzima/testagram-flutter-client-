@@ -155,7 +155,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
-      if (e.code == 'REGISTRATION_DISABLED' || e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
+      if (e.code == 'IDENTITY_REGISTRATION_DISABLED' || e.code == 'REGISTRATION_DISABLED' || e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
         return 'New account registration is temporarily unavailable while secure identity storage is being prepared.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {

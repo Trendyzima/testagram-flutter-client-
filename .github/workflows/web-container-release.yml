@@ -25,6 +25,12 @@ on:
       - "deploy/web/**"
       - ".github/workflows/web-container-release.yml"
   workflow_dispatch:
+    inputs:
+      confirm_identity_registration_ui:
+        description: Confirm the Backend, private identity-evidence lifecycle, and legal policy gates passed before exposing public sign-up.
+        required: true
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -36,12 +42,13 @@ concurrency:
 
 jobs:
   build-and-publish:
-    if: github.repository == 'Trendyzima/testagram-flutter-client-'
+    if: github.repository == 'Trendyzima/testagram-flutter-client-' && (github.event_name != 'workflow_dispatch' || github.ref == 'refs/heads/main')
     runs-on: ubuntu-24.04
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: "true"
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ github.event_name == 'workflow_dispatch' && inputs.confirm_identity_registration_ui == true && 'true' || 'false' }}
+      CONFIRM_IDENTITY_REGISTRATION_UI: ${{ inputs.confirm_identity_registration_ui || false }}
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
       - name: Check out Flutter client
@@ -53,10 +60,23 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Enforce the public registration UI release gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" && ( "$GITHUB_EVENT_NAME" != "workflow_dispatch" || "$CONFIRM_IDENTITY_REGISTRATION_UI" != "true" ) ]]; then
+            echo "::error::Public registration UI requires an explicit confirmed workflow_dispatch after Backend, private identity-evidence, and legal policy acceptance."
+            exit 1
+          fi
+          if [[ "$GITHUB_EVENT_NAME" != "workflow_dispatch" && "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" != "false" ]]; then
+            echo "::error::Automatic production image builds must keep public registration UI disabled."
+            exit 1
+          fi
       - name: Build and validate production Flutter web output
         run: bash cloudflare-pages/build.sh
 
       - name: Verify public registration is present in the production web bundle
+        if: env.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED == 'true'
         shell: bash
         run: |
           set -euo pipefail

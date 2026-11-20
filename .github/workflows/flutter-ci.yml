@@ -20,6 +20,9 @@ jobs:
     timeout-minutes: 30
     env:
       TESTAGRAM_API_URL: ${{ vars.TESTAGRAM_API_URL || 'https://api.testagram.site' }}
+      # CI QA artifacts must never expose public registration; production web
+      # releases use the separately gated Cloudflare Pages/container workflows.
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: "false"
     steps:
       - uses: actions/checkout@v5
       - uses: subosito/flutter-action@v2
@@ -40,26 +43,38 @@ jobs:
         run: flutter analyze
       - name: Unit and widget tests
         run: flutter test --reporter expanded --dart-define=TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true
+      - name: Verify CI artifact registration gate is closed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" != "false" ]]; then
+            echo "::error::Flutter CI artifacts must keep public registration disabled."
+            exit 1
+          fi
+          if grep -Fq -- '--dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"' .github/workflows/flutter-ci.yml; then
+            echo "::error::A CI artifact build is hardcoding public registration on."
+            exit 1
+          fi
       - name: Build Android debug APK
         run: |
           flutter build apk --debug \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
       - name: Build Android release-mode QA APK (not production signed)
         run: |
           flutter build apk --release \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
       - name: Build Android release-mode QA App Bundle (not production signed)
         run: |
           flutter build appbundle --release \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
       - name: Build Flutter web
         run: |
           flutter build web --release \
             --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
           install -D cloudflare-pages/_headers build/web/_headers
       - name: Verify versioned Flutter entry points
         shell: bash
@@ -74,7 +89,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create your account' 'Identity verification'; do
+          for marker in 'Welcome back' 'Sign in' 'Forgot password?' 'Reset password'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1
