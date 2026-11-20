@@ -275,13 +275,19 @@ jobs:
                 exit 1
               fi
               if [[ "$asset" == main.dart.js* ]]; then
-                for marker in 'Sign up' 'Reset password' 'Create your account'; do
+                for marker in 'Sign in' 'Reset password'; do
                   if ! grep -aFq "$marker" "$asset_body"; then
-                    echo "::error::Production bundle at https://$hostname/$asset is missing authentication UI marker: $marker"
+                    echo "::error::Production bundle at https://$hostname/$asset is missing existing-account auth marker: $marker"
                     rm -f "$page" "$headers" "$asset_body" "$asset_headers"
                     exit 1
                   fi
                 done
+                if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]] &&
+                   ! grep -aFq 'Submit application' "$asset_body"; then
+                  echo "::error::Registration was enabled but the application flow is missing from the deployed bundle."
+                  rm -f "$page" "$headers" "$asset_body" "$asset_headers"
+                  exit 1
+                fi
               fi
               rm -f "$asset_body" "$asset_headers"
             done
