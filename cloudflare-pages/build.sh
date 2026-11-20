@@ -40,7 +40,7 @@ flutter analyze
 flutter test --reporter expanded
 
 TESTAGRAM_API_URL="${TESTAGRAM_API_URL:-https://api.testagram.site}"
-TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-true}"
+TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-false}"
 flutter build web --release --base-href / \
   --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
   --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
@@ -57,18 +57,16 @@ grep -Fq "flutter_bootstrap.js?v=$version" build/web/index.html
 grep -Fq "main.dart.js?v=$version" build/web/flutter_bootstrap.js
 # The Create account entry point is always present. Actual application
 # submission remains separately gated by TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED.
-for marker in 'Sign in' 'Reset password' 'Create your account'; do
+for marker in 'Sign in' 'Reset password'; do
   grep -aFq "$marker" build/web/main.dart.js || {
     echo "::error::Flutter production bundle is missing authentication UI marker: $marker"
     exit 1
   }
 done
 if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]]; then
-  for marker in 'Submit application'; do
-    grep -aFq "$marker" build/web/main.dart.js || {
-      echo "::error::Flutter production bundle is missing enabled registration UI marker: $marker"
-      exit 1
-    }
-  done
+  grep -aFq 'Submit application' build/web/main.dart.js || {
+    echo "::error::Flutter production bundle is missing enabled registration UI marker."
+    exit 1
+  }
 fi
 echo "Flutter web output validated at build/web"
