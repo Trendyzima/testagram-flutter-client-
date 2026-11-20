@@ -15,7 +15,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 
 | Status | Meaning |
 |---|---|
-| **Ported slice** | A destination screen uses the standalone Appwrite JWT → Testagram Backend API architecture and has relevant tests. This does not imply every sub-route in that domain is complete. |
+| **Ported slice** | A destination screen uses Testagram-native authentication and the Testagram Backend API, with relevant tests. This does not imply every sub-route in that domain is complete. |
 | **Not ported** | The route exists in the source but does not yet have a verified equivalent in the destination. |
 | **Blocked on Backend contract** | The source behavior relies on a direct database/RPC/Edge Function operation for which no matching public Backend route has been verified. |
 
@@ -240,7 +240,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 
 | Domain | Source modules | Destination status |
 |---|---|---|
-| Authentication, recovery, legal acceptance, session lifecycle | `features/auth`, `core/auth` | Ported slice: Appwrite session/JWT foundation; source Supabase PKCE/session implementation excluded |
+| Authentication, recovery, legal acceptance, session lifecycle | `features/auth`, `core/auth` | Ported slice: Testagram-native PostgreSQL-backed identity, password login, rotating refresh sessions, recovery and revocation; no external identity-provider SDK or Supabase session implementation. |
 | Home feed, post details, replies, reactions, reposts, bookmarks, quotes | `features/feed`, `features/posts` | Ported slice: read feed, native text post publishing with visibility and idempotency, native post detail, replies, reactions, reposts, bookmarks, and likes/reposts/quotes lists; main-feed media attachment, drafts, scheduling and quote creation remain open |
 | Threads | `features/threads` | Ported slice: timeline, composer, interactions and image attachment |
 | Explore, search, follow graph, trends, hashtags, sports | `features/explore`, `features/discovery` | Ported slices: people/post search, follow basics, trending hashtag directory/chips and privacy-filtered hashtag timelines; personalized topic ranking, broad discovery feeds and sports routes remain open |
@@ -260,7 +260,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 
 1. Port behavior and presentation; **never port the source Supabase data-access code**.
 2. Every data operation must use a typed destination API method backed by a verified public Testagram Backend route.
-3. Appwrite is only the identity/session provider. Flutter must not access Appwrite Databases or Storage for product data.
+3. Authentication is Testagram-native through the Backend `/api/auth/*` routes. Flutter must not use an external identity-provider SDK, Appwrite Databases or Appwrite Storage for product data.
 4. Do not introduce Supabase, Upstash, Redis, direct PostgreSQL, service-role credentials, private service URLs, or copied Edge Function clients.
 5. Do not invent API routes, return fake success, or replace failed requests with empty data. Show a clear unsupported/error state until the owning Backend contract exists.
 6. Port pure presentation widgets and deterministic policy code only after checking their transitive imports. Rewrite source tests that depend on Supabase fixtures or database semantics.
