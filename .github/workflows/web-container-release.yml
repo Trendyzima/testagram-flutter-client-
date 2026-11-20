@@ -41,11 +41,30 @@ jobs:
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: "true"
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ github.event_name == 'pull_request' && 'false' || vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'false' }}
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
       - name: Check out Flutter client
         uses: actions/checkout@v4
+
+      - name: Verify canonical Backend registration gate before exposing sign-up
+        if: github.event_name != 'pull_request' && env.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+          status="$(curl --silent --show-error --max-time 20 -o "$response_file" -w '%{http_code}' -X POST \
+            "$TESTAGRAM_API_URL/api/identity/applications" \
+            -H 'Content-Type: application/json' \
+            -H "Idempotency-Key: $(openssl rand -hex 32)" \
+            --data-binary '{"registration_gate_probe":')"
+          error_code="$(jq -r '.error.code // empty' "$response_file" 2>/dev/null || true)"
+          if [[ "$status" != "400" || "$error_code" != "INVALID_JSON" ]]; then
+            echo "::error::Backend registration gate is not ready (HTTP $status, code=$error_code). Web image publication is blocked."
+            exit 1
+          fi
+          echo "Backend registration intake accepted the non-mutating readiness probe."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
@@ -56,16 +75,26 @@ jobs:
       - name: Build and validate production Flutter web output
         run: bash cloudflare-pages/build.sh
 
-      - name: Verify public registration is present in the production web bundle
+      - name: Verify existing-account authentication is present in the web bundle
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Create your account' 'Submit application'; do
-            if ! grep -aFq "$marker" build/web/main.dart.js; then
-              echo "::error::Production Flutter bundle is missing registration UI marker: $marker"
+          for marker in 'Sign in' 'Reset password'; do
+            grep -aFq "$marker" build/web/main.dart.js || {
+              echo "::error::Production Flutter bundle is missing authentication UI marker: $marker"
               exit 1
-            fi
+            }
           done
+
+      - name: Verify registration flow is present when explicitly enabled
+        if: env.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -aFq 'Submit application' build/web/main.dart.js || {
+            echo "::error::Registration is enabled but the application flow is missing."
+            exit 1
+          }
 
       - name: Verify container build inputs
         shell: bash
