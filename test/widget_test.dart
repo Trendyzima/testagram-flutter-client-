@@ -22,7 +22,7 @@ class _MemoryNativeAuthStorage implements NativeAuthStorage {
 }
 
 void main() {
-  testWidgets('starts at Testagram-owned sign in without an Appwrite dependency',
+  testWidgets('starts at Testagram-owned sign in without an external identity dependency',
       (tester) async {
     var unexpectedRequests = 0;
     final authClient = NativeAuthClient(
@@ -40,7 +40,7 @@ void main() {
 
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Sign in'), findsWidgets);
-    expect(find.textContaining('Appwrite'), findsNothing);
+    expect(find.textContaining('external identity provider'), findsNothing);
     expect(find.text('Testagram'), findsOneWidget);
     expect(unexpectedRequests, 0);
   });
