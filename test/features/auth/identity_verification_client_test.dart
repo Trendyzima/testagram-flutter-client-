@@ -245,7 +245,7 @@ void main() {
     client.close();
   });
 
-  test('verifies a native email capability without an Appwrite bearer', () async {
+  test('verifies a native email capability without a foreign-provider bearer', () async {
     late http.Request seen;
     final client = IdentityVerificationClient(
       backendOrigin: Uri.parse('https://api.testagram.site'),
