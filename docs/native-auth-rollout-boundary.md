@@ -2,7 +2,7 @@
 
 ## Current Flutter source implementation
 
-The current Flutter mainline uses the Testagram-native `NativeAuthClient`. It does not acquire an Appwrite user session.
+The current Flutter mainline uses the Testagram-native `NativeAuthClient` and acquires only Testagram-issued user sessions.
 
 - Sign-in calls Backend `POST /api/auth/login`.
 - Session restoration and token rotation call Backend `POST /api/auth/refresh`.

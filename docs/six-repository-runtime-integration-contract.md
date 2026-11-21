@@ -1,16 +1,16 @@
-# Testagram six-runtime-repository integration contract
+# Testagram seven-organ integration contract
 
 Status: implementation and staging contract; not production cutover authorization.
 Reviewed: 2026-11-11.
 
-This is the shared communication contract for six runtime repositories. `testagram-api` is the separate API contract control plane, not a runtime service. Each runtime repository owns its domain; no repository may bypass the Backend's product authorization or become a second source of truth.
+This is the shared communication contract for the six runtime organs plus the API Control Plane. The seven repositories remain independently owned and independently deployable; the bridge coordinates immutable source pins and contract acceptance without collapsing them into a monorepo or adding a runtime gateway. Each organ owns its domain; no organ may bypass the Backend's product authorization or become a second source of truth.
 
 ## Service ownership
 
 | Repository | Runtime responsibility | Allowed communication |
 |---|---|---|
-| `testagram-flutter-client-` | Native Flutter UI, navigation, local presentation state, Appwrite session acquisition | Public authenticated Backend API only |
-| `Testagram-backend-` | Canonical product authorization, account identity bridge, social API, PostgreSQL product state, media lifecycle, orchestration and outboxes | Appwrite Auth; private Algorithm, Data Centre and Federation contracts; public CDN URLs |
+| `testagram-flutter-client-` | Native Flutter UI, navigation, local presentation state and Testagram-native session lifecycle | Public authenticated Backend API only |
+| `Testagram-backend-` | Canonical Testagram identity/session authority, product authorization, social API, PostgreSQL product state, media lifecycle, orchestration and outboxes | Private Algorithm, Data Centre and Federation contracts; public CDN URLs |
 | `Testagram-data-centre-` | Private infrastructure API, storage nodes, video processing, notifications, VPS/runtime deployment, backup and operations | Private Backend/platform network; storage providers and node agents |
 | `cdn-` | Media/HLS/DASH delivery, cache, origin/shield routing, range handling and playback-token validation | Public media requests and configured private/public origins; no product authorization |
 | `federated-content` | ActivityPub actors, keys, inbox/outbox, signature verification, remote delivery and federation state | Private Backend actor/outbox APIs; remote ActivityPub peers |
@@ -20,8 +20,8 @@ This is the shared communication contract for six runtime repositories. `testagr
 ## Canonical request paths
 
 ### Flutter -> Backend
-- Flutter obtains an Appwrite session JWT and sends it as `Authorization: Bearer <JWT>`.
-- Backend validates the session and derives the canonical user identity server-side.
+- Flutter obtains a short-lived Testagram access token from the Backend's native login/refresh flow and sends it as `Authorization: Bearer <access-token>`.
+- Backend validates the signature and live PostgreSQL session/account state, then derives the canonical user identity server-side.
 - Flutter must not call Algorithm, Federation, Data Centre platform APIs, PostgreSQL, or storage-provider credentials directly.
 - The current client API base is configured through `TESTAGRAM_API_URL`; no private service URL or secret belongs in a Flutter build.
 
@@ -37,7 +37,7 @@ This is the shared communication contract for six runtime repositories. `testagr
 - Backend publishes authorized activities to Federation at `POST /internal/v1/activities`.
 - Publish request fields are `activity_id`, `actor_user_id`, and `activity`; duplicate activity IDs must be idempotent.
 - Backend post transaction and outbox event must commit atomically. The dispatcher retries bounded batches and acknowledges only after durable Federation acceptance.
-- Use separate credentials in each direction: Backend's `FEDERATION_INTERNAL_TOKEN` is mapped to Federation's `FEDERATION_INGRESS_TOKEN` for Backend -> Federation; Backend's `FEDERATION_BACKEND_INTERNAL_TOKEN` is mapped to Federation's `BACKEND_INTERNAL_TOKEN` for Federation -> Backend. Values must be independently generated; no legacy shared-token fallback is accepted. Never reuse Appwrite user JWTs as service credentials.
+- Use separate credentials in each direction: Backend's `FEDERATION_INTERNAL_TOKEN` is mapped to Federation's `FEDERATION_INGRESS_TOKEN` for Backend -> Federation; Backend's `FEDERATION_BACKEND_INTERNAL_TOKEN` is mapped to Federation's `BACKEND_INTERNAL_TOKEN` for Federation -> Backend. Values must be independently generated; no legacy shared-token fallback is accepted. Never reuse end-user access tokens as service credentials.
 - Federation delivery, inbox and outbox polling remain disabled until signature, consent, replay, durability, idempotency and interoperability gates pass.
 
 ### Backend -> Data Centre

@@ -2,7 +2,7 @@
 
 The legacy XClone repository contains a Flutter migration foundation under `mobile/` with 121 Dart files and 214 GoRouter route patterns at the inspected baseline. It is not a clean standalone client: its app bootstrap, auth, API gateway, screens, storage, realtime and media flows contain Supabase coupling. Use `docs/xclone-route-migration-matrix.md` for the route-by-route inventory and `docs/clean-source-port-policy.md` for the explicit source denylist and safe-port rules. Do not copy the source app wholesale.
 
-This repository is the destination. Port feature behavior, not legacy data-access implementations. Every migrated feature must call a typed Testagram Backend client; it must not import a Supabase SDK or query Appwrite databases directly.
+This repository is the destination. Port feature behavior, not legacy data-access implementations. Every migrated feature must call a typed Testagram Backend client; it must not import an external data-provider SDK or query provider-owned databases directly.
 
 ## Feature domains to port and verify
 
