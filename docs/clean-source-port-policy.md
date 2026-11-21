@@ -26,8 +26,9 @@ The canonical destination is this standalone Flutter repository. XClone is a rea
 
 ## Destination architecture
 
-- Appwrite Client SDK: authentication and JWT acquisition only.
-- `BackendApi`: the only public product-data transport. It sends Appwrite JWTs to the Testagram Backend.
+- No external identity-provider SDK, hosted login, provider token exchange, or provider session storage.
+- `NativeAuthClient`: the Testagram-owned login, refresh, recovery, and revocation client.
+- `BackendApi`: the only public product-data transport. It sends short-lived Testagram access tokens to the Testagram Backend.
 - Flutter: presentation, navigation, local transient state, permissions and local/offline UX only.
 - Backend: canonical authorization, profile/post/social graph/feed/media/business operations.
 - Algorithm, Data Centre and Federation remain private service boundaries; Flutter must not call them directly.

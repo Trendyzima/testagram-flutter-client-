@@ -260,7 +260,7 @@ Destination: `Trendyzima/testagram-flutter-client-`.
 
 1. Port behavior and presentation; **never port the source Supabase data-access code**.
 2. Every data operation must use a typed destination API method backed by a verified public Testagram Backend route.
-3. Authentication is Testagram-native through the Backend `/api/auth/*` routes. Flutter must not use an external identity-provider SDK, Appwrite Databases or Appwrite Storage for product data.
+3. Authentication is Testagram-native through the Backend `/api/auth/*` routes. Flutter must not use an external identity-provider SDK or provider-owned database/storage APIs for product data.
 4. Do not introduce Supabase, Upstash, Redis, direct PostgreSQL, service-role credentials, private service URLs, or copied Edge Function clients.
 5. Do not invent API routes, return fake success, or replace failed requests with empty data. Show a clear unsupported/error state until the owning Backend contract exists.
 6. Port pure presentation widgets and deterministic policy code only after checking their transitive imports. Rewrite source tests that depend on Supabase fixtures or database semantics.

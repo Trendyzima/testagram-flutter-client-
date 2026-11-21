@@ -46,7 +46,7 @@ The client has no Supabase SDK, URL, key, REST endpoint or direct database opera
 
 1. Flutter analyzer and unit/widget tests must pass in GitHub Actions.
 2. Android debug/release and web builds must pass.
-3. Appwrite JWT identity linking must work for migrated accounts; the Backend must reject unknown/unlinked identities.
+3. Existing-account reconciliation must use explicit, verified ownership evidence; the Backend must reject unknown or unlinked identities and must never link accounts by email equality alone.
 4. Verify real account feed, interactions, search, follow, notification and thread workflows.
 5. Port the remaining XClone feature domains and their backend contracts.
 6. Preserve existing signing identity, data, URLs and deep links during cutover.
