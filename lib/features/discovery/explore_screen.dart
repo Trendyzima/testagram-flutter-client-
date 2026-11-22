@@ -22,6 +22,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Map<String, String> _followStatus = {};
   final Set<String> _busyFollow = {};
   bool _loading = false;
+  String _searchKind = 'all';
   int _searchGeneration = 0;
   String? _error;
 
@@ -81,7 +82,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     setState(() { _loading = true; _error = null; });
     try {
-      final response = await widget.api.search(query: value);
+      final response = await widget.api.search(query: value, kind: _searchKind);
       final raw = response['data'];
       final data = raw is Map ? raw : response;
       final postRows = data['posts'];
@@ -151,13 +152,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ),
     body: Column(children: [
       Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        child: SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'all', label: Text('All')),
+            ButtonSegment(value: 'posts', label: Text('Posts')),
+            ButtonSegment(value: 'people', label: Text('People')),
+          ],
+          selected: {_searchKind},
+          onSelectionChanged: (selection) {
+            setState(() => _searchKind = selection.first);
+            if (_query.text.trim().length >= 2) _search();
+          },
+        ),
+      ),
+      Padding(
         padding: const EdgeInsets.all(14),
         child: TextField(
           controller: _query,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
           decoration: InputDecoration(
-            hintText: 'Search people and posts',
+            hintText: _searchKind == 'people' ? 'Search people' : _searchKind == 'posts' ? 'Search posts' : 'Search people and posts',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: IconButton(onPressed: _search, icon: const Icon(Icons.arrow_forward)),
             border: const OutlineInputBorder(),
