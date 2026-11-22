@@ -165,6 +165,12 @@ class _AuthScreenState extends State<AuthScreen> {
       return e.message;
     }
     if (e is NativeAuthException) {
+      if (e.code == 'API_ORIGIN_WAKING' || e.code == 'API_ORIGIN_TIMEOUT') {
+        return 'Testagram is starting up. Wait a moment and retry. The request was not automatically repeated.';
+      }
+      if (e.code == 'API_ORIGIN_UNAVAILABLE') {
+        return 'Testagram could not be reached. Check your connection and try again.';
+      }
       if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
