@@ -15,6 +15,7 @@ class _CommunicationApi extends BackendApi {
   int conversationListCalls = 0;
   int messageListCalls = 0;
   int callListCalls = 0;
+  int markReadCalls = 0;
 
   @override
   Future<Map<String, dynamic>> listConversations({int limit = 50}) async {
@@ -47,6 +48,12 @@ class _CommunicationApi extends BackendApi {
         'sender': {'display_name': 'Sender'},
       }
     ]};
+  }
+
+  @override
+  Future<Map<String, dynamic>> markMessageRead(String messageId) async {
+    markReadCalls++;
+    return {'read': true};
   }
 
   @override
@@ -87,6 +94,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.messageListCalls, 1);
+    expect(api.markReadCalls, 1);
     expect(find.textContaining('Encrypted message'), findsOneWidget);
     expect(find.textContaining('opaque-ciphertext-never-render-this'), findsNothing);
     expect(find.textContaining('Secure message composition is paused'), findsOneWidget);
