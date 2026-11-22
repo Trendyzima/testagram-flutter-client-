@@ -9,6 +9,7 @@ import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/knowledge/knowledge_hub_screen.dart';
+import '../features/monetization/monetization_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/shorts/shorts_screen.dart';
 import '../features/polls/polls_screen.dart';
@@ -126,6 +127,7 @@ class _MainShellState extends State<MainShell> {
               (8, Icons.poll_outlined, 'Polls', 'Community polls'),
               (9, Icons.account_balance_wallet_outlined, 'Wallet', 'Your wallet'),
               (10, Icons.settings_outlined, 'Settings', 'Privacy and account controls'),
+              (11, Icons.monetization_on_outlined, 'Monetization', 'Creator tools and earnings'),
             ])
               ListTile(
                 selected: _index == item.$1,
@@ -167,6 +169,7 @@ class _MainShellState extends State<MainShell> {
           onThemeModeChanged: widget.onThemeModeChanged,
           onSignOut: widget.onSignOut,
         ),
+        MonetizationHubScreen(api: widget.api),
       ];
 
   @override
