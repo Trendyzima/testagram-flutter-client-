@@ -24,11 +24,17 @@ class WalletTopUpAttempt {
     final phone = (value['phone'] ?? '').toString();
     final amount = value['amount_kes'];
     final key = (value['idempotency_key'] ?? '').toString();
-    if (phone.isEmpty || amount is! int || amount < 10 || amount > 150000 ||
+    final canonicalPhone = normalizeKenyanMpesaPhone(phone);
+    if (canonicalPhone == null || canonicalPhone != phone ||
+        amount is! int || amount < 10 || amount > 150000 ||
         key.length < 8 || key.length > 128) {
       return null;
     }
-    return WalletTopUpAttempt(phone: phone, amountKes: amount, idempotencyKey: key);
+    return WalletTopUpAttempt(
+      phone: canonicalPhone,
+      amountKes: amount,
+      idempotencyKey: key,
+    );
   }
 }
 
