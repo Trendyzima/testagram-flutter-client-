@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../core/backend_api.dart';
 import '../core/app_config.dart';
+import '../core/testagram_deep_link.dart';
 import '../core/testagram_background.dart';
 import '../core/testagram_theme.dart';
 import '../core/widgets/testagram_brand_mark.dart';
@@ -53,8 +54,10 @@ class _MainShellState extends State<MainShell> {
     switch (link.kind) {
       case TestagramDeepLinkKind.wallet:
         setState(() => _index = 7);
+        break;
       case TestagramDeepLinkKind.profileId:
         _openProfile(link.userId!);
+        break;
       case TestagramDeepLinkKind.profileUsername:
         try {
           final response = await widget.api.resolveProfileUsername(link.username!);
