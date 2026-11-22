@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   smoke:
-    name: Verify canonical web and ActivityPub production contracts
+    name: Verify canonical web and fail-closed ActivityPub production contracts
     runs-on: ubuntu-latest
     timeout-minutes: 8
     steps:
@@ -48,67 +48,26 @@ jobs:
             fi
           done
 
-          discovery_headers="$tmp/nodeinfo-discovery.headers"
-          discovery_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/json' -D "$discovery_headers" -o "$tmp/nodeinfo-discovery.json" -w '%{http_code}' https://testagram.site/.well-known/nodeinfo || true)"
-          discovery_type="$(content_type "$discovery_headers")"
-          echo "NodeInfo discovery: HTTP $discovery_status; Content-Type: ${discovery_type:-none}"
-          if [[ "$discovery_status" != "200" || "$discovery_type" != *"application/json"* ]] ||
-             ! jq -e '.links | any(.rel == "http://nodeinfo.diaspora.software/ns/schema/2.1" and .href == "https://testagram.site/nodeinfo/2.1")' "$tmp/nodeinfo-discovery.json" >/dev/null 2>&1; then
-            echo "::error::NodeInfo discovery must return the canonical 2.1 schema link as JSON."
-            cat "$tmp/nodeinfo-discovery.json" 2>/dev/null || true
-            failed=1
-          fi
-
-          nodeinfo_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/json' -D "$tmp/nodeinfo.headers" -o "$tmp/nodeinfo.json" -w '%{http_code}' https://testagram.site/nodeinfo/2.1 || true)"
-          nodeinfo_type="$(content_type "$tmp/nodeinfo.headers")"
-          echo "NodeInfo document: HTTP $nodeinfo_status; Content-Type: ${nodeinfo_type:-none}"
-          if [[ "$nodeinfo_status" != "200" || "$nodeinfo_type" != *"application/json"* ]] ||
-             ! jq -e '.version == "2.1" and .software.name == "testagram" and (.protocols | index("activitypub") != null) and (.services.inbound | type == "array") and (.services.outbound | type == "array")' "$tmp/nodeinfo.json" >/dev/null 2>&1; then
-            echo "::error::NodeInfo 2.1 document is missing required Testagram/ActivityPub fields."
-            cat "$tmp/nodeinfo.json" 2>/dev/null || true
-            failed=1
-          fi
-
-          webfinger_headers="$tmp/webfinger.headers"
-          webfinger_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/jrd+json' -D "$webfinger_headers" -o "$tmp/webfinger.json" -w '%{http_code}' 'https://testagram.site/.well-known/webfinger?resource=acct:crissbeat@testagram.site' || true)"
-          webfinger_type="$(content_type "$webfinger_headers")"
-          echo "Real-account WebFinger: HTTP $webfinger_status; Content-Type: ${webfinger_type:-none}"
-          if [[ "$webfinger_status" != "200" || "$webfinger_type" != *"application/jrd+json"* ]] ||
-             ! jq -e '.subject == "acct:crissbeat@testagram.site" and (.links | any(.rel == "self" and .type == "application/activity+json" and (.href == "https://testagram.site/users/crissbeat")))' "$tmp/webfinger.json" >/dev/null 2>&1; then
-            echo "::error::The real Testagram account must resolve through WebFinger to its canonical ActivityPub actor."
-            cat "$tmp/webfinger.json" 2>/dev/null || true
-            failed=1
-          else
-            actor_url="$(jq -r '.links[] | select(.rel == "self" and .type == "application/activity+json") | .href' "$tmp/webfinger.json" | head -n1)"
-            actor_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/activity+json' -D "$tmp/actor.headers" -o "$tmp/actor.json" -w '%{http_code}' "$actor_url" || true)"
-            actor_type="$(content_type "$tmp/actor.headers")"
-            echo "Real-account actor: HTTP $actor_status; Content-Type: ${actor_type:-none}"
-            if [[ "$actor_status" != "200" || "$actor_type" != *"application/activity+json"* ]] ||
-               ! jq -e --arg actor "$actor_url" '.type == "Person" and .id == $actor and .preferredUsername == "crissbeat" and .publicKey.owner == $actor and (.publicKey.publicKeyPem | type == "string" and contains("BEGIN PUBLIC KEY"))' "$tmp/actor.json" >/dev/null 2>&1; then
-              echo "::error::The resolved account actor must expose its matching ID, handle and public signing key."
-              cat "$tmp/actor.json" 2>/dev/null || true
+          # Public Federation is intentionally fail-closed until locked G3
+          # protocol acceptance is independently completed. Do not assert live
+          # NodeInfo/WebFinger identity while Caddy is required to return 503.
+          for path in "/.well-known/nodeinfo" "/nodeinfo/2.1" "/.well-known/webfinger?resource=acct:probe@testagram.site"; do
+            label="${path%%\?*}"
+            safe_label="$(printf '%s' "$label" | tr '/.' '__')"
+            status="$(curl --silent --show-error --max-time 25 -o "$tmp/$safe_label.body" -w '%{http_code}' "https://testagram.site$path" || true)"
+            echo "Federation fail-closed $label: HTTP $status"
+            if [[ "$status" != "503" ]] || ! grep -Fq 'Federation is disabled until locked G3 protocol acceptance passes.' "$tmp/$safe_label.body"; then
+              echo "::error::Public Federation route $label must remain HTTP 503 until G3 acceptance passes."
+              cat "$tmp/$safe_label.body" 2>/dev/null || true
               failed=1
             fi
-          fi
-
-          unknown_status="$(curl --silent --show-error --max-time 25 -H 'Accept: application/jrd+json' -D "$tmp/unknown.headers" -o "$tmp/unknown.json" -w '%{http_code}' 'https://testagram.site/.well-known/webfinger?resource=acct:testagramprobe2026@testagram.site' || true)"
-          unknown_type="$(content_type "$tmp/unknown.headers")"
-          echo "Unknown-account negative control: HTTP $unknown_status; Content-Type: ${unknown_type:-none}"
-          if [[ "$unknown_status" != "404" || "$unknown_type" != *"application/json"* ]] ||
-             ! jq -e '.error == "account_not_found"' "$tmp/unknown.json" >/dev/null 2>&1; then
-            echo "::error::Unknown account must produce the Federation service's structured account_not_found response, not a proxy or frontend response."
-            cat "$tmp/unknown.json" 2>/dev/null || true
-            failed=1
-          fi
+          done
 
           {
             echo "## Testagram production domain and ActivityPub acceptance"
             echo "- Apex ordinary web traffic: HTTP 308 to www"
             echo "- www and Pages.dev: Flutter application shell"
-            echo "- NodeInfo: canonical 2.1 discovery and document"
-            echo "- WebFinger: real account crissbeat@testagram.site resolves to its actor"
-            echo "- Actor: Person document ID, handle and public key agree"
-            echo "- Negative control: unknown account returns structured account_not_found"
+            echo "- Public NodeInfo and WebFinger remain HTTP 503 until locked G3 acceptance"
             echo "- Read-only: no DNS, Worker, Pages, deployment, or account changes"
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$failed"
