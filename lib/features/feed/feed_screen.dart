@@ -27,7 +27,7 @@ class _FeedScreenState extends State<FeedScreen> {
   String _feedMode = 'for_you';
   int _loadGeneration = 0;
   int _activeLoads = 0;
-  String? _cursor, _error;
+  String? _cursor, _error, _rankingMode;
 
   @override
   void initState() {
@@ -74,6 +74,7 @@ class _FeedScreenState extends State<FeedScreen> {
       if (reset) {
         _posts.clear();
         _cursor = null;
+        _rankingMode = null;
         _hasMore = true;
       }
     });
@@ -125,6 +126,10 @@ class _FeedScreenState extends State<FeedScreen> {
           rows.where((p) => !ids.contains((p['id'] ?? '').toString())),
         );
         _cursor = (data['next_cursor'] ?? '').toString();
+        final rankingMode = (data['ranking_mode'] ?? '').toString();
+        _rankingMode = rankingMode == 'algorithm' || rankingMode == 'chronological'
+            ? rankingMode
+            : null;
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
     } catch (e) {
@@ -410,6 +415,11 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
+      _FeedOrderingStatus(
+        feedMode: _feedMode,
+        rankingMode: _rankingMode,
+        loading: _loading,
+      ),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
         child: InkWell(
@@ -537,6 +547,75 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!allowed.contains(feedMode) || _feedMode == feedMode) return;
     setState(() => _feedMode = feedMode);
     _load(reset: true);
+  }
+}
+
+class _FeedOrderingStatus extends StatelessWidget {
+  const _FeedOrderingStatus({
+    required this.feedMode,
+    required this.rankingMode,
+    required this.loading,
+  });
+
+  final String feedMode;
+  final String? rankingMode;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final IconData icon;
+    final String detail;
+    if (feedMode == 'latest') {
+      label = 'Latest';
+      detail = 'Posts in chronological order';
+      icon = Icons.schedule_rounded;
+    } else if (rankingMode == 'algorithm') {
+      label = 'Ranked for you';
+      detail = 'Ordering supplied by Testagram recommendations';
+      icon = Icons.auto_awesome_rounded;
+    } else if (rankingMode == 'chronological') {
+      label = 'Chronological';
+      detail = feedMode == 'following'
+          ? 'Recent posts from accounts you follow'
+          : 'Recommendations unavailable; showing recent posts';
+      icon = Icons.schedule_rounded;
+    } else {
+      label = loading ? 'Updating timeline' : 'Ordering unavailable';
+      detail = 'The Backend has not reported the ordering mode';
+      icon = loading ? Icons.sync_rounded : Icons.info_outline_rounded;
+    }
+
+    return Semantics(
+      label: '$label. $detail',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 7, 16, 0),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: Theme.of(context).colorScheme.secondary),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                detail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
