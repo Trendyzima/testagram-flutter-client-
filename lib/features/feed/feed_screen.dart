@@ -1188,9 +1188,25 @@ class _PostCard extends StatelessWidget {
                       if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
                       if (sourceLabel != null) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
-                        const SizedBox(width: 3),
-                        Text('via $sourceLabel', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700)),
+                        Tooltip(
+                          message: origin == 'activitypub'
+                              ? 'Remote content delivered through ActivityPub / Fediverse'
+                              : 'Remote content delivered through AT Protocol / Bluesky',
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(width: 3),
+                              Text(
+                                'via $sourceLabel',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                       const Spacer(),
                       PopupMenuButton<String>(
