@@ -54,7 +54,7 @@ class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     required this.authClient,
-    required this.initialDeepLink,
+    this.initialDeepLink = '/',
     required this.themeMode,
     required this.onThemeModeChanged,
   });
