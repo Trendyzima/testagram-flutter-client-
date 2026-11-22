@@ -280,7 +280,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     if (author.isNotEmpty) '@$author',
                     if (isRemote) 'Remote · $source',
                   ].join('  · ')),
-                  trailing: Icon(isRemote ? Icons.open_in_new_rounded : Icons.chevron_right_rounded),
+                  trailing: Icon(isRemote ? Icons.public_rounded : Icons.chevron_right_rounded),
                   onTap: isRemote || postId.isEmpty
                       ? null
                       : () => Navigator.of(context).push(
