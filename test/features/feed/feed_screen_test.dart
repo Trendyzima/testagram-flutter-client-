@@ -468,4 +468,69 @@ void main() {
   });
 
 
+  testWidgets('federated feed cards stay read-only and never call local interaction APIs',
+      (tester) async {
+    final requestedPaths = <String>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'at://did:plc:example/app.bsky.feed.post/record-1',
+                'origin': 'atproto',
+                'visibility': 'public',
+                'content': 'A remote post from Bluesky',
+                'created_at': '2026-11-22T03:00:00Z',
+                'author': {'username': 'alice.bsky.social', 'display_name': 'Alice'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A remote post from Bluesky'), findsOneWidget);
+    expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
+    expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
+    expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
+
+    await tester.tap(find.byTooltip('Post actions'));
+    await tester.pumpAndSettle();
+    final quoteItem = tester.widget<PopupMenuItem<String>>(
+      find.byWidgetPredicate(
+        (widget) => widget is PopupMenuItem<String> && widget.value == 'quote',
+      ),
+    );
+    expect(quoteItem.enabled, isFalse);
+    expect(
+      requestedPaths.where((path) => path.startsWith('/api/social/posts/')),
+      isEmpty,
+    );
+
+    await tester.tap(find.text('A remote post from Bluesky'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remote post'), findsOneWidget);
+    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
+    expect(
+      requestedPaths.where((path) => path.startsWith('/api/social/posts/')),
+      isEmpty,
+    );
+    api.close();
+  });
+
 }
