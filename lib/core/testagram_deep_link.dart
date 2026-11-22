@@ -22,7 +22,7 @@ class TestagramDeepLink {
     final value = raw.trim();
     if (value.isEmpty || value.length > 2048) return null;
     final uri = Uri.tryParse(value);
-    if (uri == null || uri.hasFragment || uri.userInfo.isNotEmpty) return null;
+    if (uri == null || uri.hasFragment || uri.hasQuery || uri.userInfo.isNotEmpty) return null;
 
     final isWeb = uri.scheme == 'https' &&
         const {'testagram.site', 'www.testagram.site'}.contains(uri.host.toLowerCase()) &&
