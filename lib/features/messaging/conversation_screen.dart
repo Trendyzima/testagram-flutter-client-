@@ -25,6 +25,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _loading = true;
   String? _error;
 
+  String get _id => (widget.conversationId ?? widget.conversation?['id'] ?? '').toString();
+  String get _title {
+    final value = (widget.title ?? widget.conversation?['title'] ?? '').toString().trim();
+    return value.isEmpty ? 'Private conversation' : value;
+  }
+
   Map<String, dynamic> _data(Map<String, dynamic> response) {
     final value = response['data'];
     return value is Map ? Map<String, dynamic>.from(value) : response;
@@ -33,7 +39,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   Future<void> _load() async {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
-      final response = _data(await widget.api.listMessages(widget.conversationId));
+      if (_id.isEmpty) throw const BackendApiException('This conversation has an invalid identifier.');
+      final response = _data(await widget.api.listMessages(_id));
       final raw = response['items'];
       final rows = raw is List
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
