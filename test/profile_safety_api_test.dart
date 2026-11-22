@@ -47,8 +47,17 @@ void main() {
         }),
       );
 
-      expect(() => api.blockUser('not-a-uuid'), throwsArgumentError);
-      expect(() => api.unblockUser('not-a-uuid'), throwsArgumentError);
+      const invalidIds = [
+        'not-a-uuid',
+        '123e4567-e89b-02d3-a456-426614174000', // Unsupported UUID version.
+        '123e4567-e89b-42d3-c456-426614174000', // Unsupported UUID variant.
+        '123e4567e89b-42d3-a456-426614174000', // Misplaced separators.
+        '123e4567-e89b-42d3-a456-426614174000x', // Trailing data.
+      ];
+      for (final id in invalidIds) {
+        expect(() => api.blockUser(id), throwsArgumentError, reason: 'blockUser accepted $id');
+        expect(() => api.unblockUser(id), throwsArgumentError, reason: 'unblockUser accepted $id');
+      }
       expect(sent, isFalse);
       api.close();
     });
