@@ -54,10 +54,10 @@ class KnowledgeHubScreen extends StatelessWidget {
         ),
         floatingActionButton: const Tooltip(
           message: 'Question creation will be enabled when the knowledge API is ready',
-          child: const FloatingActionButton.extended(
+          child: FloatingActionButton.extended(
             onPressed: null,
-            icon: const Icon(Icons.add_rounded),
-            label: const Text('Ask a question'),
+            icon: Icon(Icons.add_rounded),
+            label: Text('Ask a question'),
           ),
         ),
       ),
