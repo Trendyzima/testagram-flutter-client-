@@ -134,7 +134,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
         !'89abAB'.contains(value[19])) {
       return false;
     }
-    return parts.every((part) => int.tryParse(part, radix: 16) != null);
+    bool isHex(String part) => part.codeUnits.every((code) =>
+        (code >= 48 && code <= 57) ||
+        (code >= 65 && code <= 70) ||
+        (code >= 97 && code <= 102));
+    return parts.every(isHex);
   }
 
   Future<void> _toggleFollow(String id) async {
