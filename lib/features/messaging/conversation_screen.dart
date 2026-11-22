@@ -102,10 +102,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                       final senderName = sender is Map
                           ? (sender['display_name'] ?? sender['username'] ?? 'Testagram member').toString()
                           : 'Testagram member';
-                      final own = message['sender_id'] == null;
                       final created = DateTime.tryParse((message['created_at'] ?? '').toString());
                       return Align(
-                        alignment: own ? Alignment.centerRight : Alignment.centerLeft,
+                        alignment: Alignment.centerLeft,
                         child: Container(
                           constraints: const BoxConstraints(maxWidth: 320),
                           margin: const EdgeInsets.only(bottom: 10),
