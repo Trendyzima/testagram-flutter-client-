@@ -135,7 +135,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     },
                   ),
         ),
-        SafeArea(
+        const SafeArea(
           top: false,
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
