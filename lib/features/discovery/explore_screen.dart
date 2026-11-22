@@ -254,10 +254,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
             const _SectionTitle('Posts'),
             for (final post in _posts)
               Builder(builder: (context) {
-                final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+                final origin = (post['origin'] ?? '').toString().toLowerCase();
+                final postId = (post['id'] ?? '').toString();
                 // Federated object URIs and DIDs are not native post UUIDs.
-                // Keep remote search results visible, but never route them into
-                // the local PostDetail endpoint until a federation detail route exists.
                 // Only an explicitly local canonical UUID may enter the
                 // local detail route. Opaque IDs are treated as remote snapshots.
                 final isRemote = origin != 'local' || !_isCanonicalAccountPostId(postId);
@@ -267,7 +266,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   'local' => '',
                   _ => 'Federated network',
                 };
-                final postId = (post['id'] ?? '').toString();
                 final author = (post['author'] is Map
                     ? (post['author']['username'] ?? '')
                     : '').toString();
