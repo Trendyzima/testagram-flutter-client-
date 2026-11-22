@@ -437,17 +437,6 @@ void main() {
     expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
     expect(find.text('via Bluesky'), findsOneWidget);
     expect(find.text('A public Bluesky post'), findsOneWidget);
-    // A protocol-native AT URI is not a local UUID. Opening the card must not
-    // dispatch it to the local post-detail endpoint.
-    await tester.tap(find.text('A public Bluesky post'));
-    await tester.pumpAndSettle();
-    expect(find.text('Remote post'), findsOneWidget);
-    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
-    expect(
-      requestedPaths.where((path) => path.contains('/api/social/posts/')),
-      isEmpty,
-    );
-    expect(find.text('A public Bluesky post'), findsOneWidget);
     expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
     expect(find.byIcon(Icons.repeat_rounded), findsNothing);
     expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
@@ -464,6 +453,17 @@ void main() {
     final quote = entries.whereType<PopupMenuItem<String>>()
         .firstWhere((entry) => entry.value == 'quote');
     expect(quote.enabled, isFalse);
+
+    // A protocol-native AT URI is not a local UUID. Opening the card must not
+    // dispatch it to the local post-detail endpoint.
+    await tester.tap(find.text('A public Bluesky post'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remote post'), findsOneWidget);
+    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
+    expect(
+      requestedPaths.where((path) => path.contains('/api/social/posts/')),
+      isEmpty,
+    );
     api.close();
   });
 
