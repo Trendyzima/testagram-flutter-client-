@@ -20,12 +20,14 @@ class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
     required this.api,
+    this.initialDeepLink = '/',
     required this.onSignOut,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
   final BackendApi api;
+  final String initialDeepLink;
   final Future<void> Function() onSignOut;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -36,6 +38,52 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> {
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openInitialDeepLink();
+    });
+  }
+
+  Future<void> _openInitialDeepLink() async {
+    final link = TestagramDeepLink.parse(widget.initialDeepLink);
+    if (link == null || !mounted) return;
+    switch (link.kind) {
+      case TestagramDeepLinkKind.wallet:
+        setState(() => _index = 7);
+      case TestagramDeepLinkKind.profileId:
+        _openProfile(link.userId!);
+      case TestagramDeepLinkKind.profileUsername:
+        try {
+          final response = await widget.api.resolveProfileUsername(link.username!);
+          final raw = response['data'];
+          final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
+          if (!mounted) return;
+          if (userId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('This profile is unavailable.')),
+            );
+            return;
+          }
+          _openProfile(userId);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open profile: $error')),
+            );
+          }
+        }
+    }
+  }
+
+  void _openProfile(String userId) {
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+    ));
+  }
 
   int get _mobileSelectedIndex {
     if (_index <= 2) return _index;
