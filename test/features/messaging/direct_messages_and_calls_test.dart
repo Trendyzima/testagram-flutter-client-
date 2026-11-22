@@ -56,6 +56,8 @@ class _CommunicationApi extends BackendApi {
         'ciphertext': 'opaque-ciphertext-never-render-this',
         'nonce': 'opaque-nonce',
         'e2ee_enabled': true,
+        'e2ee_version': 'v1',
+        'e2ee_epoch': 1,
         'created_at': '2026-11-22T10:00:00Z',
         'sender': {'display_name': 'Sender'},
       }
@@ -77,6 +79,25 @@ class _CommunicationApi extends BackendApi {
         'kind': 'voice',
         'status': 'ended',
         'created_at': '2026-11-22T10:00:00Z',
+      }
+    ]};
+  }
+}
+
+class _PlaintextCommunicationApi extends _CommunicationApi {
+  @override
+  Future<Map<String, dynamic>> listMessages(String conversationId, {int limit = 50, String? cursor}) async {
+    return {'items': [
+      {
+        'id': 'legacy-message',
+        'conversation_id': conversationId,
+        'sender_id': 'legacy-sender',
+        'body': 'THIS LEGACY PLAINTEXT MUST NEVER BE SHOWN',
+        'ciphertext': '',
+        'nonce': '',
+        'e2ee_enabled': false,
+        'created_at': '2026-11-22T10:00:00Z',
+        'sender': {'display_name': 'Legacy sender'},
       }
     ]};
   }
@@ -123,9 +144,24 @@ void main() {
 
     expect(api.messageListCalls, 1);
     expect(api.markReadCalls, 1);
-    expect(find.textContaining('Encrypted message'), findsOneWidget);
+    expect(find.text('Encrypted payload — decryption unavailable'), findsOneWidget);
     expect(find.textContaining('opaque-ciphertext-never-render-this'), findsNothing);
     expect(find.textContaining('Secure message composition is paused'), findsOneWidget);
+  });
+
+  testWidgets('conversation never displays legacy plaintext body when E2EE is absent', (tester) async {
+    final api = _PlaintextCommunicationApi();
+    await tester.pumpWidget(MaterialApp(
+      home: ConversationScreen(
+        api: api,
+        conversationId: 'conversation-legacy',
+        title: 'Legacy conversation',
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Message unavailable'), findsOneWidget);
+    expect(find.text('THIS LEGACY PLAINTEXT MUST NEVER BE SHOWN'), findsNothing);
   });
 
   testWidgets('call room shows call history and keeps media start disabled', (tester) async {
