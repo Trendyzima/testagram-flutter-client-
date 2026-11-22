@@ -121,8 +121,23 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
   }
 
-  bool _isCanonicalAccountPostId(String value) => RegExp(
-        r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89aAbB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}
+  bool _isCanonicalAccountPostId(String value) {
+    final parts = value.split('-');
+    if (parts.length != 5 ||
+        parts[0].length != 8 ||
+        parts[1].length != 4 ||
+        parts[2].length != 4 ||
+        parts[3].length != 4 ||
+        parts[4].length != 12 ||
+        value.length != 36 ||
+        !'12345678'.contains(value[14]) ||
+        !'89abAB'.contains(value[19])) {
+      return false;
+    }
+    return parts.every((part) => int.tryParse(part, radix: 16) != null);
+  }
+
+  Future<void> _toggleFollow(String id) async {
     if (id.isEmpty || _busyFollow.contains(id)) return;
     setState(() => _busyFollow.add(id));
     try {
