@@ -278,7 +278,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 // Federated object URIs and DIDs are not native post UUIDs.
                 // Only an explicitly local canonical UUID may enter the
                 // local detail route. Opaque IDs are treated as remote snapshots.
-                final isRemote = origin != 'local' || !_isCanonicalAccountPostId(postId);
+                final isRemote = origin != 'local';
+                final canOpen = isRemote || _isCanonicalAccountPostId(postId);
                 final source = switch (origin) {
                   'activitypub' => 'Fediverse',
                   'atproto' || 'bluesky' => 'Bluesky',
@@ -302,7 +303,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     if (isRemote) 'Remote · $source',
                   ].join('  · ')),
                   trailing: Icon(isRemote ? Icons.public_rounded : Icons.chevron_right_rounded),
-                  onTap: postId.isEmpty
+                  onTap: postId.isEmpty || !canOpen
                       ? null
                       : () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
