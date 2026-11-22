@@ -522,7 +522,9 @@ void main() {
       isEmpty,
     );
 
-    await tester.tap(find.text('A remote post from Bluesky'));
+    // Use the explicit menu action so the popup is dismissed by its own
+    // route action rather than trying to tap through the open menu overlay.
+    await tester.tap(find.text('Open post'));
     await tester.pumpAndSettle();
     expect(find.text('Remote post'), findsOneWidget);
     expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
