@@ -19,7 +19,7 @@ These are interaction references only. Testagram owns its visual identity, code,
 2. Discover — search, topics, people and curated discovery.
 3. Ask — dedicated Questions & Answers hub; a creation action opens the question composer.
 4. Notifications — mentions, replies, answer activity, follows and moderation notices.
-5. You — profile, posts, answers, saved items, lists and settings.
+5. More — profile, video, shorts, threads, polls, wallet and settings. Profile remains a first-class destination inside More until the mobile navigation can accommodate a sixth primary item.
 
 Use a persistent bottom navigation bar with clear selected states, labels and safe-area handling. Compose is a contextual action, not a sixth destination. The Ask destination must not be linked to a fake local data source: until Backend Q&A routes are merged and deployed, show an explicit unavailable state and do not fabricate question cards or successful submissions.
 
