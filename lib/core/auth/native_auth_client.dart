@@ -88,7 +88,7 @@ class NativeAuthClient implements NativeAuthSession {
           .timeout(const Duration(seconds: 45));
     } on TimeoutException {
       throw const NativeAuthException(
-        'Testagram is taking longer than expected to respond. Wait a moment and tap Sign in again.',
+        'Testagram is taking longer than expected to respond. Wait a moment and retry.',
         code: 'API_ORIGIN_TIMEOUT',
       );
     } on http.ClientException {
@@ -105,8 +105,8 @@ class NativeAuthClient implements NativeAuthSession {
         response.headers['x-testagram-recovery'] == 'attempted') {
       final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
       final wait = retryAfter != null && retryAfter > 0
-          ? ' Wait about $retryAfter seconds, then tap Sign in again.'
-          : ' Wait a moment, then tap Sign in again.';
+          ? ' Wait about $retryAfter seconds, then retry.'
+          : ' Wait a moment, then retry.';
       throw NativeAuthException(
         'Testagram is waking up.$wait',
         statusCode: 503,
