@@ -525,18 +525,18 @@ class _FeedScreenState extends State<FeedScreen> {
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
-                      onOpen: id.isEmpty
+                      onOpen: id.isEmpty || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => isRemote || !_isCanonicalFeedPostUuid(id)
+                                  builder: (_) => isRemote
                                       ? RemotePostDetailScreen(
                                           post: Map<String, dynamic>.from(post),
                                         )
                                       : PostDetailScreen(api: widget.api, postId: id),
                                 ),
                               ),
-                      onOpenVideo: id.isEmpty || !isVideoPost
+                      onOpenVideo: id.isEmpty || !isVideoPost || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
