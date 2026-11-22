@@ -111,7 +111,7 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
     appBar: AppBar(
       title: const Text('Direct messages'),
       actions: [
-        IconButton(tooltip: 'New message', onPressed: _creating ? null : _startDirectMessage, icon: const Icon(Icons.edit_square)),
+        IconButton(tooltip: 'New message', onPressed: _creating ? null : _startDirectMessage, icon: const Icon(Icons.edit_outlined)),
         IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
       ],
     ),
