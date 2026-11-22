@@ -19,7 +19,7 @@ import '../features/wallet/wallet_screen.dart';
 import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/messaging/direct_messages_screen.dart';
-import '../features/calls/call_center_screen.dart';
+import '../features/calls/calls_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -175,7 +175,7 @@ class _MainShellState extends State<MainShell> {
         ),
         MonetizationHubScreen(api: widget.api),
         DirectMessagesScreen(api: widget.api),
-        CallCenterScreen(api: widget.api),
+        CallsScreen(api: widget.api),
       ];
 
   @override
