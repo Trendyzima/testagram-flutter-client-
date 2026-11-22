@@ -12,7 +12,7 @@ void main() {
     expect(find.text('Questions & Answers'), findsOneWidget);
     expect(find.text('A place for real answers'), findsOneWidget);
     expect(find.text('Backend integration in progress'), findsOneWidget);
-    expect(find.textContaining('not be disguised as posts or replies'), findsNothing);
+    expect(find.textContaining('not be disguised as posts or replies'), findsOneWidget);
   });
 
   testWidgets('knowledge hub has an accessible information action',
