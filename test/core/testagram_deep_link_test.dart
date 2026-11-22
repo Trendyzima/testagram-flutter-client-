@@ -58,7 +58,7 @@ void main() {
     });
 
     test('rejects oversized input', () {
-      expect(TestagramDeepLink.parse('/NaN'), isNull);
+      expect(TestagramDeepLink.parse('/' + List.filled(2049, 'a').join()), isNull);
     });
   });
 }
