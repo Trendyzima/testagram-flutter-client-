@@ -128,6 +128,48 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _blockProfileAccount() async {
+    if (_busy || _targetUserId.isEmpty || _profile?['is_self'] == true) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Block this account?'),
+        content: const Text(
+          'They will no longer be able to interact with you through this account. '
+          'Both follow relationships will be removed and will not be restored if you unblock them.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Block account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.api.blockUser(_targetUserId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account blocked.')),
+      );
+      Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.toString())),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _editProfile() async {
     final current = _profile;
     if (current == null || current['is_self'] != true) return;
@@ -165,6 +207,26 @@ class _ProfileScreenState extends State<ProfileScreen> {
       appBar: AppBar(
         title: const Text('Profile'),
         actions: [
+          if (_profile != null && _profile?['is_self'] != true)
+            PopupMenuButton<String>(
+              tooltip: 'Profile safety',
+              enabled: !_busy,
+              onSelected: (value) {
+                if (value == 'block') _blockProfileAccount();
+              },
+              itemBuilder: (context) => const [
+                PopupMenuItem<String>(
+                  value: 'block',
+                  child: Row(
+                    children: [
+                      Icon(Icons.block_outlined),
+                      SizedBox(width: 12),
+                      Text('Block account'),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           if (_profile?['is_self'] == true)
             IconButton(
               tooltip: 'Edit profile',
@@ -317,12 +379,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ]),
                           if (!isSelf) ...[
                             const SizedBox(height: 18),
-                            Center(child: FilledButton(
-                              onPressed: _busy ? null : _toggleFollow,
-                              child: _busy
-                                  ? const SizedBox(width: 16,height: 16,child: CircularProgressIndicator(strokeWidth: 2))
-                                  : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
-                            )),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton(
+                                  onPressed: _busy ? null : _toggleFollow,
+                                  child: _busy
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
+                                ),
+                              ],
+                            ),
                           ],
                           const SizedBox(height: 20),
                           if (profile['protected_account'] == true && profile['can_view_posts'] != true)
