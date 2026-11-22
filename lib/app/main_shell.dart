@@ -2,11 +2,14 @@ import 'package:material_ui/material_ui.dart';
 
 import '../core/backend_api.dart';
 import '../core/app_config.dart';
+import '../core/testagram_deep_link.dart';
 import '../core/testagram_background.dart';
 import '../core/testagram_theme.dart';
 import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
+import '../features/knowledge/knowledge_hub_screen.dart';
+import '../features/monetization/monetization_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/shorts/shorts_screen.dart';
 import '../features/polls/polls_screen.dart';
@@ -15,17 +18,21 @@ import '../features/threads/threads_screen.dart';
 import '../features/wallet/wallet_screen.dart';
 import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/messaging/direct_messages_screen.dart';
+import '../features/calls/calls_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
     super.key,
     required this.api,
+    this.initialDeepLink = '/',
     required this.onSignOut,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
   final BackendApi api;
+  final String initialDeepLink;
   final Future<void> Function() onSignOut;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
@@ -35,12 +42,66 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
+  // Primary destinations: Home, Discover, Ask, Notifications.
+  // Index 4 and above are secondary destinations opened from More.
   int _index = 0;
 
-  int get _mobileSelectedIndex {
-    if (_index <= 2) return _index;
-    if (_index == 4) return 3;
-    return 4;
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openInitialDeepLink();
+    });
+  }
+
+  Future<void> _openInitialDeepLink() async {
+    final link = TestagramDeepLink.parse(widget.initialDeepLink);
+    if (link == null || !mounted) return;
+    switch (link.kind) {
+      case TestagramDeepLinkKind.wallet:
+        setState(() => _index = 9);
+        break;
+      case TestagramDeepLinkKind.profileId:
+        _openProfile(link.userId!);
+        break;
+      case TestagramDeepLinkKind.profileUsername:
+        try {
+          final response = await widget.api.resolveProfileUsername(link.username!);
+          final raw = response['data'];
+          final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
+          if (!mounted) return;
+          if (userId.isEmpty) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('This profile is unavailable.')),
+            );
+            return;
+          }
+          _openProfile(userId);
+        } catch (error) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Could not open profile: $error')),
+            );
+          }
+        }
+        break;
+    }
+  }
+
+  void _openProfile(String userId) {
+    if (!mounted) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+    ));
+  }
+  int get _selectedPrimaryIndex => _index < 4 ? _index : 4;
+
+  void _selectDestination(int value) {
+    if (value == 4) {
+      _openMoreMenu();
+      return;
+    }
+    setState(() => _index = value);
   }
 
   void _openMoreMenu() {
@@ -55,32 +116,31 @@ class _MainShellState extends State<MainShell> {
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Text('Explore Testagram', style: Theme.of(context).textTheme.titleLarge),
+              child: Text(
+                'More from Testagram',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
             ),
-            ListTile(
-              leading: const Icon(Icons.person_outline_rounded),
-              title: const Text('Your profile'),
-              subtitle: const Text('Posts, followers and profile details'),
-              onTap: () {
-                Navigator.pop(sheetContext);
-                Navigator.of(context).push(MaterialPageRoute<void>(
-                  builder: (_) => ProfileScreen.currentUser(api: widget.api),
-                ));
-              },
-            ),
-            const Divider(height: 1),
             for (final item in const [
-              (3, Icons.search_rounded, 'Explore'),
-              (5, Icons.forum_outlined, 'Threads'),
-              (6, Icons.poll_outlined, 'Polls'),
-              (7, Icons.account_balance_wallet_outlined, 'Wallet'),
-              (8, Icons.settings_outlined, 'Settings'),
+              (4, Icons.person_outline_rounded, 'Your profile', 'Posts and profile details'),
+              (5, Icons.video_library_outlined, 'Video', 'Long-form video'),
+              (6, Icons.play_circle_outline_rounded, 'Shorts', 'Short-form video'),
+              (7, Icons.forum_outlined, 'Threads', 'Long-form conversations'),
+              (8, Icons.poll_outlined, 'Polls', 'Community polls'),
+              (9, Icons.account_balance_wallet_outlined, 'Wallet', 'Your wallet'),
+              (10, Icons.settings_outlined, 'Settings', 'Privacy and account controls'),
+              (11, Icons.monetization_on_outlined, 'Monetization', 'Creator tools and earnings'),
+              (12, Icons.forum_outlined, 'Direct messages', 'Private conversations'),
+              (13, Icons.call_outlined, 'Calls', 'Voice and video call centre'),
             ])
               ListTile(
                 selected: _index == item.$1,
                 leading: Icon(item.$2),
                 title: Text(item.$3),
-                trailing: _index == item.$1 ? const Icon(Icons.check_rounded) : null,
+                subtitle: Text(item.$4),
+                trailing: _index == item.$1
+                    ? const Icon(Icons.check_rounded)
+                    : null,
                 onTap: () {
                   Navigator.pop(sheetContext);
                   if (mounted) setState(() => _index = item.$1);
@@ -94,10 +154,16 @@ class _MainShellState extends State<MainShell> {
 
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
-        VideoFeedScreen(api: widget.api, videoApiBaseUri: AppConfig.videoApiOrigin, isActive: _index == 1),
-        ShortsScreen(api: widget.api, isActive: _index == 2),
         ExploreScreen(api: widget.api),
+        const KnowledgeHubScreen(),
         NotificationsScreen(api: widget.api),
+        ProfileScreen.currentUser(api: widget.api),
+        VideoFeedScreen(
+          api: widget.api,
+          videoApiBaseUri: AppConfig.videoApiOrigin,
+          isActive: _index == 5,
+        ),
+        ShortsScreen(api: widget.api, isActive: _index == 6),
         ThreadsScreen(api: widget.api),
         PollsScreen(api: widget.api),
         WalletScreen(api: widget.api),
@@ -107,6 +173,9 @@ class _MainShellState extends State<MainShell> {
           onThemeModeChanged: widget.onThemeModeChanged,
           onSignOut: widget.onSignOut,
         ),
+        MonetizationHubScreen(api: widget.api),
+        DirectMessagesScreen(api: widget.api),
+        CallsScreen(api: widget.api),
       ];
 
   @override
@@ -119,7 +188,9 @@ class _MainShellState extends State<MainShell> {
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: TestagramTheme.contentMaxWidth),
+              constraints: const BoxConstraints(
+                maxWidth: TestagramTheme.contentMaxWidth,
+              ),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),
@@ -133,8 +204,8 @@ class _MainShellState extends State<MainShell> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       NavigationRail(
-                        selectedIndex: _index,
-                        onDestinationSelected: (value) => setState(() => _index = value),
+                        selectedIndex: _selectedPrimaryIndex,
+                        onDestinationSelected: _selectDestination,
                         extended: extended,
                         labelType: extended ? null : NavigationRailLabelType.all,
                         groupAlignment: -0.82,
@@ -165,19 +236,14 @@ class _MainShellState extends State<MainShell> {
                             label: Text('Home'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.video_library_outlined),
-                            selectedIcon: Icon(Icons.video_library_rounded),
-                            label: Text('Video'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.play_circle_outline_rounded),
-                            selectedIcon: Icon(Icons.play_circle_fill_rounded),
-                            label: Text('Shorts'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.search_rounded),
+                            icon: Icon(Icons.travel_explore_outlined),
                             selectedIcon: Icon(Icons.travel_explore_rounded),
-                            label: Text('Explore'),
+                            label: Text('Discover'),
+                          ),
+                          NavigationRailDestination(
+                            icon: Icon(Icons.lightbulb_outline_rounded),
+                            selectedIcon: Icon(Icons.lightbulb_rounded),
+                            label: Text('Ask'),
                           ),
                           NavigationRailDestination(
                             icon: Icon(Icons.notifications_none_rounded),
@@ -185,28 +251,17 @@ class _MainShellState extends State<MainShell> {
                             label: Text('Notifications'),
                           ),
                           NavigationRailDestination(
-                            icon: Icon(Icons.forum_outlined),
-                            selectedIcon: Icon(Icons.forum_rounded),
-                            label: Text('Threads'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.poll_outlined),
-                            selectedIcon: Icon(Icons.poll_rounded),
-                            label: Text('Polls'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.account_balance_wallet_outlined),
-                            selectedIcon: Icon(Icons.account_balance_wallet_rounded),
-                            label: Text('Wallet'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.settings_outlined),
-                            selectedIcon: Icon(Icons.settings_rounded),
-                            label: Text('Settings'),
+                            icon: Icon(Icons.menu_rounded),
+                            selectedIcon: Icon(Icons.menu_open_rounded),
+                            label: Text('More'),
                           ),
                         ],
                       ),
-                      VerticalDivider(width: 1, thickness: 1, color: Theme.of(context).dividerColor),
+                      VerticalDivider(
+                        width: 1,
+                        thickness: 1,
+                        color: Theme.of(context).dividerColor,
+                      ),
                       Expanded(child: content),
                     ],
                   )
@@ -215,14 +270,8 @@ class _MainShellState extends State<MainShell> {
           bottomNavigationBar: desktop
               ? null
               : NavigationBar(
-                  selectedIndex: _mobileSelectedIndex,
-                  onDestinationSelected: (value) {
-                    if (value == 4) {
-                      _openMoreMenu();
-                    } else {
-                      setState(() => _index = value);
-                    }
-                  },
+                  selectedIndex: _selectedPrimaryIndex,
+                  onDestinationSelected: _selectDestination,
                   destinations: const [
                     NavigationDestination(
                       icon: Icon(Icons.home_outlined),
@@ -230,14 +279,14 @@ class _MainShellState extends State<MainShell> {
                       label: 'Home',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.video_library_outlined),
-                      selectedIcon: Icon(Icons.video_library_rounded),
-                      label: 'Video',
+                      icon: Icon(Icons.travel_explore_outlined),
+                      selectedIcon: Icon(Icons.travel_explore_rounded),
+                      label: 'Discover',
                     ),
                     NavigationDestination(
-                      icon: Icon(Icons.play_circle_outline_rounded),
-                      selectedIcon: Icon(Icons.play_circle_fill_rounded),
-                      label: 'Shorts',
+                      icon: Icon(Icons.lightbulb_outline_rounded),
+                      selectedIcon: Icon(Icons.lightbulb_rounded),
+                      label: 'Ask',
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.notifications_none_rounded),

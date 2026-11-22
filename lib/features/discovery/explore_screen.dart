@@ -2,6 +2,8 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../profile/profile_screen.dart';
+import '../posts/post_detail_screen.dart';
+import '../federation/remote_post_detail_screen.dart';
 import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
@@ -22,6 +24,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Map<String, String> _followStatus = {};
   final Set<String> _busyFollow = {};
   bool _loading = false;
+  String _searchKind = 'all';
+  bool _hasSearched = false;
   int _searchGeneration = 0;
   String? _error;
 
@@ -81,7 +85,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     setState(() { _loading = true; _error = null; });
     try {
-      final response = await widget.api.search(query: value);
+      final response = await widget.api.search(query: value, kind: _searchKind);
       final raw = response['data'];
       final data = raw is Map ? raw : response;
       final postRows = data['posts'];
@@ -104,6 +108,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         }
         _posts = postRows is List ? postRows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
         _people = people;
+        _hasSearched = true;
       });
     } catch (e) {
       if (mounted && generation == _searchGeneration) {
@@ -114,6 +119,26 @@ class _ExploreScreenState extends State<ExploreScreen> {
         setState(() => _loading = false);
       }
     }
+  }
+
+  bool _isCanonicalAccountPostId(String value) {
+    final parts = value.split('-');
+    if (parts.length != 5 ||
+        parts[0].length != 8 ||
+        parts[1].length != 4 ||
+        parts[2].length != 4 ||
+        parts[3].length != 4 ||
+        parts[4].length != 12 ||
+        value.length != 36 ||
+        !'12345678'.contains(value[14]) ||
+        !'89abAB'.contains(value[19])) {
+      return false;
+    }
+    bool isHex(String part) => part.codeUnits.every((code) =>
+        (code >= 48 && code <= 57) ||
+        (code >= 65 && code <= 70) ||
+        (code >= 97 && code <= 102));
+    return parts.every(isHex);
   }
 
   Future<void> _toggleFollow(String id) async {
@@ -151,13 +176,28 @@ class _ExploreScreenState extends State<ExploreScreen> {
     ),
     body: Column(children: [
       Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
+        child: SegmentedButton<String>(
+          segments: const [
+            ButtonSegment(value: 'all', label: Text('All')),
+            ButtonSegment(value: 'posts', label: Text('Posts')),
+            ButtonSegment(value: 'people', label: Text('People')),
+          ],
+          selected: {_searchKind},
+          onSelectionChanged: (selection) {
+            setState(() => _searchKind = selection.first);
+            if (_query.text.trim().length >= 2) _search();
+          },
+        ),
+      ),
+      Padding(
         padding: const EdgeInsets.all(14),
         child: TextField(
           controller: _query,
           textInputAction: TextInputAction.search,
           onSubmitted: (_) => _search(),
           decoration: InputDecoration(
-            hintText: 'Search people and posts',
+            hintText: _searchKind == 'people' ? 'Search people' : _searchKind == 'posts' ? 'Search posts' : 'Search people and posts',
             prefixIcon: const Icon(Icons.search),
             suffixIcon: IconButton(onPressed: _search, icon: const Icon(Icons.arrow_forward)),
             border: const OutlineInputBorder(),
@@ -232,13 +272,64 @@ class _ExploreScreenState extends State<ExploreScreen> {
           if (_posts.isNotEmpty) ...[
             const _SectionTitle('Posts'),
             for (final post in _posts)
-              ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.article_outlined)),
-                title: Text((post['content'] ?? '').toString(), maxLines: 3, overflow: TextOverflow.ellipsis),
-                subtitle: Text((post['author'] is Map ? (post['author']['username'] ?? '') : '').toString()),
-              ),
+              Builder(builder: (context) {
+                final origin = (post['origin'] ?? '').toString().toLowerCase();
+                final postId = (post['id'] ?? '').toString();
+                // Federated object URIs and DIDs are not native post UUIDs.
+                // Only an explicitly local canonical UUID may enter the
+                // local detail route. Opaque IDs are treated as remote snapshots.
+                final isRemote = origin != 'local';
+                final canOpen = isRemote || _isCanonicalAccountPostId(postId);
+                final source = switch (origin) {
+                  'activitypub' => 'Fediverse',
+                  'atproto' || 'bluesky' => 'Bluesky',
+                  'local' => '',
+                  _ => 'Federated network',
+                };
+                final author = (post['author'] is Map
+                    ? (post['author']['username'] ?? '')
+                    : '').toString();
+                return ListTile(
+                  leading: CircleAvatar(
+                    child: Icon(isRemote ? Icons.public_rounded : Icons.article_outlined),
+                  ),
+                  title: Text(
+                    (post['content'] ?? '').toString(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text([
+                    if (author.isNotEmpty) '@$author',
+                    if (isRemote) 'Remote · $source',
+                  ].join('  · ')),
+                  trailing: Icon(isRemote ? Icons.public_rounded : Icons.chevron_right_rounded),
+                  onTap: postId.isEmpty || !canOpen
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => isRemote
+                                  ? RemotePostDetailScreen(
+                                      post: Map<String, dynamic>.from(post),
+                                    )
+                                  : PostDetailScreen(
+                                      api: widget.api,
+                                      postId: postId,
+                                    ),
+                            ),
+                          ),
+                );
+              }),
           ],
-          if (!_loading && _error == null && _posts.isEmpty && _people.isEmpty && _trending.isEmpty)
+          if (_hasSearched && !_loading && _error == null && _posts.isEmpty && _people.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(switch (_searchKind) {
+                'people' => 'No discoverable people matched this search.',
+                'posts' => 'No visible posts matched this search.',
+                _ => 'No visible people or posts matched this search.',
+              }),
+            ),
+          if (!_hasSearched && !_loading && _error == null && _posts.isEmpty && _people.isEmpty && _trending.isEmpty)
             const Padding(padding: EdgeInsets.all(24), child: Text('Search for people or posts to explore Testagram.')),
         ],
       )),

@@ -87,6 +87,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  IconData _notificationIcon(String kind) {
+    final normalized = kind.toLowerCase();
+    if (normalized.contains('follow')) return Icons.person_add_alt_1_rounded;
+    if (normalized.contains('mention')) return Icons.alternate_email_rounded;
+    if (normalized.contains('reply') || normalized.contains('comment')) return Icons.mode_comment_outlined;
+    if (normalized.contains('like') || normalized.contains('reaction')) return Icons.favorite_border_rounded;
+    if (normalized.contains('repost') || normalized.contains('share')) return Icons.repeat_rounded;
+    if (normalized.contains('answer')) return Icons.lightbulb_outline_rounded;
+    if (normalized.contains('moderation') || normalized.contains('security')) return Icons.shield_outlined;
+    return Icons.notifications_none_rounded;
+  }
+
   Future<void> _markRead(Map<String, dynamic> item) async {
     final id = (item['id'] ?? '').toString();
     if (id.isEmpty || item['read_at'] != null || _marking.contains(id)) return;
@@ -135,14 +147,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: unread ? Theme.of(context).colorScheme.primaryContainer : null,
-                      child: Icon(unread ? Icons.notifications_active_outlined : Icons.notifications_none),
+                      child: Icon(_notificationIcon((item['kind'] ?? '').toString())),
                     ),
                     title: Text('$actorName $kind'),
                     subtitle: Text((item['created_at'] ?? '').toString()),
                     trailing: unread
                       ? _marking.contains((item['id'] ?? '').toString())
                         ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
-                        : const Icon(Icons.circle, size: 9)
+                        : IconButton(
+                            tooltip: 'Mark as read',
+                            onPressed: () => _markRead(item),
+                            icon: const Icon(Icons.done_all_rounded),
+                          )
                       : null,
                     onTap: () => _markRead(item),
                   );

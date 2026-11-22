@@ -8,8 +8,29 @@ import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
+
+bool _isCanonicalFeedPostUuid(String value) {
+  final parts = value.split('-');
+  if (parts.length != 5 ||
+      parts[0].length != 8 ||
+      parts[1].length != 4 ||
+      parts[2].length != 4 ||
+      parts[3].length != 4 ||
+      parts[4].length != 12 ||
+      value.length != 36 ||
+      !'12345678'.contains(value[14]) ||
+      !'89abAB'.contains(value[19])) {
+    return false;
+  }
+  bool isHex(String part) => part.codeUnits.every((code) =>
+      (code >= 48 && code <= 57) ||
+      (code >= 65 && code <= 70) ||
+      (code >= 97 && code <= 102));
+  return parts.every(isHex);
+}
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key, required this.api, required this.onSignOut});
@@ -27,7 +48,7 @@ class _FeedScreenState extends State<FeedScreen> {
   String _feedMode = 'for_you';
   int _loadGeneration = 0;
   int _activeLoads = 0;
-  String? _cursor, _error;
+  String? _cursor, _error, _rankingMode;
 
   @override
   void initState() {
@@ -74,6 +95,7 @@ class _FeedScreenState extends State<FeedScreen> {
       if (reset) {
         _posts.clear();
         _cursor = null;
+        _rankingMode = null;
         _hasMore = true;
       }
     });
@@ -91,8 +113,8 @@ class _FeedScreenState extends State<FeedScreen> {
           : <Map<String, dynamic>>[];
       final summaries = await Future.wait(rows.map((post) async {
         final id = (post['id'] ?? '').toString();
-        final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-        final isRemote = origin == 'activitypub' || origin == 'atproto';
+        final origin = (post['origin'] ?? '').toString().toLowerCase();
+        final isRemote = origin != 'local';
         // Remote object URIs and AT URIs are not native UUID post IDs.
         // Never send them to native interaction-summary endpoints.
         if (id.isEmpty || isRemote) return <String, dynamic>{};
@@ -125,6 +147,10 @@ class _FeedScreenState extends State<FeedScreen> {
           rows.where((p) => !ids.contains((p['id'] ?? '').toString())),
         );
         _cursor = (data['next_cursor'] ?? '').toString();
+        final rankingMode = (data['ranking_mode'] ?? '').toString();
+        _rankingMode = rankingMode == 'algorithm' || rankingMode == 'chronological'
+            ? rankingMode
+            : null;
         _hasMore = data['has_more'] == true && (_cursor?.isNotEmpty ?? false);
       });
     } catch (e) {
@@ -147,7 +173,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _action(Map<String, dynamic> post, String kind) async {
     final id = (post['id'] ?? '').toString();
-    if (id.isEmpty || _busy.contains(id)) return;
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    // Current public social mutation handlers are UUID-backed and local-only.
+    // Federation feed candidates are read-only until dedicated remote handlers ship.
+    if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
     setState(() => _busy.add(id));
     try {
       if (kind == 'like') {
@@ -179,7 +208,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
-    if (id.isEmpty || _busy.contains(id)) return;
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
     final quote = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -214,6 +244,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _replies(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    if (origin != 'local' || id.isEmpty) return;
     final controller = TextEditingController();
     var loading = true, sending = false;
     String? error;
@@ -410,6 +442,11 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
+      _FeedOrderingStatus(
+        feedMode: _feedMode,
+        rankingMode: _rankingMode,
+        loading: _loading,
+      ),
       Padding(
         padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
         child: InkWell(
@@ -476,6 +513,10 @@ class _FeedScreenState extends State<FeedScreen> {
                     }
                     final post = _posts[index];
                     final id = (post['id'] ?? '').toString();
+                    final origin = (post['origin'] ?? '').toString().toLowerCase();
+                    // Unified feed IDs are opaque and may be remote object URIs.
+                    // Only local posts may enter UUID-backed PostDetail/Shorts routes.
+                    final isRemote = origin != 'local';
                     final rawContentTypes = post['media_content_types'];
                     final isVideoPost = post['is_video'] == true ||
                         (rawContentTypes is List && rawContentTypes.any(
@@ -484,19 +525,29 @@ class _FeedScreenState extends State<FeedScreen> {
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
-                      onOpen: id.isEmpty ? null : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PostDetailScreen(api: widget.api, postId: id),
-                        ),
-                      ),
-                      onOpenVideo: id.isEmpty || !isVideoPost
+                      onOpen: id.isEmpty || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => ShortsScreen(
-                                    api: widget.api,
-                                    initialPost: Map<String, dynamic>.from(post),
-                                  ),
+                                  builder: (_) => isRemote
+                                      ? RemotePostDetailScreen(
+                                          post: Map<String, dynamic>.from(post),
+                                        )
+                                      : PostDetailScreen(api: widget.api, postId: id),
+                                ),
+                              ),
+                      onOpenVideo: id.isEmpty || !isVideoPost || (!isRemote && !_isCanonicalFeedPostUuid(id))
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => isRemote || !_isCanonicalFeedPostUuid(id)
+                                      ? RemotePostDetailScreen(
+                                          post: Map<String, dynamic>.from(post),
+                                        )
+                                      : ShortsScreen(
+                                          api: widget.api,
+                                          initialPost: Map<String, dynamic>.from(post),
+                                        ),
                                 ),
                               ),
                       onLike: () => _action(post, 'like'),
@@ -537,6 +588,75 @@ class _FeedScreenState extends State<FeedScreen> {
     if (!allowed.contains(feedMode) || _feedMode == feedMode) return;
     setState(() => _feedMode = feedMode);
     _load(reset: true);
+  }
+}
+
+class _FeedOrderingStatus extends StatelessWidget {
+  const _FeedOrderingStatus({
+    required this.feedMode,
+    required this.rankingMode,
+    required this.loading,
+  });
+
+  final String feedMode;
+  final String? rankingMode;
+  final bool loading;
+
+  @override
+  Widget build(BuildContext context) {
+    final String label;
+    final IconData icon;
+    final String detail;
+    if (feedMode == 'latest') {
+      label = 'Latest';
+      detail = 'Posts in chronological order';
+      icon = Icons.schedule_rounded;
+    } else if (rankingMode == 'algorithm') {
+      label = 'Ranked for you';
+      detail = 'Ordering supplied by Testagram recommendations';
+      icon = Icons.auto_awesome_rounded;
+    } else if (rankingMode == 'chronological') {
+      label = 'Chronological';
+      detail = feedMode == 'following'
+          ? 'Recent posts from accounts you follow'
+          : 'Recommendations unavailable; showing recent posts';
+      icon = Icons.schedule_rounded;
+    } else {
+      label = loading ? 'Updating timeline' : 'Ordering unavailable';
+      detail = 'The Backend has not reported the ordering mode';
+      icon = loading ? Icons.sync_rounded : Icons.info_outline_rounded;
+    }
+
+    return Semantics(
+      label: '$label. $detail',
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 7, 16, 0),
+        child: Row(
+          children: [
+            Icon(icon, size: 15, color: Theme.of(context).colorScheme.secondary),
+            const SizedBox(width: 7),
+            Text(
+              label,
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: Theme.of(context).colorScheme.secondary,
+                  ),
+            ),
+            const SizedBox(width: 7),
+            Expanded(
+              child: Text(
+                detail,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).hintColor,
+                    ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -1021,19 +1141,21 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = post['author'];
-    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-    final isRemote = origin == 'activitypub' || origin == 'atproto';
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    final isRemote = origin != 'local';
     final sourceLabel = switch (origin) {
       'activitypub' => 'Fediverse',
-      'atproto' => 'Bluesky',
-      _ => null,
+      'atproto' || 'bluesky' => 'Bluesky',
+      'local' => null,
+      _ => 'Federated',
     };
-    final rawCapabilities = post['capabilities'];
-    final capabilities = rawCapabilities is Map ? rawCapabilities : const <String, dynamic>{};
-    final canLike = !isRemote || capabilities['like'] == true;
-    final canReply = !isRemote || capabilities['reply'] == true;
-    final canRepost = !isRemote || capabilities['repost'] == true;
-    final canQuote = !isRemote || capabilities['quote'] == true;
+    // The current Backend social mutation handlers only operate on local
+    // UUID-backed posts. Remote capability flags are not actionable until
+    // matching Backend + Federation mutation routes and client contracts exist.
+    final canLike = !isRemote;
+    final canReply = !isRemote;
+    final canRepost = !isRemote;
+    final canQuote = !isRemote;
     final name = author is Map
         ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
         : 'Testagram user';
@@ -1109,9 +1231,27 @@ class _PostCard extends StatelessWidget {
                       if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
                       if (sourceLabel != null) ...[
                         const SizedBox(width: 6),
-                        Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
-                        const SizedBox(width: 3),
-                        Text('via $sourceLabel', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: Theme.of(context).colorScheme.secondary, fontWeight: FontWeight.w700)),
+                        Tooltip(
+                          message: switch (origin) {
+                            'activitypub' => 'Remote content delivered through ActivityPub / Fediverse',
+                            'atproto' || 'bluesky' => 'Remote content delivered through AT Protocol / Bluesky',
+                            _ => 'Remote content delivered through a federated network',
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(width: 3),
+                              Text(
+                                'via $sourceLabel',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
                       ],
                       const Spacer(),
                       PopupMenuButton<String>(

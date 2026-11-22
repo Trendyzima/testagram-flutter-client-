@@ -445,6 +445,15 @@ class BackendApi {
 
   /// Resolves the caller's canonical Testagram profile from the verified session.
   /// External identity-provider IDs are not canonical Testagram account UUIDs.
+  /// Resolves a public Testagram handle through the authenticated Backend.
+  /// The Backend applies discoverability, protected-account and block rules.
+  Future<Map<String, dynamic>> resolveProfileUsername(String username) {
+    final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
+    if (!RegExp(r'^[A-Za-z0-9_.]{2,30}$').hasMatch(normalized)) {
+      throw ArgumentError.value(username, 'username', 'Enter a valid Testagram username');
+    }
+    return callCapability('testagram.social.profile.resolve', input: {'username': normalized});
+  }
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
 
@@ -528,6 +537,46 @@ class BackendApi {
 
   Future<Map<String, dynamic>> unfollowUser(String targetUserId) =>
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
+  // Keep the client-side UUID rules identical to Backend socialUUIDPattern.
+  // The Backend accepts RFC UUID versions 1-8 and the RFC variant bits only.
+  bool _isCanonicalAccountId(String id) {
+    if (id.length != 36) return false;
+    final version = id.codeUnitAt(14);
+    final variant = id.codeUnitAt(19);
+    if (version < 49 || version > 56) return false;
+    if (variant != 56 && variant != 57 && variant != 97 && variant != 98) return false;
+    for (var index = 0; index < id.length; index++) {
+      if (const {8, 13, 18, 23}.contains(index)) {
+        if (id[index] != '-') return false;
+        continue;
+      }
+      final code = id.codeUnitAt(index);
+      final isDigit = code >= 48 && code <= 57;
+      final isLowerHex = code >= 97 && code <= 102;
+      if (!isDigit && !isLowerHex) return false;
+      if (index == 14 && !'12345678'.contains(id[index])) return false;
+      if (index == 19 && !'89ab'.contains(id[index])) return false;
+    }
+    return true;
+  }
+  /// Blocks a Testagram account. The Backend removes both directions of follow.
+  Future<Map<String, dynamic>> blockUser(String targetUserId) {
+    final id = targetUserId.trim().toLowerCase();
+    if (!_isCanonicalAccountId(id)) {
+      throw ArgumentError.value(targetUserId, 'targetUserId', 'Invalid Testagram account UUID');
+    }
+    return _request('POST', baseUri.resolve('/api/social/blocks'),
+        body: {'target_user_id': id});
+  }
+
+  /// Removes only the caller's block; previous follows are not restored.
+  Future<Map<String, dynamic>> unblockUser(String targetUserId) {
+    final id = targetUserId.trim().toLowerCase();
+    if (!_isCanonicalAccountId(id)) {
+      throw ArgumentError.value(targetUserId, 'targetUserId', 'Invalid Testagram account UUID');
+    }
+    return _request('DELETE', baseUri.resolve('/api/social/blocks/$id'));
+  }
 
   /// Reads the canonical federation preference through the public Backend API.
   /// The Testagram native access token is attached by the shared authenticated request path.
@@ -664,6 +713,105 @@ class BackendApi {
     return callCapability('testagram.wallet.mpesa.status', input: {
       'checkout_request_id': checkoutRequestId.trim(),
     });
+  }
+
+  /// Recovers an ambiguous M-Pesa attempt by its owner-scoped idempotency key.
+  Future<Map<String, dynamic>> getMpesaTopUpAttemptStatus(String idempotencyKey) {
+    final key = idempotencyKey.trim();
+    if (key.length < 8 || key.length > 128) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {'idempotency_key': key});
+  }
+  /// Native Backend conversation list. Only active memberships are returned.
+  Future<Map<String, dynamic>> listConversations({int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return callCapability('testagram.conversations.list', input: {'limit': limit});
+  }
+
+  /// Creates or reuses a one-to-one conversation. Group creation remains
+  /// disabled until the Backend exposes explicit invitation acceptance.
+  Future<Map<String, dynamic>> createConversation(List<String> memberIds, {String title = ''}) {
+    if (memberIds.length != 1) {
+      throw ArgumentError.value(memberIds, 'memberIds', 'Provide exactly one recipient');
+    }
+    return callCapability('testagram.conversations.create', input: {
+      'member_ids': memberIds,
+      if (title.trim().isNotEmpty) 'title': title.trim(),
+    });
+  }
+
+  /// Lists encrypted message envelopes for an active conversation membership.
+  Future<Map<String, dynamic>> listMessages(String conversationId, {int limit = 50, String? cursor}) {
+    if (conversationId.trim().isEmpty || limit < 1 || limit > 100) {
+      throw ArgumentError('Conversation ID or message limit is invalid');
+    }
+    return callCapability('testagram.messages.list', input: {
+      'conversation_id': conversationId.trim(),
+      'limit': limit,
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    });
+  }
+
+  /// Writes a message only after the caller has encrypted it locally.
+  /// This method accepts ciphertext and never accepts plaintext body text.
+  Future<Map<String, dynamic>> sendEncryptedMessage({
+    required String conversationId,
+    required String ciphertext,
+    required String nonce,
+    required String clientMessageId,
+    required int epoch,
+    String aad = '',
+  }) {
+    if (conversationId.trim().isEmpty || ciphertext.isEmpty || nonce.isEmpty ||
+        clientMessageId.trim().isEmpty || epoch < 1) {
+      throw ArgumentError('Encrypted message envelope is incomplete');
+    }
+    return callCapability('testagram.messages.send_encrypted', input: {
+      'conversation_id': conversationId.trim(),
+      'ciphertext': ciphertext,
+      'nonce': nonce,
+      'client_message_id': clientMessageId.trim(),
+      'e2ee_epoch': epoch,
+      'aad': aad,
+    });
+  }
+
+  Future<Map<String, dynamic>> markMessageRead(String messageId) {
+    if (messageId.trim().isEmpty) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.mark_read', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> listConversationCalls(String conversationId) {
+    if (conversationId.trim().isEmpty) throw ArgumentError.value(conversationId, 'conversationId');
+    return callCapability('testagram.calls.list', input: {'conversation_id': conversationId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.get', input: {'call_id': callId.trim()});
+  }
+
+  /// Session creation is intentionally separate from media transport setup.
+  /// A created session does not mean an audio/video connection exists.
+  Future<Map<String, dynamic>> createCallSession(String conversationId, {String kind = 'video'}) {
+    if (conversationId.trim().isEmpty || !const {'voice', 'video', 'screen'}.contains(kind)) {
+      throw ArgumentError('Call session parameters are invalid');
+    }
+    return callCapability('testagram.calls.create', input: {
+      'conversation_id': conversationId.trim(),
+      'kind': kind,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.join', input: {'call_id': callId.trim()});
+  }
+
+  Future<Map<String, dynamic>> endCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.end', input: {'call_id': callId.trim()});
   }
 
   /// Calls a first-party Backend capability. Product data never bypasses
