@@ -173,7 +173,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _action(Map<String, dynamic> post, String kind) async {
     final id = (post['id'] ?? '').toString();
-    if (id.isEmpty || _busy.contains(id)) return;
+    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    // Current public social mutation handlers are UUID-backed and local-only.
+    // Federation feed candidates are read-only until dedicated remote handlers ship.
+    if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
     setState(() => _busy.add(id));
     try {
       if (kind == 'like') {
@@ -205,7 +208,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
-    if (id.isEmpty || _busy.contains(id)) return;
+    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
     final quote = await showModalBottomSheet<String>(
       context: context,
       isScrollControlled: true,
@@ -240,6 +244,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _replies(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
+    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    if (origin != 'local' || id.isEmpty) return;
     final controller = TextEditingController();
     var loading = true, sending = false;
     String? error;
@@ -1143,12 +1149,13 @@ class _PostCard extends StatelessWidget {
       'local' => null,
       _ => 'Federated',
     };
-    final rawCapabilities = post['capabilities'];
-    final capabilities = rawCapabilities is Map ? rawCapabilities : const <String, dynamic>{};
-    final canLike = !isRemote || capabilities['like'] == true;
-    final canReply = !isRemote || capabilities['reply'] == true;
-    final canRepost = !isRemote || capabilities['repost'] == true;
-    final canQuote = !isRemote || capabilities['quote'] == true;
+    // The current Backend social mutation handlers only operate on local
+    // UUID-backed posts. Remote capability flags are not actionable until
+    // matching Backend + Federation mutation routes and client contracts exist.
+    final canLike = !isRemote;
+    final canReply = !isRemote;
+    final canRepost = !isRemote;
+    final canQuote = !isRemote;
     final name = author is Map
         ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
         : 'Testagram user';
