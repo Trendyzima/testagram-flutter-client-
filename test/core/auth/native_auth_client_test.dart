@@ -83,6 +83,46 @@ void main() {
     client.close();
   });
 
+  test('shows the wake state and never automatically replays a login POST', () async {
+    final storage = _MemoryNativeAuthStorage();
+    var loginRequests = 0;
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        loginRequests++;
+        expect(request.url.path, '/api/auth/login');
+        return http.Response(
+          jsonEncode({
+            'ok': false,
+            'error': {
+              'code': 'api_origin_unavailable',
+              'message': 'Testagram API is waking or temporarily unavailable.',
+            },
+          }),
+          503,
+          headers: {
+            'x-testagram-recovery': 'attempted',
+            'retry-after': '2',
+          },
+        );
+      }),
+    );
+
+    await expectLater(
+      client.signIn(email: 'user@example.test', password: 'correct-password-123'),
+      throwsA(
+        isA<NativeAuthException>()
+            .having((error) => error.statusCode, 'statusCode', 503)
+            .having((error) => error.code, 'code', 'API_ORIGIN_WAKING')
+            .having((error) => error.message, 'message', contains('2 seconds')),
+      ),
+    );
+    expect(loginRequests, 1);
+    expect(storage.values, isEmpty);
+    client.close();
+  });
+
   test('force refresh rotates the refresh token and replaces the in-memory access token', () async {
     final storage = _MemoryNativeAuthStorage();
     var refreshCalls = 0;

@@ -72,16 +72,48 @@ class NativeAuthClient implements NativeAuthSession {
     Map<String, dynamic>? body,
   }) async {
     if (_closed) throw StateError('Authentication client is closed.');
-    final response = await _http
-        .post(
-          _endpoint(action),
-          headers: const {
-            'Accept': 'application/json',
-            'Content-Type': 'application/json',
-          },
-          body: jsonEncode(body ?? const <String, dynamic>{}),
-        )
-        .timeout(const Duration(seconds: 15));
+    late final http.Response response;
+    try {
+      response = await _http
+          .post(
+            _endpoint(action),
+            headers: const {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json',
+            },
+            body: jsonEncode(body ?? const <String, dynamic>{}),
+          )
+          // Give the platform's native wake-on-request path time to resume
+          // an idle-paused API machine before reporting a timeout.
+          .timeout(const Duration(seconds: 45));
+    } on TimeoutException {
+      throw const NativeAuthException(
+        'Testagram is taking longer than expected to respond. Wait a moment and retry.',
+        code: 'API_ORIGIN_TIMEOUT',
+      );
+    } on http.ClientException {
+      throw const NativeAuthException(
+        'Testagram could not be reached. Check your connection and try again.',
+        code: 'API_ORIGIN_UNAVAILABLE',
+      );
+    }
+
+    // A recovery marker means the edge tried to reach the origin but it was
+    // unavailable while waking. Login creates a new session, so never replay
+    // this POST automatically; let the user retry after the machine is ready.
+    if (response.statusCode == 503 &&
+        response.headers['x-testagram-recovery'] == 'attempted') {
+      final retryAfter = int.tryParse(response.headers['retry-after'] ?? '');
+      final wait = retryAfter != null && retryAfter > 0
+          ? ' Wait about $retryAfter seconds, then retry.'
+          : ' Wait a moment, then retry.';
+      throw NativeAuthException(
+        'Testagram is waking up.$wait',
+        statusCode: 503,
+        code: 'API_ORIGIN_WAKING',
+      );
+    }
+
     Map<String, dynamic> decoded;
     try {
       final value = jsonDecode(response.body);
