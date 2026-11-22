@@ -30,6 +30,7 @@ void main() {
                 {
                   'id': 'at://did:plc:example/app.bsky.feed.post/record-1',
                   'origin': 'atproto',
+                  'visibility': 'unlisted',
                   'canonical_uri': 'at://did:plc:example/app.bsky.feed.post/record-1',
                   'content': 'A remote post found through discovery',
                   'created_at': '2026-11-22T03:00:00Z',
@@ -64,6 +65,8 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Remote post'), findsOneWidget);
+    expect(find.text('Unlisted'), findsOneWidget);
+    expect(find.text('Public'), findsNothing);
     expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
     expect(
       find.text('at://did:plc:example/app.bsky.feed.post/record-1'),
