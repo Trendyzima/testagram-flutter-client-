@@ -128,6 +128,50 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  Future<void> _blockUser() async {
+    final targetId = _targetUserId;
+    if (_busy || targetId.isEmpty || _profile?['is_self'] == true) return;
+    final username = (_profile?['username'] ?? 'this account').toString();
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Block account?'),
+        content: Text(
+          'Block @$username? They will no longer be able to follow you or view your profile and posts. '
+          'Your existing follow relationship will be removed.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Block account'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    setState(() => _busy = true);
+    try {
+      await widget.api.blockUser(targetId);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account blocked.')),
+      );
+      await Navigator.of(context).maybePop();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not block account: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   Future<void> _editProfile() async {
     final current = _profile;
     if (current == null || current['is_self'] != true) return;
@@ -317,12 +361,24 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ]),
                           if (!isSelf) ...[
                             const SizedBox(height: 18),
-                            Center(child: FilledButton(
-                              onPressed: _busy ? null : _toggleFollow,
-                              child: _busy
-                                  ? const SizedBox(width: 16,height: 16,child: CircularProgressIndicator(strokeWidth: 2))
-                                  : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
-                            )),
+                            Wrap(
+                              alignment: WrapAlignment.center,
+                              spacing: 10,
+                              runSpacing: 8,
+                              children: [
+                                FilledButton(
+                                  onPressed: _busy ? null : _toggleFollow,
+                                  child: _busy
+                                      ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2))
+                                      : Text(following ? 'Following' : pending ? 'Requested' : 'Follow'),
+                                ),
+                                OutlinedButton.icon(
+                                  onPressed: _busy ? null : _blockUser,
+                                  icon: const Icon(Icons.block_outlined, size: 18),
+                                  label: const Text('Block'),
+                                ),
+                              ],
+                            ),
                           ],
                           const SizedBox(height: 20),
                           if (profile['protected_account'] == true && profile['can_view_posts'] != true)
