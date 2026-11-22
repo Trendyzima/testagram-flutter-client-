@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import 'call_room_screen.dart';
 
 class CallsScreen extends StatefulWidget {
   const CallsScreen({super.key, required this.api});
@@ -46,6 +47,7 @@ class _CallsScreenState extends State<CallsScreen> {
             calls.add({
               ...Map<String, dynamic>.from(row),
               'conversation_title': (conversation['title'] ?? '').toString(),
+              'conversation_id': id,
             });
           }
         }
@@ -103,6 +105,17 @@ class _CallsScreenState extends State<CallsScreen> {
                       'End-to-end encrypted session',
                     ].join(' · ')),
                     trailing: const Icon(Icons.lock_outline_rounded),
+                    onTap: () {
+                      final conversationId = (call['conversation_id'] ?? '').toString();
+                      if (conversationId.isEmpty) return;
+                      Navigator.of(context).push(MaterialPageRoute<void>(
+                        builder: (_) => CallRoomScreen(
+                          api: widget.api,
+                          conversationId: conversationId,
+                          conversationTitle: (call['conversation_title'] ?? 'Conversation').toString(),
+                        ),
+                      ));
+                    },
                   );
                 },
               ),
