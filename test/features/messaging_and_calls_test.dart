@@ -60,6 +60,8 @@ void main() {
             'ciphertext': 'opaque-ciphertext',
             'nonce': 'opaque-nonce',
             'e2ee_enabled': true,
+            'e2ee_version': 'v1',
+            'e2ee_epoch': 1,
             'created_at': '2026-11-22T10:00:00Z',
             'sender': {'username': 'member_one', 'display_name': 'Member One'},
           }],
