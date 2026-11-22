@@ -152,7 +152,7 @@ class _MonetizationFeature {
 }
 
 class _MonetizationFeatureScreen extends StatelessWidget {
-  const _MonetizationFeatureScreen({required this.feature});
+  const _MonetizationFeatureScreen({super.key, required this.feature});
 
   final _MonetizationFeature feature;
 
