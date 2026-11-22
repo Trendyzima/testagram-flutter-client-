@@ -26,6 +26,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'topic-post',
+                'origin': 'local',
                 'content': 'Building in public #KenyaTech #BuildInPublic',
                 'created_at': '2026-11-14T09:00:00Z',
                 'author': {'username': 'builder', 'display_name': 'Builder'},
@@ -108,6 +109,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'post-with-gallery',
+                'origin': 'local',
                 'content': 'A gallery post',
                 'created_at': '2026-11-12T09:00:00Z',
                 'media_urls': [
@@ -173,6 +175,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'video-post-1',
+                'origin': 'local',
                 'content': 'A short video',
                 'is_video': true,
                 'created_at': '2026-11-15T09:00:00Z',
@@ -274,6 +277,7 @@ void main() {
             'data': {
               'posts': created ? [{
                 'id': 'post-read-back-1',
+                'origin': 'local',
                 'content': 'Read-back verified from the Backend',
                 'created_at': '2026-11-14T12:00:00Z',
                 'author': {'username': 'staging_member', 'display_name': 'Staging Member'},
@@ -335,6 +339,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'quote-source-1',
+                'origin': 'local',
                 'content': 'Original post to quote',
                 'created_at': '2026-11-14T09:00:00Z',
                 'author': {'username': 'alice', 'display_name': 'Alice'},
