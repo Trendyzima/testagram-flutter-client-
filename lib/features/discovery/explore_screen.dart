@@ -251,22 +251,48 @@ class _ExploreScreenState extends State<ExploreScreen> {
           if (_posts.isNotEmpty) ...[
             const _SectionTitle('Posts'),
             for (final post in _posts)
-              ListTile(
-                leading: const CircleAvatar(child: Icon(Icons.article_outlined)),
-                title: Text((post['content'] ?? '').toString(), maxLines: 3, overflow: TextOverflow.ellipsis),
-                subtitle: Text((post['author'] is Map ? (post['author']['username'] ?? '') : '').toString()),
-                trailing: const Icon(Icons.chevron_right_rounded),
-                onTap: (post['id'] ?? '').toString().isEmpty
-                    ? null
-                    : () => Navigator.of(context).push(
-                          MaterialPageRoute<void>(
-                            builder: (_) => PostDetailScreen(
-                              api: widget.api,
-                              postId: (post['id'] ?? '').toString(),
+              Builder(builder: (context) {
+                final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+                // Federated object URIs and DIDs are not native post UUIDs.
+                // Keep remote search results visible, but never route them into
+                // the local PostDetail endpoint until a federation detail route exists.
+                final isRemote = origin.isNotEmpty && origin != 'local';
+                final source = switch (origin) {
+                  'activitypub' => 'Fediverse',
+                  'atproto' || 'bluesky' => 'Bluesky',
+                  'local' => '',
+                  _ => 'Federated network',
+                };
+                final postId = (post['id'] ?? '').toString();
+                final author = (post['author'] is Map
+                    ? (post['author']['username'] ?? '')
+                    : '').toString();
+                return ListTile(
+                  leading: CircleAvatar(
+                    child: Icon(isRemote ? Icons.public_rounded : Icons.article_outlined),
+                  ),
+                  title: Text(
+                    (post['content'] ?? '').toString(),
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  subtitle: Text([
+                    if (author.isNotEmpty) '@$author',
+                    if (isRemote) 'Remote · $source',
+                  ].join('  · ')),
+                  trailing: Icon(isRemote ? Icons.open_in_new_rounded : Icons.chevron_right_rounded),
+                  onTap: isRemote || postId.isEmpty
+                      ? null
+                      : () => Navigator.of(context).push(
+                            MaterialPageRoute<void>(
+                              builder: (_) => PostDetailScreen(
+                                api: widget.api,
+                                postId: postId,
+                              ),
                             ),
                           ),
-                        ),
-              ),
+                );
+              }),
           ],
           if (_hasSearched && !_loading && _error == null && _posts.isEmpty && _people.isEmpty)
             Padding(
