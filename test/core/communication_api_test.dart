@@ -49,6 +49,10 @@ void main() {
       getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
       client: MockClient((_) async => http.Response('{}', 200)),
     );
+    expect(() => api.createConversation([
+      '123e4567-e89b-42d3-a456-426614174000',
+      '123e4567-e89b-42d3-a456-426614174001',
+    ]), throwsArgumentError);
     expect(() => api.sendEncryptedMessage(
       conversationId: 'conversation',
       ciphertext: '',
