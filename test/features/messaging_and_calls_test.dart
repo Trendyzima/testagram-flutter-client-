@@ -77,7 +77,7 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    expect(find.text('Encrypted message'), findsOneWidget);
+    expect(find.text('Encrypted payload — decryption unavailable'), findsOneWidget);
     expect(find.text('opaque-ciphertext'), findsNothing);
     expect(find.textContaining('Secure sending is locked'), findsOneWidget);
     expect(requested, contains('testagram.messages.mark_read'));
