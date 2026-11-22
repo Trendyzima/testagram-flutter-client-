@@ -16,6 +16,7 @@ class _CommunicationApi extends BackendApi {
   int messageListCalls = 0;
   int callListCalls = 0;
   int markReadCalls = 0;
+  List<String> createdMembers = [];
 
   @override
   Future<Map<String, dynamic>> listConversations({int limit = 50}) async {
@@ -30,6 +31,17 @@ class _CommunicationApi extends BackendApi {
         'latest_message': {'ciphertext': 'opaque-ciphertext'},
       }
     ]};
+  }
+
+  @override
+  Future<Map<String, dynamic>> resolveProfileUsername(String username) async {
+    return {'data': {'id': '123e4567-e89b-42d3-a456-426614174000', 'username': username}};
+  }
+
+  @override
+  Future<Map<String, dynamic>> createConversation(List<String> memberIds, {String title = ''}) async {
+    createdMembers = memberIds;
+    return {'data': {'conversation_id': 'conversation-2'}};
   }
 
   @override
@@ -80,6 +92,22 @@ void main() {
     expect(find.text('Direct messages'), findsOneWidget);
     expect(find.text('A private conversation'), findsOneWidget);
     expect(find.text('Encrypted message'), findsOneWidget);
+  });
+
+  testWidgets('new direct message resolves a Testagram handle before creating a conversation', (tester) async {
+    final api = _CommunicationApi();
+    await tester.pumpWidget(MaterialApp(home: DirectMessagesScreen(api: api)));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byTooltip('New message'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'member_two');
+    await tester.tap(find.text('Continue'));
+    await tester.pumpAndSettle();
+
+    expect(api.createdMembers, ['123e4567-e89b-42d3-a456-426614174000']);
+    expect(find.text('member_two'), findsOneWidget);
+    expect(api.messageListCalls, 1);
   });
 
   testWidgets('conversation screen never renders encrypted payload bytes as plaintext', (tester) async {
