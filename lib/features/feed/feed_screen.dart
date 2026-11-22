@@ -173,7 +173,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _action(Map<String, dynamic> post, String kind) async {
     final id = (post['id'] ?? '').toString();
-    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
     // Current public social mutation handlers are UUID-backed and local-only.
     // Federation feed candidates are read-only until dedicated remote handlers ship.
     if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
@@ -208,7 +208,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
-    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
     if (origin != 'local' || id.isEmpty || _busy.contains(id)) return;
     final quote = await showModalBottomSheet<String>(
       context: context,
@@ -244,7 +244,7 @@ class _FeedScreenState extends State<FeedScreen> {
 
   Future<void> _replies(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
-    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
     if (origin != 'local' || id.isEmpty) return;
     final controller = TextEditingController();
     var loading = true, sending = false;
@@ -513,10 +513,10 @@ class _FeedScreenState extends State<FeedScreen> {
                     }
                     final post = _posts[index];
                     final id = (post['id'] ?? '').toString();
-                    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+                    final origin = (post['origin'] ?? '').toString().toLowerCase();
                     // Unified feed IDs are opaque and may be remote object URIs.
                     // Only local posts may enter UUID-backed PostDetail/Shorts routes.
-                    final isRemote = origin.isNotEmpty && origin != 'local';
+                    final isRemote = origin != 'local';
                     final rawContentTypes = post['media_content_types'];
                     final isVideoPost = post['is_video'] == true ||
                         (rawContentTypes is List && rawContentTypes.any(
@@ -1141,8 +1141,8 @@ class _PostCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final author = post['author'];
-    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-    final isRemote = origin.isNotEmpty && origin != 'local';
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    final isRemote = origin != 'local';
     final sourceLabel = switch (origin) {
       'activitypub' => 'Fediverse',
       'atproto' || 'bluesky' => 'Bluesky',
