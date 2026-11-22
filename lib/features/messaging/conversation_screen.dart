@@ -93,7 +93,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
             child: Row(children: [
               Icon(Icons.lock_outline, size: 18),
               SizedBox(width: 8),
-              Expanded(child: Text('Messages are stored as encrypted payloads. This client does not yet have the verified key-management and decryption lifecycle enabled.')),
+              Expanded(child: Text('Message content stays hidden until Testagram has a verified device-key, recipient-verification and decryption lifecycle. Plaintext legacy records are not displayed.')),
             ]),
           ),
         ),
@@ -112,7 +112,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
-                      final encrypted = message['e2ee_enabled'] == true || (message['ciphertext'] ?? '').toString().isNotEmpty;
+                      final ciphertext = (message['ciphertext'] ?? '').toString();
+                      final nonce = (message['nonce'] ?? '').toString();
+                      final version = (message['e2ee_version'] ?? '').toString();
+                      final epoch = message['e2ee_epoch'];
+                      final hasEncryptedEnvelope = message['e2ee_enabled'] == true &&
+                          ciphertext.isNotEmpty && nonce.isNotEmpty &&
+                          version == 'v1' && epoch is num && epoch > 0;
                       final sender = message['sender'];
                       final senderName = sender is Map
                           ? (sender['display_name'] ?? sender['username'] ?? 'Member').toString()
@@ -125,9 +131,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(senderName, style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: 6),
-                              encrypted
-                                  ? const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lock_outline, size: 16), SizedBox(width: 7), Text('Encrypted message')])
-                                  : Text((message['body'] ?? '').toString()),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(hasEncryptedEnvelope ? Icons.lock_outline : Icons.visibility_off_outlined, size: 16),
+                                const SizedBox(width: 7),
+                                Text(hasEncryptedEnvelope
+                                    ? 'Encrypted payload — decryption unavailable'
+                                    : 'Message unavailable'),
+                              ]),
                               const SizedBox(height: 4),
                               Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
                             ]),
