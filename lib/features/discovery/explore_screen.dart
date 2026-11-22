@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../../core/backend_api.dart';
 import '../profile/profile_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../federation/remote_post_detail_screen.dart';
 import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
@@ -281,14 +282,18 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     if (isRemote) 'Remote · $source',
                   ].join('  · ')),
                   trailing: Icon(isRemote ? Icons.public_rounded : Icons.chevron_right_rounded),
-                  onTap: isRemote || postId.isEmpty
+                  onTap: postId.isEmpty
                       ? null
                       : () => Navigator.of(context).push(
                             MaterialPageRoute<void>(
-                              builder: (_) => PostDetailScreen(
-                                api: widget.api,
-                                postId: postId,
-                              ),
+                              builder: (_) => isRemote
+                                  ? RemotePostDetailScreen(
+                                      post: Map<String, dynamic>.from(post),
+                                    )
+                                  : PostDetailScreen(
+                                      api: widget.api,
+                                      postId: postId,
+                                    ),
                             ),
                           ),
                 );
