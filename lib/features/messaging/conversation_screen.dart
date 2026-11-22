@@ -137,12 +137,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
         ),
         const SafeArea(
           top: false,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+          child: const Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Text('Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
-              const SizedBox(height: 8),
-              const TextField(
+              Text('Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
+              SizedBox(height: 8),
+              TextField(
                 enabled: false,
                 decoration: InputDecoration(
                   hintText: 'Secure messaging is not enabled yet',
