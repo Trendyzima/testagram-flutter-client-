@@ -102,7 +102,7 @@ class _CallsScreenState extends State<CallsScreen> {
                       if ((call['conversation_title'] ?? '').toString().isNotEmpty) call['conversation_title'],
                       status[0].toUpperCase() + status.substring(1),
                       if (date != null) date.toLocal().toString().substring(0, 16),
-                      'End-to-end encrypted session',
+                      'Media encryption not active in this client',
                     ].join(' · ')),
                     trailing: const Icon(Icons.lock_outline_rounded),
                     onTap: () {
