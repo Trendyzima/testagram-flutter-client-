@@ -561,7 +561,7 @@ class _WalletScreenState extends State<WalletScreen> {
                       child: ListTile(
                         leading: const Icon(Icons.hourglass_top_rounded),
                         title: Text('M-Pesa deposit pending · KES ${_pendingDepositAmount ?? ''}'),
-                        subtitle: const Text(
+                        subtitle: Text(
                           _pendingCheckoutRequestId != null
                               ? 'The wallet is not credited until Safaricom confirms settlement.'
                               : 'The request is being reconciled. Check its status before trying again.',
