@@ -27,6 +27,9 @@ class _TestagramAppState extends State<TestagramApp> {
     super.dispose();
   }
 
+  String get _initialDeepLink =>
+      WidgetsBinding.instance.platformDispatcher.defaultRouteName;
+
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
@@ -38,6 +41,7 @@ class _TestagramAppState extends State<TestagramApp> {
       home: AppConfig.isConfigured
           ? AuthGate(
               authClient: _authClient,
+              initialDeepLink: _initialDeepLink,
               themeMode: _themeMode,
               onThemeModeChanged: (value) => setState(() => _themeMode = value),
             )
@@ -50,11 +54,13 @@ class AuthGate extends StatefulWidget {
   const AuthGate({
     super.key,
     required this.authClient,
+    required this.initialDeepLink,
     required this.themeMode,
     required this.onThemeModeChanged,
   });
 
   final NativeAuthSession authClient;
+  final String initialDeepLink;
   final ThemeMode themeMode;
   final ValueChanged<ThemeMode> onThemeModeChanged;
 
@@ -207,6 +213,7 @@ class _AuthGateState extends State<AuthGate> {
     }
     return MainShell(
       api: _api!,
+      initialDeepLink: widget.initialDeepLink,
       onSignOut: _signOut,
       themeMode: widget.themeMode,
       onThemeModeChanged: widget.onThemeModeChanged,
