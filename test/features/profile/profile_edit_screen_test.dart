@@ -7,7 +7,7 @@ import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/profile/profile_edit_screen.dart';
 
 void main() {
-  testWidgets('profile editor presents XClone-inspired cover, avatar and profile fields', (tester) async {
+  testWidgets('profile editor presents Testagram cover, avatar and profile fields', (tester) async {
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.site'),
       getAccessToken: ({bool forceRefresh = false}) async => 'test-jwt',
