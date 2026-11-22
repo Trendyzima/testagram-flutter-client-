@@ -445,6 +445,15 @@ class BackendApi {
 
   /// Resolves the caller's canonical Testagram profile from the verified session.
   /// External identity-provider IDs are not canonical Testagram account UUIDs.
+  /// Resolves a public Testagram handle through the authenticated Backend.
+  /// The Backend applies discoverability, protected-account and block rules.
+  Future<Map<String, dynamic>> resolveProfileUsername(String username) {
+    final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
+    if (!RegExp(r'^[A-Za-z0-9_.]{2,30}$').hasMatch(normalized)) {
+      throw ArgumentError.value(username, 'username', 'Enter a valid Testagram username');
+    }
+    return callCapability('testagram.social.profile.resolve', input: {'username': normalized});
+  }
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
 
@@ -706,6 +715,14 @@ class BackendApi {
     });
   }
 
+  /// Recovers an ambiguous M-Pesa attempt by its owner-scoped idempotency key.
+  Future<Map<String, dynamic>> getMpesaTopUpAttemptStatus(String idempotencyKey) {
+    final key = idempotencyKey.trim();
+    if (key.length < 8 || key.length > 128) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {'idempotency_key': key});
+  }
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
