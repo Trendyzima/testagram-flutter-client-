@@ -19,7 +19,6 @@ class KnowledgeHubScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return DefaultTabController(
       length: _tabs.length,
       child: Scaffold(
