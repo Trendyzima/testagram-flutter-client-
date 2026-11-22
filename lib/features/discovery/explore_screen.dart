@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../profile/profile_screen.dart';
+import '../posts/post_detail_screen.dart';
 import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
@@ -23,6 +24,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Set<String> _busyFollow = {};
   bool _loading = false;
   String _searchKind = 'all';
+  bool _hasSearched = false;
   int _searchGeneration = 0;
   String? _error;
 
@@ -105,6 +107,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         }
         _posts = postRows is List ? postRows.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList() : [];
         _people = people;
+        _hasSearched = true;
       });
     } catch (e) {
       if (mounted && generation == _searchGeneration) {
@@ -252,9 +255,29 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 leading: const CircleAvatar(child: Icon(Icons.article_outlined)),
                 title: Text((post['content'] ?? '').toString(), maxLines: 3, overflow: TextOverflow.ellipsis),
                 subtitle: Text((post['author'] is Map ? (post['author']['username'] ?? '') : '').toString()),
+                trailing: const Icon(Icons.chevron_right_rounded),
+                onTap: (post['id'] ?? '').toString().isEmpty
+                    ? null
+                    : () => Navigator.of(context).push(
+                          MaterialPageRoute<void>(
+                            builder: (_) => PostDetailScreen(
+                              api: widget.api,
+                              postId: (post['id'] ?? '').toString(),
+                            ),
+                          ),
+                        ),
               ),
           ],
-          if (!_loading && _error == null && _posts.isEmpty && _people.isEmpty && _trending.isEmpty)
+          if (_hasSearched && !_loading && _error == null && _posts.isEmpty && _people.isEmpty)
+            Padding(
+              padding: const EdgeInsets.all(24),
+              child: Text(switch (_searchKind) {
+                'people' => 'No discoverable people matched this search.',
+                'posts' => 'No visible posts matched this search.',
+                _ => 'No visible people or posts matched this search.',
+              }),
+            ),
+          if (!_hasSearched && !_loading && _error == null && _posts.isEmpty && _people.isEmpty && _trending.isEmpty)
             const Padding(padding: EdgeInsets.all(24), child: Text('Search for people or posts to explore Testagram.')),
         ],
       )),
