@@ -434,6 +434,8 @@ void main() {
     // dispatch it to the local post-detail endpoint.
     await tester.tap(find.text('A public Bluesky post'));
     await tester.pumpAndSettle();
+    expect(find.text('Remote post'), findsOneWidget);
+    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
     expect(
       requestedPaths.where((path) => path.contains('/api/social/posts/')),
       isEmpty,
