@@ -166,7 +166,7 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     if (e is NativeAuthException) {
       if (e.code == 'API_ORIGIN_WAKING' || e.code == 'API_ORIGIN_TIMEOUT') {
-        return 'Testagram is starting up. Wait a moment and tap Sign in again. Your login request was not automatically repeated.';
+        return 'Testagram is starting up. Wait a moment and retry. The request was not automatically repeated.';
       }
       if (e.code == 'API_ORIGIN_UNAVAILABLE') {
         return 'Testagram could not be reached. Check your connection and try again.';
