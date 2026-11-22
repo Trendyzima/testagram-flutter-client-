@@ -67,4 +67,29 @@ void main() {
     expect(requests, 0);
     api.close();
   });
+
+  test('M-Pesa status can recover an ambiguous attempt by owner idempotency key', () async {
+    http.Request? captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'session-jwt',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({
+          'status': 'pending',
+          'checkout_request_id': '',
+          'amount_kes': '500',
+          'currency': 'KES',
+        }), 200);
+      }),
+    );
+
+    final result = await api.getMpesaTopUpAttemptStatus('topup-test-123');
+    expect(result['status'], 'pending');
+    final body = jsonDecode(captured!.body) as Map<String, dynamic>;
+    expect(body['capability'], 'testagram.wallet.mpesa.status');
+    expect(body['input'], {'idempotency_key': 'topup-test-123'});
+    api.close();
+  });
+
 }
