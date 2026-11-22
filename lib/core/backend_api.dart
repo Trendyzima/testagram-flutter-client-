@@ -528,17 +528,21 @@ class BackendApi {
 
   Future<Map<String, dynamic>> unfollowUser(String targetUserId) =>
       _request('DELETE', baseUri.resolve('/api/social/follows/$targetUserId'));
+  // Keep the client-side UUID rules identical to Backend socialUUIDPattern.
+  // The Backend accepts RFC UUID versions 1-8 and the RFC variant bits only.
   bool _isCanonicalAccountId(String id) {
     if (id.length != 36) return false;
     for (var index = 0; index < id.length; index++) {
       if (const {8, 13, 18, 23}.contains(index)) {
         if (id[index] != '-') return false;
-      } else {
-        final code = id.codeUnitAt(index);
-        final isDigit = code >= 48 && code <= 57;
-        final isLowerHex = code >= 97 && code <= 102;
-        if (!isDigit && !isLowerHex) return false;
+        continue;
       }
+      final code = id.codeUnitAt(index);
+      final isDigit = code >= 48 && code <= 57;
+      final isLowerHex = code >= 97 && code <= 102;
+      if (!isDigit && !isLowerHex) return false;
+      if (index == 14 && !'12345678'.contains(id[index])) return false;
+      if (index == 19 && !'89ab'.contains(id[index])) return false;
     }
     return true;
   }
@@ -555,7 +559,7 @@ class BackendApi {
   /// Removes only the caller's block; previous follows are not restored.
   Future<Map<String, dynamic>> unblockUser(String targetUserId) {
     final id = targetUserId.trim().toLowerCase();
-    if (id.length != 36 || !RegExp(r'^[0-9a-f-]{36}').hasMatch(id)) {
+    if (!_isCanonicalAccountId(id)) {
       throw ArgumentError.value(targetUserId, 'targetUserId', 'Invalid Testagram account UUID');
     }
     return _request('DELETE', baseUri.resolve('/api/social/blocks/$id'));
