@@ -132,8 +132,9 @@ class RemotePostDetailScreen extends StatelessWidget {
           ),
           for (var index = 0; index < mediaUrls.length; index++) ...[
             const SizedBox(height: 14),
-            if (index < mediaTypes.length &&
-                mediaTypes[index].startsWith('video/'))
+            if ((index < mediaTypes.length &&
+                    mediaTypes[index].startsWith('video/')) ||
+                (index == 0 && post['is_video'] == true))
               Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
