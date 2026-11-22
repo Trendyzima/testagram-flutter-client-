@@ -1,11 +1,20 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../calls/call_room_screen.dart';
 
 class ConversationScreen extends StatefulWidget {
-  const ConversationScreen({super.key, required this.api, required this.conversation});
+  const ConversationScreen({
+    super.key,
+    required this.api,
+    this.conversation,
+    this.conversationId,
+    this.title,
+  });
   final BackendApi api;
-  final Map<String, dynamic> conversation;
+  final Map<String, dynamic>? conversation;
+  final String? conversationId;
+  final String? title;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -16,7 +25,39 @@ class _ConversationScreenState extends State<ConversationScreen> {
   bool _loading = true;
   String? _error;
 
-  String get _id => (widget.conversation['id'] ?? '').toString();
+  String get _id => (widget.conversationId ?? widget.conversation?['id'] ?? '').toString();
+  String get _title {
+    final value = (widget.title ?? widget.conversation?['title'] ?? '').toString().trim();
+    return value.isEmpty ? 'Private conversation' : value;
+  }
+
+  Map<String, dynamic> _data(Map<String, dynamic> response) {
+    final value = response['data'];
+    return value is Map ? Map<String, dynamic>.from(value) : response;
+  }
+
+  Future<void> _load() async {
+    if (mounted) setState(() { _loading = true; _error = null; });
+    try {
+      if (_id.isEmpty) throw const BackendApiException('This conversation has an invalid identifier.');
+      final response = _data(await widget.api.listMessages(_id));
+      final raw = response['items'];
+      final rows = raw is List
+          ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
+          : <Map<String, dynamic>>[];
+      if (mounted) setState(() => _messages = rows.reversed.toList());
+      if (rows.isNotEmpty) {
+        final latestId = (rows.first['id'] ?? '').toString();
+        if (latestId.isNotEmpty) {
+          try { await widget.api.markMessageRead(latestId); } catch (_) { /* Read receipts are best-effort. */ }
+        }
+      }
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   void initState() {
@@ -24,151 +65,107 @@ class _ConversationScreenState extends State<ConversationScreen> {
     _load();
   }
 
-  Future<void> _load() async {
-    if (_id.isEmpty) {
-      setState(() { _loading = false; _error = 'This conversation has an invalid identifier.'; });
-      return;
-    }
-    setState(() { _loading = true; _error = null; });
-    try {
-      final response = await widget.api.callCapability(
-        'testagram.messages.list',
-        input: {'conversation_id': _id, 'limit': 100},
-      );
-      final raw = response['items'];
-      final messages = raw is List
-          ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList().reversed.toList()
-          : <Map<String, dynamic>>[];
-      if (!mounted) return;
-      setState(() { _messages = messages; _loading = false; });
-      if (messages.isNotEmpty) {
-        final latest = messages.last;
-        final messageId = (latest['id'] ?? '').toString();
-        if (messageId.isNotEmpty) {
-          try {
-            await widget.api.callCapability(
-              'testagram.messages.mark_read',
-              input: {'message_id': messageId},
-            );
-          } catch (_) {
-            // Read receipts are best-effort; never block opening the conversation.
-          }
-        }
-      }
-    } catch (error) {
-      if (mounted) setState(() { _error = error.toString(); _loading = false; });
-    }
-  }
-
   @override
-  Widget build(BuildContext context) {
-    final title = (widget.conversation['title'] ?? '').toString().trim();
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title.isEmpty ? 'Private conversation' : title),
-        actions: [
-          IconButton(
-            tooltip: 'Call options',
-            onPressed: () => _showCallNotice(context),
-            icon: const Icon(Icons.call_outlined),
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: Text(_title),
+      actions: [
+        IconButton(
+          tooltip: 'Voice or video call',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => CallRoomScreen(
+              api: widget.api,
+              conversationId: _id,
+              conversationTitle: _title,
+            ),
+          )),
+          icon: const Icon(Icons.video_call_outlined),
+        ),
+        IconButton(tooltip: 'Refresh messages', onPressed: _load, icon: const Icon(Icons.refresh)),
+      ],
+    ),
+    body: Column(
+      children: [
+        Material(
+          color: Theme.of(context).colorScheme.secondaryContainer,
+          child: const Padding(
+            padding: EdgeInsets.all(12),
+            child: Row(children: [
+              Icon(Icons.lock_outline, size: 18),
+              SizedBox(width: 8),
+              Expanded(child: Text('Message content stays hidden until Testagram has a verified device-key, recipient-verification and decryption lifecycle. Plaintext legacy records are not displayed.')),
+            ]),
           ),
-          IconButton(
-            tooltip: 'Refresh conversation',
-            onPressed: _loading ? null : _load,
-            icon: const Icon(Icons.refresh_rounded),
-          ),
-        ],
-      ),
-      body: Column(children: [
+        ),
         Expanded(
           child: _loading && _messages.isEmpty
             ? const Center(child: CircularProgressIndicator())
             : _error != null && _messages.isEmpty
-              ? Center(child: Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    TextButton(onPressed: _load, child: const Text('Retry')),
-                  ]),
-                ))
+              ? Center(child: Padding(padding: const EdgeInsets.all(24), child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_error!, textAlign: TextAlign.center),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ])))
               : _messages.isEmpty
-                ? const Center(child: Text('This conversation has no messages yet.'))
+                ? const Center(child: Text('No messages yet.'))
                 : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: _messages.length,
                     itemBuilder: (context, index) {
                       final message = _messages[index];
+                      final ciphertext = (message['ciphertext'] ?? '').toString();
+                      final nonce = (message['nonce'] ?? '').toString();
+                      final version = (message['e2ee_version'] ?? '').toString();
+                      final epoch = message['e2ee_epoch'];
+                      final hasEncryptedEnvelope = message['e2ee_enabled'] == true &&
+                          ciphertext.isNotEmpty && nonce.isNotEmpty &&
+                          version == 'v1' && epoch is num && epoch > 0;
                       final sender = message['sender'];
                       final senderName = sender is Map
-                          ? (sender['display_name'] ?? sender['username'] ?? 'Testagram member').toString()
-                          : 'Testagram member';
-                      final created = DateTime.tryParse((message['created_at'] ?? '').toString());
+                          ? (sender['display_name'] ?? sender['username'] ?? 'Member').toString()
+                          : 'Member';
                       return Align(
                         alignment: Alignment.centerLeft,
-                        child: Container(
-                          constraints: const BoxConstraints(maxWidth: 320),
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(13),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(16),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(senderName, style: Theme.of(context).textTheme.labelSmall),
+                        child: Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                              Text(senderName, style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: 6),
-                              const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.lock_outline_rounded, size: 16),
-                                SizedBox(width: 7),
-                                Flexible(child: Text('Encrypted message')),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(hasEncryptedEnvelope ? Icons.lock_outline : Icons.visibility_off_outlined, size: 16),
+                                const SizedBox(width: 7),
+                                Text(hasEncryptedEnvelope
+                                    ? 'Encrypted payload — decryption unavailable'
+                                    : 'Message unavailable'),
                               ]),
-                              if (created != null) ...[
-                                const SizedBox(height: 5),
-                                Text(
-                                  TimeOfDay.fromDateTime(created.toLocal()).format(context),
-                                  style: Theme.of(context).textTheme.labelSmall,
-                                ),
-                              ],
-                            ],
+                              const SizedBox(height: 4),
+                              Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
+                            ]),
                           ),
                         ),
                       );
                     },
                   ),
         ),
-        SafeArea(
+        const SafeArea(
           top: false,
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surface,
-              border: Border(top: BorderSide(color: Theme.of(context).dividerColor)),
-            ),
-            child: const Row(children: [
-              Icon(Icons.enhanced_encryption_outlined),
-              SizedBox(width: 10),
-              Expanded(child: Text(
-                'Secure sending is locked until device key generation, key verification and encrypted payload handling are connected.',
-              )),
+          child: Padding(
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              Text('Secure sending is locked. Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
+              SizedBox(height: 8),
+              TextField(
+                enabled: false,
+                decoration: InputDecoration(
+                  hintText: 'Secure messaging is not enabled yet',
+                  border: OutlineInputBorder(),
+                  suffixIcon: Icon(Icons.lock_outline),
+                ),
+              ),
             ]),
           ),
         ),
-      ]),
-    );
-  }
-
-  void _showCallNotice(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Secure calls'),
-        content: const Text(
-          'Call session records and signaling authorization exist on the Backend. Native WebRTC media, peer signaling and device permission handling are not yet integrated in this client, so calls cannot be started safely yet.',
-        ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
-      ),
-    );
-  }
+      ],
+    ),
+  );
 }

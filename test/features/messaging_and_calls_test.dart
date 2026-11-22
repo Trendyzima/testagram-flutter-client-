@@ -56,10 +56,12 @@ void main() {
             'id': '11111111-1111-4111-8111-111111111111',
             'conversation_id': '22222222-2222-4222-8222-222222222222',
             'sender_id': '33333333-3333-4333-8333-333333333333',
-            'body': '',
+            'body': 'legacy plaintext must never render',
             'ciphertext': 'opaque-ciphertext',
             'nonce': 'opaque-nonce',
             'e2ee_enabled': true,
+            'e2ee_version': 'v1',
+            'e2ee_epoch': 1,
             'created_at': '2026-11-22T10:00:00Z',
             'sender': {'username': 'member_one', 'display_name': 'Member One'},
           }],
@@ -77,8 +79,9 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    expect(find.text('Encrypted message'), findsOneWidget);
+    expect(find.text('Encrypted payload — decryption unavailable'), findsOneWidget);
     expect(find.text('opaque-ciphertext'), findsNothing);
+    expect(find.text('legacy plaintext must never render'), findsNothing);
     expect(find.textContaining('Secure sending is locked'), findsOneWidget);
     expect(requested, contains('testagram.messages.mark_read'));
     expect(requested, isNot(contains('testagram.messages.send_encrypted')));
@@ -116,7 +119,7 @@ void main() {
 
     expect(find.text('Voice call'), findsOneWidget);
     expect(find.textContaining('Private chat'), findsOneWidget);
-    expect(find.textContaining('End-to-end encrypted session'), findsOneWidget);
+    expect(find.textContaining('Media encryption not active in this client'), findsOneWidget);
     api.close();
   });
 }
