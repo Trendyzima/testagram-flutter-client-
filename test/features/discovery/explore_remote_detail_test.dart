@@ -68,6 +68,10 @@ void main() {
     expect(find.text('Unlisted'), findsOneWidget);
     expect(find.text('Public'), findsNothing);
     expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
+    expect(find.text('Like'), findsNothing);
+    expect(find.text('Reply'), findsNothing);
+    expect(find.text('Repost'), findsNothing);
+    expect(find.text('Follow'), findsNothing);
     expect(
       find.text('at://did:plc:example/app.bsky.feed.post/record-1'),
       findsOneWidget,
