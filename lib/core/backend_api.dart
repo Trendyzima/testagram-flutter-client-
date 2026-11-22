@@ -679,6 +679,17 @@ class BackendApi {
     });
   }
 
+  /// Recovers an ambiguous M-Pesa attempt by its owner-scoped idempotency key.
+  Future<Map<String, dynamic>> getMpesaTopUpAttemptStatus(String idempotencyKey) {
+    final key = idempotencyKey.trim();
+    if (key.length < 8 || key.length > 128) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {
+      'idempotency_key': key,
+    });
+  }
+
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
