@@ -52,7 +52,7 @@ class KnowledgeHubScreen extends StatelessWidget {
             );
           },
         ),
-        floatingActionButton: Tooltip(
+        floatingActionButton: const Tooltip(
           message: 'Question creation will be enabled when the knowledge API is ready',
           child: FloatingActionButton.extended(
             onPressed: null,
