@@ -15,7 +15,7 @@ void main() {
 
   tearDown(() => api.close());
 
-  testWidgets('lists the wallet and all planned monetization destinations',
+  testWidgets('lists the wallet and every planned monetization destination',
       (tester) async {
     await tester.pumpWidget(
       MaterialApp(home: MonetizationHubScreen(api: api)),
@@ -23,13 +23,22 @@ void main() {
 
     expect(find.text('Monetization'), findsOneWidget);
     expect(find.text('Wallet'), findsOneWidget);
-    expect(find.text('Ad campaigns'), findsOneWidget);
-    expect(find.text('Creator earnings'), findsOneWidget);
-    expect(find.text('Premium membership'), findsOneWidget);
-    expect(find.text('Subscriptions'), findsOneWidget);
-    expect(find.text('Promotions and boosts'), findsOneWidget);
-    expect(find.text('Payouts'), findsOneWidget);
-    expect(find.text('Gifts and tips'), findsOneWidget);
+    for (final label in const [
+      'Ad campaigns',
+      'Creator earnings',
+      'Premium membership',
+      'Subscriptions',
+      'Promotions and boosts',
+      'Payouts',
+      'Gifts and tips',
+    ]) {
+      await tester.scrollUntilVisible(
+        find.text(label),
+        320,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.text(label), findsOneWidget);
+    }
     expect(find.textContaining('invented earnings'), findsOneWidget);
   });
 
@@ -43,6 +52,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Backend integration required'), findsOneWidget);
-    expect(find.textContaining('not been simulated'), findsOneWidget);
+    expect(find.textContaining('has been simulated'), findsOneWidget);
   });
 }
