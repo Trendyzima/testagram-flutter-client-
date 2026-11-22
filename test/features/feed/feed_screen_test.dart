@@ -430,6 +430,15 @@ void main() {
     expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
     expect(find.text('via Bluesky'), findsOneWidget);
     expect(find.text('A public Bluesky post'), findsOneWidget);
+    // A protocol-native AT URI is not a local UUID. Opening the card must not
+    // dispatch it to the local post-detail endpoint.
+    await tester.tap(find.text('A public Bluesky post'));
+    await tester.pumpAndSettle();
+    expect(
+      requestedPaths.where((path) => path.contains('/api/social/posts/')),
+      isEmpty,
+    );
+    expect(find.text('A public Bluesky post'), findsOneWidget);
     expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
     expect(find.byIcon(Icons.repeat_rounded), findsNothing);
     expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
