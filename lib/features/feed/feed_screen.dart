@@ -8,6 +8,7 @@ import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
 
@@ -498,19 +499,29 @@ class _FeedScreenState extends State<FeedScreen> {
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
-                      onOpen: id.isEmpty || isRemote ? null : () => Navigator.of(context).push(
-                        MaterialPageRoute<void>(
-                          builder: (_) => PostDetailScreen(api: widget.api, postId: id),
-                        ),
-                      ),
-                      onOpenVideo: id.isEmpty || isRemote || !isVideoPost
+                      onOpen: id.isEmpty
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
-                                  builder: (_) => ShortsScreen(
-                                    api: widget.api,
-                                    initialPost: Map<String, dynamic>.from(post),
-                                  ),
+                                  builder: (_) => isRemote
+                                      ? RemotePostDetailScreen(
+                                          post: Map<String, dynamic>.from(post),
+                                        )
+                                      : PostDetailScreen(api: widget.api, postId: id),
+                                ),
+                              ),
+                      onOpenVideo: id.isEmpty || !isVideoPost
+                          ? null
+                          : () => Navigator.of(context).push(
+                                MaterialPageRoute<void>(
+                                  builder: (_) => isRemote
+                                      ? RemotePostDetailScreen(
+                                          post: Map<String, dynamic>.from(post),
+                                        )
+                                      : ShortsScreen(
+                                          api: widget.api,
+                                          initialPost: Map<String, dynamic>.from(post),
+                                        ),
                                 ),
                               ),
                       onLike: () => _action(post, 'like'),
