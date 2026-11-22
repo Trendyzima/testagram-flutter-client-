@@ -29,7 +29,9 @@ void main() {
           reason: value,
         );
       }
-      expect(TestagramDeepLink.parse('https://testagram.site/wallet?amount=500'), isNotNull);
+      expect(TestagramDeepLink.parse('https://testagram.site/wallet?amount=500'), isNull);
+      expect(TestagramDeepLink.parse('https://testagram.site/@user?redirect=https://evil.example'), isNull);
+      expect(TestagramDeepLink.parse('testagram://wallet?amount=500'), isNull);
     });
 
     test('accepts only canonical UUID profile links', () {
