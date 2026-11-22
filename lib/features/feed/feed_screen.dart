@@ -93,7 +93,7 @@ class _FeedScreenState extends State<FeedScreen> {
       final summaries = await Future.wait(rows.map((post) async {
         final id = (post['id'] ?? '').toString();
         final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-        final isRemote = origin == 'activitypub' || origin == 'atproto';
+        final isRemote = origin.isNotEmpty && origin != 'local';
         // Remote object URIs and AT URIs are not native UUID post IDs.
         // Never send them to native interaction-summary endpoints.
         if (id.isEmpty || isRemote) return <String, dynamic>{};
@@ -1101,11 +1101,12 @@ class _PostCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final author = post['author'];
     final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-    final isRemote = origin == 'activitypub' || origin == 'atproto';
+    final isRemote = origin.isNotEmpty && origin != 'local';
     final sourceLabel = switch (origin) {
       'activitypub' => 'Fediverse',
-      'atproto' => 'Bluesky',
-      _ => null,
+      'atproto' || 'bluesky' => 'Bluesky',
+      'local' => null,
+      _ => 'Federated',
     };
     final rawCapabilities = post['capabilities'];
     final capabilities = rawCapabilities is Map ? rawCapabilities : const <String, dynamic>{};
@@ -1189,9 +1190,11 @@ class _PostCard extends StatelessWidget {
                       if (sourceLabel != null) ...[
                         const SizedBox(width: 6),
                         Tooltip(
-                          message: origin == 'activitypub'
-                              ? 'Remote content delivered through ActivityPub / Fediverse'
-                              : 'Remote content delivered through AT Protocol / Bluesky',
+                          message: switch (origin) {
+                            'activitypub' => 'Remote content delivered through ActivityPub / Fediverse',
+                            'atproto' || 'bluesky' => 'Remote content delivered through AT Protocol / Bluesky',
+                            _ => 'Remote content delivered through a federated network',
+                          },
                           child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
