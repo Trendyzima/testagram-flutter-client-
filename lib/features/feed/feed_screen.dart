@@ -486,6 +486,10 @@ class _FeedScreenState extends State<FeedScreen> {
                     }
                     final post = _posts[index];
                     final id = (post['id'] ?? '').toString();
+                    final origin = (post['origin'] ?? 'local').toString().toLowerCase();
+                    // Unified feed IDs are opaque and may be remote object URIs.
+                    // Only local posts may enter UUID-backed PostDetail/Shorts routes.
+                    final isRemote = origin.isNotEmpty && origin != 'local';
                     final rawContentTypes = post['media_content_types'];
                     final isVideoPost = post['is_video'] == true ||
                         (rawContentTypes is List && rawContentTypes.any(
@@ -494,12 +498,12 @@ class _FeedScreenState extends State<FeedScreen> {
                     return _PostCard(
                       post: post,
                       busy: _busy.contains(id),
-                      onOpen: id.isEmpty ? null : () => Navigator.of(context).push(
+                      onOpen: id.isEmpty || isRemote ? null : () => Navigator.of(context).push(
                         MaterialPageRoute<void>(
                           builder: (_) => PostDetailScreen(api: widget.api, postId: id),
                         ),
                       ),
-                      onOpenVideo: id.isEmpty || !isVideoPost
+                      onOpenVideo: id.isEmpty || isRemote || !isVideoPost
                           ? null
                           : () => Navigator.of(context).push(
                                 MaterialPageRoute<void>(
