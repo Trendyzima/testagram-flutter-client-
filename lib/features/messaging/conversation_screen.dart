@@ -140,7 +140,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
         const SafeArea(
           top: false,
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               Text('Secure sending is locked. Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
               SizedBox(height: 8),
