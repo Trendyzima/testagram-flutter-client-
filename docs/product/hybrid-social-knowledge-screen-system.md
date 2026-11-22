@@ -34,7 +34,7 @@ At medium widths collapse the left rail to icons and hide the right rail. At mob
 
 ### 1. Home / social timeline
 - Header: Testagram identity, account/avatar action and refresh.
-- Segmented timeline lanes: For you, Following, Latest. Optional Media and Lists are secondary filters, not permanent top-level tabs.
+- Segmented timeline lanes: For you, Following, Latest, Media and Discover. These are distinct Backend feed modes: For you uses ranking when the Algorithm returns a complete valid ranking (otherwise the Backend falls back chronologically); Following scopes to accepted follows; Latest is chronological; Media requires ready media attachments; Discover excludes accounts the viewer already follows. Lists remain a future secondary surface and must not be represented as an available feed mode until its Backend contract exists.
 - Composer: text, media, visibility and content-warning controls supported by verified Backend contracts. Show publishing progress and precise partial-success errors.
 - Feed cards: author identity, timestamp, federation origin label when remote, body, media, reply/repost/quote/like/bookmark actions and accessible action counts.
 - Pagination uses opaque cursors; refresh resets the cursor. Preserve scroll position when switching lanes where practical.
@@ -77,7 +77,7 @@ At medium widths collapse the left rail to icons and hide the right rail. At mob
 ### 7. Lists and custom feeds
 - User-created lists and list membership only after Backend routes exist.
 - Chronological ordering must be available and clearly labeled.
-- Feed settings explain whether a lane is chronological or ranked; do not label a lane "For you" unless the ranking service actually supplies it.
+- Feed settings and lane context explain whether results are ranked or chronological. The Backend response's `ranking_mode` is authoritative: `algorithm` means the Algorithm supplied the ordering; `chronological` means the Backend returned chronological fallback/order. Do not infer successful ranking from the selected lane name.
 
 ### 8. Federation-aware content
 - Show source network/provenance for remote items and a clear distinction between local and remote actions.
@@ -107,7 +107,7 @@ At medium widths collapse the left rail to icons and hide the right rail. At mob
 ## Implementation sequence and hard gates
 
 1. Navigation and shared screen primitives; preserve existing routes and state behavior.
-2. Home lane refinement using the already implemented home-feed API; verify cursor and lane semantics against Backend.
+2. Home lane refinement using the already implemented home-feed API; lane names and query semantics are verified against `cmd/api/feed_home.go`.
 3. Discover/search and profile surfaces using verified existing endpoints.
 4. Notifications and conversation detail polish using existing Backend endpoints.
 5. Ask hub and question/answer detail only after Backend question/answer handlers, authorization, visibility, moderation and OpenAPI contracts are implemented and tested.
