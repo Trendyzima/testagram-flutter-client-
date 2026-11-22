@@ -125,7 +125,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(senderName, style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: 6),
-                              Text(encrypted ? 'Encrypted message — decryption is unavailable on this client.' : (message['body'] ?? '').toString()),
+                              encrypted
+                                  ? const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.lock_outline, size: 16), SizedBox(width: 7), Text('Encrypted message')])
+                                  : Text((message['body'] ?? '').toString()),
                               const SizedBox(height: 4),
                               Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
                             ]),
@@ -140,7 +142,7 @@ class _ConversationScreenState extends State<ConversationScreen> {
           child: const Padding(
             padding: EdgeInsets.fromLTRB(16, 8, 16, 16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Text('Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
+              Text('Secure sending is locked. Secure message composition is paused until Testagram key registration, device recovery and recipient-key verification are available in this client.'),
               SizedBox(height: 8),
               TextField(
                 enabled: false,
