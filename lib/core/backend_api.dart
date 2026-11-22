@@ -729,11 +729,11 @@ class BackendApi {
     return callCapability('testagram.conversations.list', input: {'limit': limit});
   }
 
-  /// Creates or reuses a one-to-one conversation, or creates a group when
-  /// multiple member IDs are supplied. The Backend validates account status.
+  /// Creates or reuses a one-to-one conversation. Group creation remains
+  /// disabled until the Backend exposes explicit invitation acceptance.
   Future<Map<String, dynamic>> createConversation(List<String> memberIds, {String title = ''}) {
-    if (memberIds.isEmpty || memberIds.length > 49) {
-      throw ArgumentError.value(memberIds, 'memberIds', 'Provide 1–49 other members');
+    if (memberIds.length != 1) {
+      throw ArgumentError.value(memberIds, 'memberIds', 'Provide exactly one recipient');
     }
     return callCapability('testagram.conversations.create', input: {
       'member_ids': memberIds,
