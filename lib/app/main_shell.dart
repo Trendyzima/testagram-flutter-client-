@@ -18,6 +18,8 @@ import '../features/threads/threads_screen.dart';
 import '../features/wallet/wallet_screen.dart';
 import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
+import '../features/messaging/direct_messages_screen.dart';
+import '../features/calls/call_center_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -128,6 +130,8 @@ class _MainShellState extends State<MainShell> {
               (9, Icons.account_balance_wallet_outlined, 'Wallet', 'Your wallet'),
               (10, Icons.settings_outlined, 'Settings', 'Privacy and account controls'),
               (11, Icons.monetization_on_outlined, 'Monetization', 'Creator tools and earnings'),
+              (12, Icons.forum_outlined, 'Direct messages', 'Private conversations'),
+              (13, Icons.call_outlined, 'Calls', 'Voice and video call centre'),
             ])
               ListTile(
                 selected: _index == item.$1,
@@ -170,6 +174,8 @@ class _MainShellState extends State<MainShell> {
           onSignOut: widget.onSignOut,
         ),
         MonetizationHubScreen(api: widget.api),
+        DirectMessagesScreen(api: widget.api),
+        CallCenterScreen(api: widget.api),
       ];
 
   @override
