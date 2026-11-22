@@ -31,6 +31,16 @@ void main() {
         'amount_kes': 9,
         'idempotency_key': 'topup-test-123',
       }), isNull);
+      expect(WalletTopUpAttempt.fromJson({
+        'phone': '0712345678',
+        'amount_kes': 500,
+        'idempotency_key': 'topup-test-123',
+      }), isNull);
+      expect(WalletTopUpAttempt.fromJson({
+        'phone': '254612345678',
+        'amount_kes': 500,
+        'idempotency_key': 'topup-test-123',
+      }), isNull);
     });
   });
 }
