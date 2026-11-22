@@ -448,7 +448,15 @@ class BackendApi {
   /// The Backend applies discoverability, protected-account and block rules.
   Future<Map<String, dynamic>> resolveProfileUsername(String username) {
     final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
-    if (!RegExp(r'^[A-Za-z0-9_.]{2,30}
+    final valid = RegExp(r'^[A-Za-z0-9_.]{2,30}\$').hasMatch(normalized);
+    if (!valid) {
+      throw ArgumentError.value(username, 'username', 'Enter a valid Testagram username');
+    }
+    return callCapability(
+      'testagram.social.profile.resolve',
+      input: {'username': normalized},
+    );
+  }
   /// External identity-provider IDs are not canonical Testagram account UUIDs.
   Future<Map<String, dynamic>> getMyProfile() =>
       _request('GET', baseUri.resolve('/api/me/profile'));
