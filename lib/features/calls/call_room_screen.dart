@@ -67,8 +67,8 @@ class _CallRoomScreenState extends State<CallRoomScreen> {
         const SizedBox(height: 24),
         const Card(
           child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
+            padding: EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               ListTile(leading: Icon(Icons.mic_none), title: Text('Voice calls'), subtitle: Text('Awaiting secure media transport')),
               Divider(),
               ListTile(leading: Icon(Icons.videocam_outlined), title: Text('Video calls'), subtitle: Text('Awaiting camera and media integration')),
