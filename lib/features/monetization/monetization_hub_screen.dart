@@ -71,7 +71,7 @@ class MonetizationHubScreen extends StatelessWidget {
   void _openFeature(BuildContext context, _MonetizationFeature feature) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
-        builder: (_) => MonetizationFeatureScreen(feature: feature),
+        builder: (_) => _MonetizationFeatureScreen(feature: feature),
       ),
     );
   }
@@ -151,8 +151,8 @@ class _MonetizationFeature {
   final String detail;
 }
 
-class MonetizationFeatureScreen extends StatelessWidget {
-  const MonetizationFeatureScreen({super.key, required this.feature});
+class _MonetizationFeatureScreen extends StatelessWidget {
+  const _MonetizationFeatureScreen({super.key, required this.feature});
 
   final _MonetizationFeature feature;
 
