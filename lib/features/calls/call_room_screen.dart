@@ -75,7 +75,7 @@ class _CallRoomScreenState extends State<CallRoomScreen> {
               Divider(),
               ListTile(leading: Icon(Icons.screen_share_outlined), title: Text('Screen sharing'), subtitle: Text('Not enabled')),
               Divider(),
-              ListTile(leading: Icon(Icons.enhanced_encryption_outlined), title: Text('Encrypted signaling'), subtitle: Text('Backend-issued, room-scoped tickets')),
+              ListTile(leading: Icon(Icons.enhanced_encryption_outlined), title: Text('Scoped signaling access'), subtitle: Text('Backend-issued, room-scoped tickets')),
             ]),
           ),
         ),
