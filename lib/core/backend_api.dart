@@ -558,7 +558,7 @@ class BackendApi {
     if (id.length != 36 || !RegExp(r'^[0-9a-f-]{36}').hasMatch(id)) {
       throw ArgumentError.value(targetUserId, 'targetUserId', 'Invalid Testagram account UUID');
     }
-    return _request('DELETE', baseUri.resolve('/api/social/blocks/' + id));
+    return _request('DELETE', baseUri.resolve('/api/social/blocks/$id'));
   }
 
   /// Reads the canonical federation preference through the public Backend API.
