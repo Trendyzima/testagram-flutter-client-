@@ -62,14 +62,14 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
   }
 
   Future<void> _startDirectMessage() async {
-    final controller = TextEditingController();
+    var enteredUsername = '';
     final username = await showDialog<String>(
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Start a conversation'),
         content: TextField(
-          controller: controller,
           autofocus: true,
+          onChanged: (value) => enteredUsername = value,
           textInputAction: TextInputAction.done,
           decoration: const InputDecoration(
             labelText: 'Testagram username',
@@ -79,11 +79,10 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
         ),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
-          FilledButton(onPressed: () => Navigator.pop(dialogContext, controller.text), child: const Text('Continue')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, enteredUsername), child: const Text('Continue')),
         ],
       ),
     );
-    controller.dispose();
     final handle = (username ?? '').trim().replaceFirst(RegExp(r'^@'), '');
     if (handle.isEmpty || !mounted) return;
     setState(() => _creating = true);
