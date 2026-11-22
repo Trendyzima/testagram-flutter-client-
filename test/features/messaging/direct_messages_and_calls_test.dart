@@ -140,7 +140,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.callListCalls, 1);
+    await tester.scrollUntilVisible(find.text('Call history'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('Call history'), findsOneWidget);
+    await tester.scrollUntilVisible(find.text('VOICE call'), 250, scrollable: find.byType(Scrollable).first);
     expect(find.text('VOICE call'), findsOneWidget);
     final start = tester.widget<FilledButton>(find.byType(FilledButton));
     expect(start.onPressed, isNull);
