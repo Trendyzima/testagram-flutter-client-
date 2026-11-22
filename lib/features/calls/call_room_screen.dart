@@ -65,7 +65,7 @@ class _CallRoomScreenState extends State<CallRoomScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
-        Card(
+        const Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: const [
