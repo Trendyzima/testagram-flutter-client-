@@ -113,8 +113,8 @@ class _FeedScreenState extends State<FeedScreen> {
           : <Map<String, dynamic>>[];
       final summaries = await Future.wait(rows.map((post) async {
         final id = (post['id'] ?? '').toString();
-        final origin = (post['origin'] ?? 'local').toString().toLowerCase();
-        final isRemote = origin.isNotEmpty && origin != 'local';
+        final origin = (post['origin'] ?? '').toString().toLowerCase();
+        final isRemote = origin != 'local';
         // Remote object URIs and AT URIs are not native UUID post IDs.
         // Never send them to native interaction-summary endpoints.
         if (id.isEmpty || isRemote) return <String, dynamic>{};
