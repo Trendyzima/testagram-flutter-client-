@@ -532,6 +532,10 @@ class BackendApi {
   // The Backend accepts RFC UUID versions 1-8 and the RFC variant bits only.
   bool _isCanonicalAccountId(String id) {
     if (id.length != 36) return false;
+    final version = id.codeUnitAt(14);
+    final variant = id.codeUnitAt(19);
+    if (version < 49 || version > 56) return false;
+    if (variant != 56 && variant != 57 && variant != 97 && variant != 98) return false;
     for (var index = 0; index < id.length; index++) {
       if (const {8, 13, 18, 23}.contains(index)) {
         if (id[index] != '-') return false;
