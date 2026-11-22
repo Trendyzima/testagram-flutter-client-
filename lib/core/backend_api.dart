@@ -723,6 +723,97 @@ class BackendApi {
     }
     return callCapability('testagram.wallet.mpesa.status', input: {'idempotency_key': key});
   }
+  /// Native Backend conversation list. Only active memberships are returned.
+  Future<Map<String, dynamic>> listConversations({int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return callCapability('testagram.conversations.list', input: {'limit': limit});
+  }
+
+  /// Creates or reuses a one-to-one conversation. Group creation remains
+  /// disabled until the Backend exposes explicit invitation acceptance.
+  Future<Map<String, dynamic>> createConversation(List<String> memberIds, {String title = ''}) {
+    if (memberIds.length != 1) {
+      throw ArgumentError.value(memberIds, 'memberIds', 'Provide exactly one recipient');
+    }
+    return callCapability('testagram.conversations.create', input: {
+      'member_ids': memberIds,
+      if (title.trim().isNotEmpty) 'title': title.trim(),
+    });
+  }
+
+  /// Lists encrypted message envelopes for an active conversation membership.
+  Future<Map<String, dynamic>> listMessages(String conversationId, {int limit = 50, String? cursor}) {
+    if (conversationId.trim().isEmpty || limit < 1 || limit > 100) {
+      throw ArgumentError('Conversation ID or message limit is invalid');
+    }
+    return callCapability('testagram.messages.list', input: {
+      'conversation_id': conversationId.trim(),
+      'limit': limit,
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    });
+  }
+
+  /// Writes a message only after the caller has encrypted it locally.
+  /// This method accepts ciphertext and never accepts plaintext body text.
+  Future<Map<String, dynamic>> sendEncryptedMessage({
+    required String conversationId,
+    required String ciphertext,
+    required String nonce,
+    required String clientMessageId,
+    required int epoch,
+    String aad = '',
+  }) {
+    if (conversationId.trim().isEmpty || ciphertext.isEmpty || nonce.isEmpty ||
+        clientMessageId.trim().isEmpty || epoch < 1) {
+      throw ArgumentError('Encrypted message envelope is incomplete');
+    }
+    return callCapability('testagram.messages.send_encrypted', input: {
+      'conversation_id': conversationId.trim(),
+      'ciphertext': ciphertext,
+      'nonce': nonce,
+      'client_message_id': clientMessageId.trim(),
+      'e2ee_epoch': epoch,
+      'aad': aad,
+    });
+  }
+
+  Future<Map<String, dynamic>> markMessageRead(String messageId) {
+    if (messageId.trim().isEmpty) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.mark_read', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> listConversationCalls(String conversationId) {
+    if (conversationId.trim().isEmpty) throw ArgumentError.value(conversationId, 'conversationId');
+    return callCapability('testagram.calls.list', input: {'conversation_id': conversationId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.get', input: {'call_id': callId.trim()});
+  }
+
+  /// Session creation is intentionally separate from media transport setup.
+  /// A created session does not mean an audio/video connection exists.
+  Future<Map<String, dynamic>> createCallSession(String conversationId, {String kind = 'video'}) {
+    if (conversationId.trim().isEmpty || !const {'voice', 'video', 'screen'}.contains(kind)) {
+      throw ArgumentError('Call session parameters are invalid');
+    }
+    return callCapability('testagram.calls.create', input: {
+      'conversation_id': conversationId.trim(),
+      'kind': kind,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.join', input: {'call_id': callId.trim()});
+  }
+
+  Future<Map<String, dynamic>> endCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.end', input: {'call_id': callId.trim()});
+  }
+
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(

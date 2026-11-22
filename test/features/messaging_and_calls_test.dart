@@ -116,7 +116,7 @@ void main() {
 
     expect(find.text('Voice call'), findsOneWidget);
     expect(find.textContaining('Private chat'), findsOneWidget);
-    expect(find.textContaining('End-to-end encrypted session'), findsOneWidget);
+    expect(find.textContaining('Media encryption not active in this client'), findsOneWidget);
     api.close();
   });
 }
