@@ -448,7 +448,7 @@ class BackendApi {
   /// The Backend applies discoverability, protected-account and block rules.
   Future<Map<String, dynamic>> resolveProfileUsername(String username) {
     final normalized = username.trim().replaceFirst(RegExp(r'^@'), '');
-    final valid = RegExp(r'^[A-Za-z0-9_.]{2,30}.hasMatch(normalized);
+    final valid = RegExp(r'^[A-Za-z0-9_.]{2,30}$').hasMatch(normalized);
     if (!valid) {
       throw ArgumentError.value(username, 'username', 'Enter a valid Testagram username');
     }
