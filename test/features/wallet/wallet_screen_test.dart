@@ -7,6 +7,7 @@ import 'package:material_ui/material_ui.dart';
 
 import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/wallet/wallet_screen.dart';
+import 'package:testagram/features/wallet/topup_attempt_store.dart';
 
 void main() {
   testWidgets('wallet shows KES balance and M-Pesa deposit action', (tester) async {
@@ -32,7 +33,7 @@ void main() {
       client: client,
     );
 
-    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api)));
+    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api, topUpAttemptStore: _MemoryWalletTopUpAttemptStore())));
     await tester.pumpAndSettle();
 
     expect(find.text('KES 250.00'), findsOneWidget);
@@ -62,7 +63,7 @@ void main() {
       client: client,
     );
 
-    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api)));
+    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api, topUpAttemptStore: _MemoryWalletTopUpAttemptStore())));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Send money'));
     await tester.pumpAndSettle();
@@ -109,7 +110,7 @@ void main() {
       client: client,
     );
 
-    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api)));
+    await tester.pumpWidget(MaterialApp(home: WalletScreen(api: api, topUpAttemptStore: _MemoryWalletTopUpAttemptStore())));
     await tester.pumpAndSettle();
 
     expect(find.text('M-Pesa deposit pending · KES 500'), findsOneWidget);
@@ -124,4 +125,21 @@ void main() {
     api.close();
   });
 
+}
+
+class _MemoryWalletTopUpAttemptStore implements WalletTopUpAttemptStore {
+  WalletTopUpAttempt? value;
+
+  @override
+  Future<WalletTopUpAttempt?> read() async => value;
+
+  @override
+  Future<void> save(WalletTopUpAttempt attempt) async {
+    value = attempt;
+  }
+
+  @override
+  Future<void> clear() async {
+    value = null;
+  }
 }
