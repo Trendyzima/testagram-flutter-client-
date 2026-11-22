@@ -126,4 +126,4 @@ At medium widths collapse the left rail to icons and hide the right rail. At mob
 - [ ] Remote origin is visible and unsupported federation actions are explained.
 - [ ] All signed-in requests use native Testagram authentication and public Backend APIs.
 - [ ] Accessibility, responsive layout, dark mode and keyboard navigation pass tests.
-- [ ] No Supabase, Appwrite, Xclone, direct database, direct federation or direct Algorithm dependency is introduced.
+- [ ] No third-party identity provider, hosted database, external account system, direct database, direct federation or direct Algorithm dependency is introduced; signed-in requests remain within Testagram-owned contracts.
