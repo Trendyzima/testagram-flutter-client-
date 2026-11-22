@@ -2,8 +2,6 @@ name: Testagram production domain smoke test
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: "*/15 * * * *"
 
 permissions:
   contents: read
