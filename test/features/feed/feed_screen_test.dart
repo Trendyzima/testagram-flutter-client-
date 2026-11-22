@@ -26,6 +26,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'topic-post',
+                'origin': 'local',
                 'content': 'Building in public #KenyaTech #BuildInPublic',
                 'created_at': '2026-11-14T09:00:00Z',
                 'author': {'username': 'builder', 'display_name': 'Builder'},
@@ -108,6 +109,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'post-with-gallery',
+                'origin': 'local',
                 'content': 'A gallery post',
                 'created_at': '2026-11-12T09:00:00Z',
                 'media_urls': [
@@ -173,6 +175,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'video-post-1',
+                'origin': 'local',
                 'content': 'A short video',
                 'is_video': true,
                 'created_at': '2026-11-15T09:00:00Z',
@@ -274,6 +277,7 @@ void main() {
             'data': {
               'posts': created ? [{
                 'id': 'post-read-back-1',
+                'origin': 'local',
                 'content': 'Read-back verified from the Backend',
                 'created_at': '2026-11-14T12:00:00Z',
                 'author': {'username': 'staging_member', 'display_name': 'Staging Member'},
@@ -335,6 +339,7 @@ void main() {
             'data': {
               'posts': [{
                 'id': 'quote-source-1',
+                'origin': 'local',
                 'content': 'Original post to quote',
                 'created_at': '2026-11-14T09:00:00Z',
                 'author': {'username': 'alice', 'display_name': 'Alice'},
@@ -405,12 +410,14 @@ void main() {
                   'display_name': 'Alice',
                   'protected_account': false,
                 },
+                // A stale or prematurely optimistic flag must not enable
+                // local UUID-backed mutations for a protocol-native object.
                 'capabilities': {
-                  'like': false,
-                  'reply': false,
-                  'repost': false,
-                  'quote': false,
-                  'follow_author': false,
+                  'like': true,
+                  'reply': true,
+                  'repost': true,
+                  'quote': true,
+                  'follow_author': true,
                 },
               }],
               'has_more': false,
@@ -446,8 +453,86 @@ void main() {
     final quote = entries.whereType<PopupMenuItem<String>>()
         .firstWhere((entry) => entry.value == 'quote');
     expect(quote.enabled, isFalse);
+
+    // A protocol-native AT URI is not a local UUID. Opening the card must not
+    // dispatch it to the local post-detail endpoint.
+    await tester.tap(find.text('A public Bluesky post'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remote post'), findsOneWidget);
+    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
+    expect(
+      requestedPaths.where((path) => path.contains('/api/social/posts/')),
+      isEmpty,
+    );
     api.close();
   });
 
+
+  testWidgets('federated feed cards stay read-only and never call local interaction APIs',
+      (tester) async {
+    final requestedPaths = <String>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async {
+        requestedPaths.add(request.url.path);
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [{
+                'id': 'at://did:plc:example/app.bsky.feed.post/record-1',
+                'origin': 'atproto',
+                'visibility': 'public',
+                'content': 'A remote post from Bluesky',
+                'created_at': '2026-11-22T03:00:00Z',
+                'author': {'username': 'alice.bsky.social', 'display_name': 'Alice'},
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('A remote post from Bluesky'), findsOneWidget);
+    expect(find.byIcon(Icons.mode_comment_outlined), findsNothing);
+    expect(find.byIcon(Icons.repeat_rounded), findsNothing);
+    expect(find.byIcon(Icons.favorite_border_rounded), findsNothing);
+    expect(find.byIcon(Icons.bookmark_border_rounded), findsNothing);
+    expect(requestedPaths.where((path) => path.endsWith('/interaction-summary')), isEmpty);
+
+    await tester.tap(find.byTooltip('Post actions'));
+    await tester.pumpAndSettle();
+    final quoteItem = tester.widget<PopupMenuItem<String>>(
+      find.byWidgetPredicate(
+        (widget) => widget is PopupMenuItem<String> && widget.value == 'quote',
+      ),
+    );
+    expect(quoteItem.enabled, isFalse);
+    expect(
+      requestedPaths.where((path) => path.startsWith('/api/social/posts/')),
+      isEmpty,
+    );
+
+    // Use the explicit menu action so the popup is dismissed by its own
+    // route action rather than trying to tap through the open menu overlay.
+    await tester.tap(find.text('Open post'));
+    await tester.pumpAndSettle();
+    expect(find.text('Remote post'), findsOneWidget);
+    expect(find.textContaining('Read-only remote snapshot'), findsOneWidget);
+    expect(
+      requestedPaths.where((path) => path.startsWith('/api/social/posts/')),
+      isEmpty,
+    );
+    api.close();
+  });
 
 }
