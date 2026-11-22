@@ -48,6 +48,19 @@ class RemotePostDetailScreen extends StatelessWidget {
     final mediaTypes = rawTypes is List
         ? rawTypes.map((value) => value.toString().toLowerCase()).toList()
         : <String>[];
+    final mediaHeaders = <String, String>{};
+    final rawHeaders = post['media_auth_headers'];
+    if (rawHeaders is Map) {
+      for (final entry in rawHeaders.entries) {
+        final url = FeedMediaUrl.normalize(entry.key);
+        final authorization = entry.value.toString();
+        if (url != null &&
+            url.startsWith('https://') &&
+            authorization.startsWith('Bearer v1.')) {
+          mediaHeaders[url] = authorization;
+        }
+      }
+    }
 
     return Scaffold(
       appBar: AppBar(title: const Text('Remote post')),
@@ -145,6 +158,9 @@ class RemotePostDetailScreen extends StatelessWidget {
                 child: Image.network(
                   mediaUrls[index],
                   fit: BoxFit.contain,
+                  headers: mediaHeaders[mediaUrls[index]] == null
+                      ? null
+                      : {'Authorization': mediaHeaders[mediaUrls[index]]!},
                   errorBuilder: (_, __, ___) => const SizedBox.shrink(),
                 ),
               ),
