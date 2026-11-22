@@ -81,7 +81,9 @@ class RemotePostDetailScreen extends StatelessWidget {
                 ),
               ),
               if (visibility == 'public' || visibility == 'unlisted')
-                const Chip(label: Text('Public')),
+                Chip(
+                  label: Text(visibility == 'unlisted' ? 'Unlisted' : 'Public'),
+                ),
             ],
           ),
           const SizedBox(height: 18),
