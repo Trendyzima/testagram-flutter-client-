@@ -7,12 +7,14 @@ class ConversationScreen extends StatefulWidget {
   const ConversationScreen({
     super.key,
     required this.api,
-    required this.conversationId,
-    required this.title,
+    this.conversation,
+    this.conversationId,
+    this.title,
   });
   final BackendApi api;
-  final String conversationId;
-  final String title;
+  final Map<String, dynamic>? conversation;
+  final String? conversationId;
+  final String? title;
 
   @override
   State<ConversationScreen> createState() => _ConversationScreenState();
@@ -37,6 +39,12 @@ class _ConversationScreenState extends State<ConversationScreen> {
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
           : <Map<String, dynamic>>[];
       if (mounted) setState(() => _messages = rows.reversed.toList());
+      if (rows.isNotEmpty) {
+        final latestId = (rows.first['id'] ?? '').toString();
+        if (latestId.isNotEmpty) {
+          try { await widget.api.markMessageRead(latestId); } catch (_) { /* Read receipts are best-effort. */ }
+        }
+      }
     } catch (error) {
       if (mounted) setState(() => _error = error.toString());
     } finally {
@@ -53,15 +61,15 @@ class _ConversationScreenState extends State<ConversationScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Text(widget.title),
+      title: Text(_title),
       actions: [
         IconButton(
           tooltip: 'Voice or video call',
           onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
             builder: (_) => CallRoomScreen(
               api: widget.api,
-              conversationId: widget.conversationId,
-              conversationTitle: widget.title,
+              conversationId: _id,
+              conversationTitle: _title,
             ),
           )),
           icon: const Icon(Icons.video_call_outlined),
