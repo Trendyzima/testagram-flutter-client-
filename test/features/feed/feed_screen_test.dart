@@ -405,12 +405,14 @@ void main() {
                   'display_name': 'Alice',
                   'protected_account': false,
                 },
+                // A stale or prematurely optimistic flag must not enable
+                // local UUID-backed mutations for a protocol-native object.
                 'capabilities': {
-                  'like': false,
-                  'reply': false,
-                  'repost': false,
-                  'quote': false,
-                  'follow_author': false,
+                  'like': true,
+                  'reply': true,
+                  'repost': true,
+                  'quote': true,
+                  'follow_author': true,
                 },
               }],
               'has_more': false,
