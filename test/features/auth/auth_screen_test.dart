@@ -144,7 +144,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('NEW HERE?'), findsOneWidget);
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
     await tapVisible(tester, find.text('Sign up'));
     expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
@@ -173,7 +173,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Create your account'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
     await tapVisible(tester, find.text('Create your account'));
     await tester.pumpAndSettle();
     expect(find.text('Create account'), findsOneWidget);
@@ -193,7 +193,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('NEW HERE?'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Create your account'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Create account'), findsOneWidget);
     expect(find.text('Sign up'), findsOneWidget);
     expect(find.text('Reset password'), findsOneWidget);
 
