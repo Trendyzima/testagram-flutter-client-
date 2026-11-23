@@ -1505,6 +1505,8 @@ class _Action extends StatelessWidget {
       return;
     }
     setState(() => _activeMention = query);
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
     try {
       final response = await widget.api.search(query: query, kind: 'people', limit: 6);
       final raw = response['data'];
