@@ -36,7 +36,7 @@ abstract interface class NativeAuthSession {
     required String password,
   });
   Future<void> resendVerification(String email);
-  Future<void> verifyEmail(String token);
+  Future<void> verifyEmail(String token, {String? email});
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -221,8 +221,11 @@ class NativeAuthClient implements NativeAuthSession {
   }
 
   @override
-  Future<void> verifyEmail(String token) async {
-    await _post('verify-email', body: {'token': token});
+  Future<void> verifyEmail(String token, {String? email}) async {
+    await _post('verify-email', body: {
+      'token': token,
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim().toLowerCase(),
+    });
   }
 
   @override
