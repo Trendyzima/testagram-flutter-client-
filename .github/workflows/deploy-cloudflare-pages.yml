@@ -294,7 +294,7 @@ jobs:
                   fi
                 done
                 if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]] &&
-                   ! grep -aFq 'Submit application' "$asset_body"; then
+                   ! grep -aFq 'Create account' "$asset_body"; then
                   echo "::error::Registration was enabled but the native Create account flow is missing from the deployed bundle."
                   rm -f "$page" "$headers" "$asset_body" "$asset_headers"
                   exit 1
