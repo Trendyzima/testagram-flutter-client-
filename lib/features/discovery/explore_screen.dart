@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import '../profile/profile_screen.dart';
 import '../posts/post_detail_screen.dart';
 import '../federation/remote_post_detail_screen.dart';
