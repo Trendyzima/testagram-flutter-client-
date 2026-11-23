@@ -346,7 +346,7 @@ class _FeedScreenState extends State<FeedScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => const _PostComposerSheet(),
+      builder: (_) => _PostComposerSheet(api: widget.api),
     );
     if (!mounted || draft == null || _publishing) return;
 
@@ -825,7 +825,8 @@ class _PostDraft {
 }
 
 class _PostComposerSheet extends StatefulWidget {
-  const _PostComposerSheet();
+  const _PostComposerSheet({required this.api});
+  final BackendApi api;
 
   @override
   State<_PostComposerSheet> createState() => _PostComposerSheetState();
@@ -835,6 +836,48 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
   final _controller = TextEditingController();
   final _media = <_PostMediaDraft>[];
   String _visibility = 'public';
+  List<Map<String, dynamic>> _mentionSuggestions = [];
+  int _mentionGeneration = 0;
+  String _activeMention = '';
+
+  Future<void> _updateMentionSuggestions(String value) async {
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})$').firstMatch(value);
+    final query = match?.group(1) ?? '';
+    final generation = ++_mentionGeneration;
+    if (query.isEmpty) {
+      if (mounted) setState(() { _activeMention = ''; _mentionSuggestions = []; });
+      return;
+    }
+    setState(() => _activeMention = query);
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+    try {
+      final response = await widget.api.search(query: query, kind: 'people', limit: 6);
+      final raw = response['data'];
+      final data = raw is Map ? raw : response;
+      final users = data['users'];
+      final rows = users is List
+          ? users.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+      setState(() => _mentionSuggestions = rows);
+    } catch (_) {
+      if (mounted && generation == _mentionGeneration) setState(() => _mentionSuggestions = []);
+    }
+  }
+
+  void _insertMention(String username) {
+    final text = _controller.text;
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})$').firstMatch(text);
+    if (match == null) return;
+    final start = match.start + (match.group(0)!.startsWith(' ') ? 1 : 0);
+    final updated = text.replaceRange(start, text.length, '@$username ');
+    _controller.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: updated.length),
+    );
+    setState(() { _activeMention = ''; _mentionSuggestions = []; });
+  }
 
   @override
   void dispose() {
@@ -963,13 +1006,34 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
               minLines: 4,
               maxLines: 9,
               maxLength: 5000,
-              onChanged: (_) => setState(() {}),
+              onChanged: (value) {
+                setState(() {});
+                _updateMentionSuggestions(value);
+              },
               decoration: const InputDecoration(
                 hintText: 'What is happening? Use #hashtags and @mentions.',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
             ),
+            if (_mentionSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Mention people', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 7,
+                runSpacing: 5,
+                children: _mentionSuggestions.map((person) {
+                  final username = (person['username'] ?? '').toString();
+                  final display = (person['display_name'] ?? username).toString();
+                  return ActionChip(
+                    avatar: const Icon(Icons.alternate_email_rounded, size: 16),
+                    label: Text('$display · @$username'),
+                    onPressed: username.isEmpty ? null : () => _insertMention(username),
+                  );
+                }).toList(),
+              ),
+            ],
             if (_media.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(
