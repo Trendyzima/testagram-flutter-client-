@@ -12,6 +12,7 @@ import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
 import '../profile/profile_screen.dart';
 import '../discovery/hashtag_screen.dart';
+import '../discovery/explore_screen.dart';
 import 'social_post_text.dart';
 import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
@@ -625,7 +626,7 @@ class _FeedScreenState extends State<FeedScreen> {
               const SizedBox(width: 24),
               SizedBox(
                 width: 292,
-                child: _ConversationSidebar(posts: _posts),
+                child: _ConversationSidebar(api: widget.api),
               ),
             ],
           );
@@ -750,61 +751,168 @@ class _FeedTab extends StatelessWidget {
   }
 }
 
-class _ConversationSidebar extends StatelessWidget {
-  const _ConversationSidebar({required this.posts});
+class _ConversationSidebar extends StatefulWidget {
+  const _ConversationSidebar({required this.api});
 
-  final List<Map<String, dynamic>> posts;
+  final BackendApi api;
+
+  @override
+  State<_ConversationSidebar> createState() => _ConversationSidebarState();
+}
+
+class _ConversationSidebarState extends State<_ConversationSidebar> {
+  List<Map<String, dynamic>> _hashtags = [];
+  List<Map<String, dynamic>> _words = [];
+  bool _loading = true;
+  String? _error;
+  String _hashtagRanking = 'Testagram topic ranking';
+  String _wordRanking = 'Testagram trend ranking';
+
+  Map<String, dynamic> _data(Map<String, dynamic> response) {
+    final raw = response['data'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : response;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final responses = await Future.wait([
+        widget.api.getTrendingHashtags(limit: 6),
+        widget.api.getTrendingWords(limit: 6),
+      ]);
+      final hashtags = _data(responses[0]);
+      final words = _data(responses[1]);
+      final hashtagItems = hashtags['items'];
+      final wordItems = words['items'];
+      if (!mounted) return;
+      setState(() {
+        _hashtags = hashtagItems is List
+            ? hashtagItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+        _words = wordItems is List
+            ? wordItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+        _hashtagRanking = (hashtags['ranking'] ?? 'recent public activity').toString();
+        _wordRanking = (words['ranking'] ?? 'recent public activity').toString();
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _openHashtag(String value) {
+    final tag = value.trim().replaceFirst(RegExp(r'^#'), '');
+    if (tag.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
+
+  void _openWord(String value) {
+    final word = value.trim();
+    if (word.length < 2) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ExploreScreen(api: widget.api, initialQuery: word),
+    ));
+  }
+
+  Widget _trendTile({
+    required String title,
+    required String subtitle,
+    required bool rising,
+    required VoidCallback onTap,
+  }) {
+    return ListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+        style: const TextStyle(fontWeight: FontWeight.w800)),
+      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+      trailing: Icon(rising ? Icons.trending_up_rounded : Icons.chevron_right_rounded,
+        color: rising ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+        size: 19),
+      onTap: onTap,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final topics = <String, int>{};
-    final matcher = RegExp(r'#[A-Za-z0-9_]{2,30}');
-    for (final post in posts) {
-      final content = (post['content'] ?? '').toString();
-      for (final match in matcher.allMatches(content)) {
-        final topic = match.group(0)!.toLowerCase();
-        topics[topic] = (topics[topic] ?? 0) + 1;
-      }
-    }
-    final ranked = topics.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 16, right: 16),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Theme.of(context).dividerColor),
+          border: Border.all(color: theme.dividerColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("What's happening", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text('Topics appearing in your timeline', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 14),
-            if (ranked.isEmpty)
-              Text('Hashtags from posts will appear here as conversations grow.', style: Theme.of(context).textTheme.bodyMedium)
-            else
-              for (final topic in ranked.take(6)) ...[
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Trending in your feed', style: Theme.of(context).textTheme.labelSmall),
-                      const SizedBox(height: 4),
-                      Text(topic.key, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                      const SizedBox(height: 3),
-                      Text('${topic.value} ${topic.value == 1 ? 'post' : 'posts'}', style: Theme.of(context).textTheme.bodySmall),
-                    ],
+            Row(children: [
+              Expanded(child: Text("What's happening", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+              IconButton(
+                tooltip: 'Refresh trends',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded, size: 19),
+              ),
+            ]),
+            Text('Live discovery from public Testagram conversations',
+              style: theme.textTheme.bodySmall),
+            if (_loading && _hashtags.isEmpty && _words.isEmpty)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 18), child: Center(child: CircularProgressIndicator()))
+            else if (_error != null && _hashtags.isEmpty && _words.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Trends are temporarily unavailable.', style: theme.textTheme.bodyMedium),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ]),
+              )
+            else ...[
+              const SizedBox(height: 12),
+              Text('TRENDING HASHTAGS', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: .6)),
+              const SizedBox(height: 4),
+              Text(_hashtagRanking.replaceAll('_', ' '), style: theme.textTheme.bodySmall),
+              if (_hashtags.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('Hashtag trends will appear as public conversations grow.', style: theme.textTheme.bodySmall))
+              else
+                for (final item in _hashtags) ...[
+                  _trendTile(
+                    title: '#${(item['tag'] ?? '').toString()}',
+                    subtitle: '${(item['posts_count'] ?? 0)} posts in the last 7 days',
+                    rising: item['reasons'] is List && (item['reasons'] as List).contains('accelerating'),
+                    onTap: () => _openHashtag((item['tag'] ?? '').toString()),
                   ),
-                ),
-              ],
+                ],
+              const Divider(height: 18),
+              Text('TRENDING WORDS', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: .6)),
+              const SizedBox(height: 4),
+              Text(_wordRanking.replaceAll('_', ' '), style: theme.textTheme.bodySmall),
+              if (_words.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('Emerging discussion words will appear here.', style: theme.textTheme.bodySmall))
+              else
+                for (final item in _words) ...[
+                  _trendTile(
+                    title: (item['word'] ?? '').toString(),
+                    subtitle: '${(item['posts_count'] ?? 0)} posts · ${((item['reasons'] is List && (item['reasons'] as List).contains('accelerating')) ? 'Rising' : 'Trending')}',
+                    rising: item['reasons'] is List && (item['reasons'] as List).contains('accelerating'),
+                    onTap: () => _openWord((item['word'] ?? '').toString()),
+                  ),
+                ],
+            ],
+            if (_error != null && (_hashtags.isNotEmpty || _words.isNotEmpty))
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text('Showing last loaded trends. Refresh when online.', style: theme.textTheme.bodySmall)),
           ],
         ),
       ),
