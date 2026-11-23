@@ -93,7 +93,7 @@ void main() {
     await tester.enterText(password, 'correct-password-123');
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Sign in'));
 
-    expect(find.textContaining('Testagram is awake and ready'), findsOneWidget);
+    expect(find.textContaining('Your sign-in details are still here'), findsOneWidget);
     expect(tester.widget<TextFormField>(email).controller?.text, 'person@example.test');
     expect(tester.widget<TextFormField>(password).controller?.text, 'correct-password-123');
     expect(recoveryAuth.attempts, 1);
