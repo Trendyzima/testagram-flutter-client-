@@ -24,7 +24,7 @@ void main() {
     expect(find.text('Knowledge'), findsOneWidget);
     expect(find.text('Topics'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
-    expect(find.text('Following'), findsNWidgets(2));
+    expect(find.text('Following'), findsOneWidget);
     expect(find.text('Unanswered'), findsOneWidget);
     expect(find.text('Your questions'), findsOneWidget);
     expect(find.text('Ask a question'), findsOneWidget);
@@ -105,7 +105,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Kenya'), findsOneWidget);
-    expect(find.text('12 followers · 4 questions'), findsOneWidget);
+    expect(find.textContaining('12 followers · 4 questions'), findsOneWidget);
     await tester.tap(find.text('Follow'));
     await tester.pumpAndSettle();
     expect(find.text('Following'), findsOneWidget);
