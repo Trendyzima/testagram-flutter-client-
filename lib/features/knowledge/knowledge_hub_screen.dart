@@ -158,6 +158,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
     const tabs = ['Topics', 'For you', 'Following', 'Unanswered', 'Your questions'];
     return DefaultTabController(
       length: tabs.length,
+      initialIndex: 1,
       child: Scaffold(
         appBar: AppBar(
           title: const Text('Knowledge'),
