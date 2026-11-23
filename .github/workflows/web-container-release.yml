@@ -41,9 +41,9 @@ jobs:
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      # Production release always attempts the registration UI; the canonical Backend probe below must pass before any image is published.
-      # Pull requests keep it disabled because they do not have production deployment authority.
-      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
+      # Compile and verify registration on PRs. Production defaults on, but can be explicitly disabled by the operator.
+      # The canonical Backend readiness probe must pass before any production image is published.
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ github.event_name == 'pull_request' && 'true' || vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'true' }}
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
       - name: Check out Flutter client
