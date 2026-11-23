@@ -1,6 +1,5 @@
 
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -70,23 +69,14 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (entry.applicationId != null) {
-              _verify(entry.applicationId!, entry.token!);
-            } else {
-              _verifyNative(entry.token!);
-            }
+            _verifyNative(entry.token!);
           });
         } else {
           _notice = 'Open the complete Testagram verification link from your email, or request another one.';
         }
         break;
       case AuthEntryMode.signUp:
-        if (widget.enableIdentityRegistration) {
-          _page = _Page.signUp;
-        } else {
-          _page = _Page.signIn;
-          _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
-        }
+        _page = _Page.signUp;
         break;
       case AuthEntryMode.forgotPassword:
         _page = _Page.forgot;
@@ -98,20 +88,10 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
+    // Ordinary registration always uses the native email/password flow.
+    // Do not restore or create identity-review applications during signup.
     if (widget.requireIdentityReview) {
-      if (widget.enableIdentityRegistration) {
-        _page = _Page.signUp;
-        _notice = 'Complete identity verification and independent account approval to finish setting up your account.';
-      } else {
-        _page = _Page.signIn;
-        _notice = 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
-      }
-    }
-    // A saved draft must not reopen the application workflow after the
-    // registration release gate has been disabled. Keep the encrypted draft
-    // intact so it can be resumed if registration is deliberately re-enabled.
-    if (widget.enableIdentityRegistration) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSavedIdentityApplication());
+      _page = _Page.signUp;
     }
   }
 
@@ -121,14 +101,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   void _go(_Page p) {
-    if (p == _Page.signUp && !widget.enableIdentityRegistration) {
-      setState(() {
-        _page = _Page.signIn;
-        _error = null;
-        _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
-      });
-      return;
-    }
     setState(() {
       _page = p;
       _error = null;
@@ -155,7 +127,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
       if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Identity review and two-person account approval are required before accessing Testagram.';
+        return 'This legacy account still has an approval restriction. Contact Testagram support; ordinary new accounts do not require administrator approval.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
@@ -188,7 +160,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
       }
       if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Your account is waiting for the required independent Testagram identity approvals.';
+        return 'This legacy account still has an approval restriction. Contact Testagram support.';
       }
       if (e.code == 'PASSWORD_RESET_REQUIRED') {
         return 'Set a new Testagram password using the recovery link before signing in.';
@@ -227,12 +199,6 @@ class _AuthScreenState extends State<AuthScreen> {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  String _newIdentityIdempotencyKey() {
-    final random = Random.secure();
-    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return base64Url.encode(bytes).replaceAll('=', '');
-  }
-
   String? _usernameValid(String? value) {
     final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
     if (!RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(username)) {
@@ -254,18 +220,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (mounted) {
             setState(() {
               _page = _Page.verify;
-              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh link from your saved application.';
-            });
-          }
-          return;
-        }
-        if (error.code == 'IDENTITY_APPROVAL_REQUIRED') {
-          if (mounted) {
-            setState(() {
-              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
-              _notice = widget.enableIdentityRegistration
-                  ? 'This account has not completed Testagram identity review and two-person account approval. Submit an application to continue.'
-                  : 'This account has not completed identity review and two-person account approval. Registration is temporarily unavailable.';
+              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh verification link.';
             });
           }
           return;
@@ -280,33 +235,11 @@ class _AuthScreenState extends State<AuthScreen> {
         await backend.getMyProfile();
       } on BackendApiException catch (error) {
         final message = error.message.toLowerCase();
-        if (error.statusCode == 403 &&
-            (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-                message.contains('identity review') ||
-                message.contains('two-person account approval'))) {
-          if (mounted) {
-            setState(() {
-              _email.text = _email.text.trim().toLowerCase();
-              _username.text = _email.text.split('@').first
-                  .toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
-                  .replaceAll(RegExp(r'_+'), '_');
-              if (_username.text.length < 3) _username.text = 'user_account';
-              if (_username.text.length > 30) {
-                _username.text = _username.text.substring(0, 30);
-              }
-              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
-              _notice = widget.enableIdentityRegistration
-                  ? 'This Testagram account has not completed identity review and two-person approval. Submit an application to continue.'
-                  : 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
-            });
-          }
-          return;
-        }
         if (error.statusCode == 403 && error.code == 'EMAIL_VERIFICATION_REQUIRED') {
           if (mounted) {
             setState(() {
               _page = _Page.verify;
-              _notice = 'Verify the email address linked to your approved Testagram application before signing in.';
+              _notice = 'Verify the email address linked to your Testagram account before signing in.';
             });
           }
           return;
@@ -449,10 +382,6 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signUp() async {
-    if (!widget.enableIdentityRegistration) {
-      if (mounted) setState(() => _notice = 'New account creation is temporarily unavailable. Please try again shortly.');
-      return;
-    }
     if (!_form.currentState!.validate()) return;
     await _run(() async {
       await widget.authClient.signUp(
@@ -471,16 +400,7 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _resend() async => _run(() async {
-    if (_identityApplication != null) {
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        await api.resendVerification(_identityApplication!);
-      } finally {
-        api.close();
-      }
-    } else {
-      await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
-    }
+    await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
     if (mounted) setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
   });
 
@@ -1005,7 +925,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Icon(Icons.verified_user_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
-                  Expanded(child: Text('Account safety comes first. Your application is reviewed independently before account activation.', style: TextStyle(height: 1.45, fontSize: 13))),
+                  Expanded(child: Text('Create your Testagram account with your email, username and password. Verify your email to activate it—no administrator approval is required.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
               ),
               const SizedBox(height: 12),
@@ -1058,13 +978,8 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_notice != null) ...[const SizedBox(height: 16), statusMessage(_notice!, error: false)],
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
-            if (_page == _Page.signUp && widget.enableIdentityRegistration)
+            if (_page == _Page.signUp)
               primaryAction('Create account', _signUp),
-            if (_page == _Page.signUp && !widget.enableIdentityRegistration)
-              statusMessage(
-                'New account creation is temporarily unavailable. Please try again shortly.',
-                error: false,
-              ),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
             if (_page == _Page.verify)
@@ -1072,7 +987,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
-              if (widget.enableIdentityRegistration) ...[
+              ...[
                 const SizedBox(height: 8),
                 const Row(children: [
                   Expanded(child: Divider()),
