@@ -43,14 +43,14 @@ jobs:
       TESTAGRAM_API_URL: https://api.testagram.site
       # Compile and verify registration on PRs. Production defaults on, but can be explicitly disabled by the operator.
       # The canonical Backend readiness probe must pass before any production image is published.
-      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: ${{ github.event_name == 'pull_request' && 'true' || vars.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED || 'true' }}
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
       - name: Check out Flutter client
         uses: actions/checkout@v4
 
       - name: Verify canonical Backend registration gate before exposing sign-up
-        if: github.event_name != 'pull_request' && env.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED == 'true'
+        if: github.event_name != 'pull_request'
         shell: bash
         run: |
           set -euo pipefail
@@ -94,8 +94,7 @@ jobs:
             }
           done
 
-      - name: Verify registration flow is present when explicitly enabled
-        if: env.TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED == 'true'
+      - name: Require native account creation in every web release
         shell: bash
         run: |
           set -euo pipefail
