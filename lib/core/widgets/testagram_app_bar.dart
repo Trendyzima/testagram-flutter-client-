@@ -12,12 +12,14 @@ class TestagramAppBar extends StatelessWidget implements PreferredSizeWidget {
     required this.title,
     this.actions = const [],
     this.bottom,
+    this.showBrand = true,
     this.toolbarHeight = 64,
   });
 
   final String title;
   final List<Widget> actions;
   final PreferredSizeWidget? bottom;
+  final bool showBrand;
   final double toolbarHeight;
 
   @override
@@ -28,11 +30,13 @@ class TestagramAppBar extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) => AppBar(
         toolbarHeight: toolbarHeight,
-        leadingWidth: 56,
-        leading: const Padding(
-          padding: EdgeInsets.only(left: 12, top: 8, bottom: 8),
-          child: TestagramBrandMark(size: 36, radius: 11),
-        ),
+        leadingWidth: showBrand ? 56 : null,
+        leading: showBrand
+            ? const Padding(
+                padding: EdgeInsets.only(left: 12, top: 8, bottom: 8),
+                child: TestagramBrandMark(size: 36, radius: 11),
+              )
+            : null,
         title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis),
         actions: actions,
         bottom: bottom,
