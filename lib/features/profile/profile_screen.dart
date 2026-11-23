@@ -207,6 +207,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       appBar: TestagramAppBar(
         title: 'Profile',
+        showBrand: !Navigator.of(context).canPop(),
         actions: [
           if (_profile != null && _profile?['is_self'] != true)
             PopupMenuButton<String>(
