@@ -445,80 +445,48 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _signUp() async {
-    // The visible account-creation entry is independent from the server-side
-    // registration switch. Never submit or persist an application while the
-    // frontend release gate is closed.
     if (!widget.enableIdentityRegistration) {
-      if (mounted) {
-        setState(() => _notice =
-            'Registration is currently closed. Your details have not been submitted or saved.');
-      }
+      if (mounted) setState(() => _notice = 'New account creation is temporarily unavailable. Please try again shortly.');
       return;
     }
     if (!_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
-      return;
-    }
     await _run(() async {
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        var draft = _identityDraft;
-        if (draft == null) {
-          final newDraft = IdentityApplicationDraft(
-            email: _email.text.trim().toLowerCase(),
-            username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-            displayName: _name.text.trim(),
-            idempotencyKey: _newIdentityIdempotencyKey(),
-            createdAt: DateTime.now().toUtc(),
-          );
-          // Persist the idempotency capability before the network request so
-          // a lost response can be recovered after an app/browser restart.
-          await _identityStore.save(newDraft);
-          draft = newDraft;
-          _identityDraft = newDraft;
-          if (mounted) setState(() {});
-        }
-        final submissionDraft = draft;
-        final application = await _submitIdentityDraft(api, submissionDraft);
-        if (application == null) return;
-        final savedDraft = submissionDraft.copyWith(application: application);
-        await _identityStore.save(savedDraft);
-        if (!mounted) return;
-        setState(() {
-          _identityDraft = savedDraft;
-          _identityApplication = application;
-          _identityStatus = null;
-          _page = _Page.identity;
-          _notice = 'Your application has been created. Submit the requested private evidence; account creation becomes available only after independent review and two-person approval.';
-        });
-        final status = await api.getStatus(application);
-        if (mounted) setState(() => _identityStatus = status);
-      } finally {
-        api.close();
-      }
+      await widget.authClient.signUp(
+        email: _email.text.trim().toLowerCase(),
+        username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+        password: _password.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page = _Page.verify;
+        _notice = 'Your account has been created. Check your email and open the verification link to activate it. No administrator approval is required.';
+        _password.clear();
+        _confirm.clear();
+      });
     });
   }
 
   Future<void> _resend() async => _run(() async {
-    final application = _identityApplication;
-    if (application == null) {
-      if (mounted) {
-        setState(() => _notice =
-            'If your approved application is awaiting email verification, reopen it on this device to request a new link.');
+    if (_identityApplication != null) {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        await api.resendVerification(_identityApplication!);
+      } finally {
+        api.close();
       }
-      return;
+    } else {
+      await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
     }
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      await api.resendVerification(application);
-      if (mounted) {
-        setState(() => _notice =
-            'If your approved application is awaiting verification, a fresh Testagram email link has been requested.');
-      }
-    } finally {
-      api.close();
-    }
+    if (mounted) setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
+  });
+
+  Future<void> _verifyNative(String token) async => _run(() async {
+    await widget.authClient.verifyEmail(token);
+    if (mounted) setState(() {
+      _page = _Page.signIn;
+      _notice = 'Your email is verified. Sign in to start using Testagram.';
+      _recoveryToken = null;
+    });
   });
 
   Future<void> _verify(String applicationId, String token) async => _run(() async {
