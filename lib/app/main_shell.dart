@@ -291,7 +291,7 @@ class _MainShellState extends State<MainShell> {
                     NavigationDestination(
                       icon: Icon(Icons.notifications_none_rounded),
                       selectedIcon: Icon(Icons.notifications_rounded),
-                      label: 'Alerts',
+                      label: 'Notifications',
                     ),
                     NavigationDestination(
                       icon: Icon(Icons.menu_rounded),
