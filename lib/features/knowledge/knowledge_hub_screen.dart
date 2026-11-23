@@ -25,6 +25,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
     } catch (_) {
       // Topic discovery is optional while the Q&A service remains available.
     }
+    if (!mounted) return;
     final title = TextEditingController();
     final body = TextEditingController();
     var visibility = 'public';
