@@ -17,7 +17,7 @@ void main() {
       }),
     );
 
-    await api.getKnowledgeQuestions(status: 'open', mine: true, limit: 15);
+    await api.getKnowledgeQuestions(status: 'open', mine: true, following: true, limit: 15);
     await api.createKnowledgeQuestion(
       title: 'How can I improve PostgreSQL performance?',
       body: 'I am profiling a slow query.',
@@ -41,6 +41,7 @@ void main() {
       'limit': '15',
       'status': 'open',
       'mine': 'true',
+      'following': 'true',
     });
     expect(requests[1].headers['idempotency-key'], 'question-create-123456');
     expect(jsonDecode(requests[1].body), {
