@@ -86,16 +86,22 @@ jobs:
           # and required runtime dependencies are open. No application is created.
           idempotency_key="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
           response_file="$(mktemp)"
-          trap 'rm -f "$response_file"' EXIT
+          headers_file="$(mktemp)"
+          trap 'rm -f "$response_file" "$headers_file"' EXIT
           status="$(curl --silent --show-error --max-time 20 \
-            -o "$response_file" -w '%{http_code}' -X POST \
+            -D "$headers_file" -o "$response_file" -w '%{http_code}' -X POST \
             "$TESTAGRAM_API_URL/api/identity/applications" \
             -H 'Content-Type: application/json' \
             -H "Idempotency-Key: $idempotency_key" \
             --data-binary '{"registration_gate_probe":')"
           error_code="$(jq -r '.error.code // empty' "$response_file" 2>/dev/null || true)"
           if [[ "$status" != "400" || "$error_code" != "INVALID_JSON" ]]; then
-            echo "::error::Backend registration gate is not ready (HTTP $status, code=$error_code). No frontend release was performed."
+            location="$(awk 'BEGIN { IGNORECASE=1 } /^Location:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
+            content_type="$(awk 'BEGIN { IGNORECASE=1 } /^Content-Type:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
+            echo "::error::Backend registration gate probe did not reach the expected native API response (HTTP $status, code=$error_code, content-type=$content_type, location=$location). No frontend release was performed."
+            if [[ "$status" == "308" ]]; then
+              echo "::error::The canonical API hostname is redirecting this POST instead of reaching the Backend identity route. Check Cloudflare API Worker origin routing and its edge-token/X-Forwarded-Host handoff to Caddy; do not follow a cross-host redirect for this security probe."
+            fi
             exit 1
           fi
           echo "Canonical Backend registration intake is enabled and accepting requests; the probe created no application."
