@@ -313,12 +313,15 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  Future<void> _resend() async => _run(() async {
+  Future<void> _resend() async {
+    if (!_form.currentState!.validate()) return;
+    await _run(() async {
     await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
     if (mounted) {
       setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
     }
-  });
+    });
+  }
 
   Future<void> _verifyNative(String token) async => _run(() async {
     await widget.authClient.verifyEmail(token);
@@ -787,7 +790,7 @@ class _AuthScreenState extends State<AuthScreen> {
               field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', readOnly: _identityDraft != null, autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
               const SizedBox(height: 14),
             ],
-            if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page)) ...[
+            if ({_Page.signIn, _Page.signUp, _Page.forgot, _Page.verify}.contains(_page)) ...[
               field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, readOnly: _identityDraft != null, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
