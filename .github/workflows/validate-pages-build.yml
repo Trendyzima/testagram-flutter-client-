@@ -5,6 +5,8 @@ on:
     paths:
       - "cloudflare-pages/**"
       - ".github/workflows/validate-pages-build.yml"
+      - ".github/workflows/deploy-cloudflare-pages.yml"
+      - ".github/workflows/web-container-release.yml"
       - "pubspec.yaml"
       - "lib/**"
       - "tool/**"
