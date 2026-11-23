@@ -20,6 +20,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _people = [];
   List<Map<String, dynamic>> _trending = [];
+  List<Map<String, dynamic>> _trendingWords = [];
+  bool _trendingWordsLoading = true;
+  String? _trendingWordsError;
   bool _trendingLoading = true;
   String? _trendingError;
   final Map<String, String> _followStatus = {};
@@ -34,6 +37,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() {
     super.initState();
     _loadTrending();
+    _loadTrendingWords();
   }
 
   Future<void> _loadTrending() async {
@@ -54,6 +58,32 @@ class _ExploreScreenState extends State<ExploreScreen> {
     } finally {
       if (mounted) setState(() => _trendingLoading = false);
     }
+  }
+
+  Future<void> _loadTrendingWords() async {
+    setState(() { _trendingWordsLoading = true; _trendingWordsError = null; });
+    try {
+      final response = await widget.api.getTrendingWords(limit: 20);
+      final rawData = response['data'];
+      final data = rawData is Map ? rawData : response;
+      final rawItems = data['items'];
+      if (!mounted) return;
+      setState(() {
+        _trendingWords = rawItems is List
+            ? rawItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+      });
+    } catch (error) {
+      if (mounted) setState(() => _trendingWordsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _trendingWordsLoading = false);
+    }
+  }
+
+  void _searchWord(String word) {
+    _query.text = word;
+    setState(() => _searchKind = 'posts');
+    _search();
   }
 
   void _openHashtag(String value) {
@@ -240,6 +270,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
               trailing: IconButton(
                 tooltip: 'Retry trending topics',
                 onPressed: _loadTrending,
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
+          if (_trendingWords.isNotEmpty) ...[
+            const _SectionTitle('Trending words'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _trendingWords.map((item) {
+                  final word = (item['word'] ?? '').toString();
+                  final count = (item['posts_count'] ?? 0).toString();
+                  final reasons = item['reasons'];
+                  final rising = reasons is List && reasons.contains('accelerating');
+                  return ActionChip(
+                    avatar: Icon(rising ? Icons.trending_up_rounded : Icons.text_fields_rounded, size: 16),
+                    label: Text('$word · $count'),
+                    onPressed: word.isEmpty ? null : () => _searchWord(word),
+                  );
+                }).toList(),
+              ),
+            ),
+          ] else if (_trendingWordsLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: LinearProgressIndicator(),
+            )
+          else if (_trendingWordsError != null)
+            ListTile(
+              leading: const Icon(Icons.text_fields_rounded),
+              title: const Text('Trending words unavailable'),
+              subtitle: Text(_trendingWordsError!),
+              trailing: IconButton(
+                tooltip: 'Retry trending words',
+                onPressed: _loadTrendingWords,
                 icon: const Icon(Icons.refresh),
               ),
             ),
