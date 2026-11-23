@@ -81,30 +81,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # A deliberately malformed, non-mutating request proves the canonical
-          # Backend accepts registration intake only when its server-side gate
-          # and required runtime dependencies are open. No application is created.
-          idempotency_key="$(openssl rand -base64 32 | tr '+/' '-_' | tr -d '=')"
+          # Exercise the existing native signup route without creating an
+          # account: a valid identity with a deliberately short password must
+          # reach native password validation after the auth store is checked.
           response_file="$(mktemp)"
           headers_file="$(mktemp)"
           trap 'rm -f "$response_file" "$headers_file"' EXIT
           status="$(curl --silent --show-error --max-time 20 \
             -D "$headers_file" -o "$response_file" -w '%{http_code}' -X POST \
-            "$TESTAGRAM_API_URL/api/identity/applications" \
+            "$TESTAGRAM_API_URL/api/auth/signup" \
             -H 'Content-Type: application/json' \
-            -H "Idempotency-Key: $idempotency_key" \
-            --data-binary '{"registration_gate_probe":')"
+            --data-binary '{"email":"signup-probe@example.invalid","username":"signup_probe","password":"short"}')"
           error_code="$(jq -r '.error.code // empty' "$response_file" 2>/dev/null || true)"
-          if [[ "$status" != "400" || "$error_code" != "INVALID_JSON" ]]; then
+          if [[ "$status" != "400" || "$error_code" != "INVALID_PASSWORD" ]]; then
             location="$(awk 'BEGIN { IGNORECASE=1 } /^Location:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
             content_type="$(awk 'BEGIN { IGNORECASE=1 } /^Content-Type:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
-            echo "::error::Backend registration gate probe did not reach the expected native API response (HTTP $status, code=$error_code, content-type=$content_type, location=$location). No frontend release was performed."
+            echo "::error::Native signup probe did not reach password validation (HTTP $status, code=$error_code, content-type=$content_type, location=$location). No frontend release was performed."
             if [[ "$status" == "308" ]]; then
-              echo "::error::The canonical API hostname is redirecting this POST instead of reaching the Backend identity route. Check Cloudflare API Worker origin routing and its edge-token/X-Forwarded-Host handoff to Caddy; do not follow a cross-host redirect for this security probe."
+              echo "::error::The canonical API hostname is redirecting this POST instead of reaching native authentication. Check Cloudflare API Worker origin routing and its edge-token/X-Forwarded-Host handoff to Caddy; do not follow a cross-host redirect for this security probe."
             fi
             exit 1
           fi
-          echo "Canonical Backend registration intake is enabled and accepting requests; the probe created no application."
+          echo "Native signup endpoint is reachable and its authentication store accepted the probe; no account or email was created."
 
       - name: Verify Cloudflare Pages API access
         shell: bash
@@ -177,8 +175,8 @@ jobs:
             fi
           done
           if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]] &&
-             ! grep -aFq 'Submit application' build/web/main.dart.js; then
-            echo "::error::Registration was enabled but its application flow is missing from the bundle."
+             ! grep -aFq 'Create account' build/web/main.dart.js; then
+            echo "::error::Registration was enabled but its native Create account flow is missing from the bundle."
             exit 1
           fi
 
@@ -297,7 +295,7 @@ jobs:
                 done
                 if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]] &&
                    ! grep -aFq 'Submit application' "$asset_body"; then
-                  echo "::error::Registration was enabled but the application flow is missing from the deployed bundle."
+                  echo "::error::Registration was enabled but the native Create account flow is missing from the deployed bundle."
                   rm -f "$page" "$headers" "$asset_body" "$asset_headers"
                   exit 1
                 fi
