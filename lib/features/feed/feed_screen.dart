@@ -1424,7 +1424,7 @@ class _PostCard extends StatelessWidget {
                         const SizedBox(width: 5),
                         Expanded(
                           child: Text(
-                            'Why this appears: ' + rankingLabels.join(' · '),
+                            'Why this appears: \${rankingLabels.join(' · ')}',
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis,
                             style: Theme.of(context).textTheme.labelSmall?.copyWith(
