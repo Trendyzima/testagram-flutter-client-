@@ -33,9 +33,11 @@ bool _isCanonicalFeedPostUuid(String value) {
 }
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, required this.api, required this.onSignOut});
+  const FeedScreen({super.key, required this.api, required this.onSignOut, this.listId, this.feedTitle});
   final BackendApi api;
   final Future<void> Function() onSignOut;
+  final String? listId;
+  final String? feedTitle;
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -105,6 +107,7 @@ class _FeedScreenState extends State<FeedScreen> {
         cursor: pageCursor,
         feed: requestedFeed,
         followingOnly: requestedFeed == 'following',
+        listId: widget.listId,
       );
       final data = _data(payload);
       final raw = data['posts'];
@@ -395,13 +398,15 @@ class _FeedScreenState extends State<FeedScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: Row(
-        children: [
-          Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
-          const SizedBox(width: 9),
-          const Text('T social'),
-        ],
-      ),
+      title: widget.feedTitle != null && widget.feedTitle!.trim().isNotEmpty
+          ? Text(widget.feedTitle!)
+          : Row(
+              children: [
+                Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
+                const SizedBox(width: 9),
+                const Text('T social'),
+              ],
+            ),
       actions: [
         IconButton(
           onPressed: _loading ? null : () => _load(reset: true),
