@@ -20,6 +20,20 @@ void main() {
       expect(appBar.preferredSize, const Size.fromHeight(112));
     });
 
+    testWidgets('allows the navigator to provide the automatic back button', (tester) async {
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            appBar: TestagramAppBar(title: 'Profile', showBrand: false),
+          ),
+        ),
+      );
+
+      final appBar = tester.widget<AppBar>(find.byType(AppBar));
+      expect(appBar.leading, isNull);
+      expect(appBar.automaticallyImplyLeading, isTrue);
+    });
+
     test('supports a compact toolbar when requested', () {
       const appBar = TestagramAppBar(title: 'Notifications', toolbarHeight: 56);
 
