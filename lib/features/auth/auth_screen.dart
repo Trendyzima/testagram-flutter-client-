@@ -234,7 +234,6 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         await backend.getMyProfile();
       } on BackendApiException catch (error) {
-        final message = error.message.toLowerCase();
         if (error.statusCode == 403 && error.code == 'EMAIL_VERIFICATION_REQUIRED') {
           if (mounted) {
             setState(() {
