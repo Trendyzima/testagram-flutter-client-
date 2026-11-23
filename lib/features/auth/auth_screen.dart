@@ -309,7 +309,11 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _resend() async {
-    if (!_form.currentState!.validate()) return;
+    final emailError = _emailValid(_email.text);
+    if (emailError != null) {
+      setState(() => _error = emailError);
+      return;
+    }
     await _run(() async {
       await widget.authClient.resendVerification(
         _email.text.trim().toLowerCase(),
