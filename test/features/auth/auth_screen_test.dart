@@ -23,6 +23,8 @@ class _MemoryIdentityStorage implements IdentityApplicationSecureStorage {
 
 class _FakeNativeAuthSession implements NativeAuthSession {
   int signUpCalls = 0;
+  int resendCalls = 0;
+  String? resentEmail;
   String? signedUpEmail;
   String? signedUpUsername;
   String? signedUpPassword;
@@ -36,7 +38,10 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   }
 
   @override
-  Future<void> resendVerification(String email) async {}
+  Future<void> resendVerification(String email) async {
+    resendCalls++;
+    resentEmail = email;
+  }
 
   @override
   Future<void> verifyEmail(String token) async {}
@@ -243,6 +248,34 @@ void main() {
     expect(nativeAuth.signedUpPassword, 'native-password-123');
     expect(find.textContaining('Check your email'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
+  });
+
+  testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        requireVerification: true,
+      ),
+    ));
+
+    expect(find.text('Verify your email'), findsOneWidget);
+    expect(find.text('Email address'), findsOneWidget);
+    expect(find.text('Resend verification email'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Resend verification email'));
+    await tester.pumpAndSettle();
+    expect(nativeAuth.resendCalls, 0);
+    expect(find.text('Enter your email address.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).first, 'person@example.test');
+    await tapVisible(tester, find.text('Resend verification email'));
+    await tester.pumpAndSettle();
+
+    expect(nativeAuth.resendCalls, 1);
+    expect(nativeAuth.resentEmail, 'person@example.test');
+    expect(find.textContaining('fresh verification link has been sent'), findsOneWidget);
   });
 
   testWidgets('signup entry opens native account creation instead of identity application', (tester) async {
