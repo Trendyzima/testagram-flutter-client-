@@ -8,6 +8,56 @@ import 'package:testagram/core/backend_api.dart';
 
 void main() {
   group('BackendApi', () {
+    test('loads a List-backed custom feed with an authenticated, scoped cursor', () async {
+      late http.Request captured;
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'native-testagram-token',
+        client: MockClient((request) async {
+          captured = request;
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'posts': [],
+              'next_cursor': '',
+              'has_more': false,
+              'ranking_mode': 'chronological',
+              'feed_mode': 'for_you',
+              'list_id': '550e8400-e29b-41d4-a716-446655440000',
+            },
+          }), 200);
+        }),
+      );
+
+      await api.getHomeFeed(
+        limit: 17,
+        cursor: 'scoped-cursor',
+        feed: 'for_you',
+        listId: '550E8400-E29B-41D4-A716-446655440000',
+      );
+
+      expect(captured.method, 'GET');
+      expect(captured.url.path, '/api/feed/home');
+      expect(captured.url.queryParameters, {
+        'limit': '17',
+        'before': 'scoped-cursor',
+        'feed': 'for_you',
+        'list_id': '550e8400-e29b-41d4-a716-446655440000',
+      });
+      expect(captured.headers['authorization'], 'Bearer native-testagram-token');
+      api.close();
+    });
+
+    test('rejects malformed custom feed List IDs before network access', () async {
+      final api = BackendApi(
+        baseUri: Uri.parse('https://api.testagram.site'),
+        getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+        client: MockClient((_) async => http.Response('{}', 200)),
+      );
+      await expectLater(api.getHomeFeed(listId: 'not-a-uuid'), throwsArgumentError);
+      api.close();
+    });
+
     test('creates, lists and removes remote author subscriptions through native Backend auth', () async {
       final requests = <http.Request>[];
       final api = BackendApi(

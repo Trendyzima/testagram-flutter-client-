@@ -31,14 +31,23 @@ class BackendApi {
     bool followingOnly = false,
     bool videoOnly = false,
     String? feed,
+    String? listId,
   }) async {
     final normalizedFeed = feed?.trim().toLowerCase();
+    final normalizedListId = listId?.trim().toLowerCase();
+    if (normalizedListId != null &&
+        normalizedListId.isNotEmpty &&
+        !_isCanonicalAccountId(normalizedListId)) {
+      throw ArgumentError.value(listId, 'listId', 'Invalid Testagram List UUID');
+    }
     final uri = baseUri.resolve('/api/feed/home').replace(queryParameters: {
       'limit': '$limit',
       if (cursor != null && cursor.isNotEmpty) 'before': cursor,
       if (normalizedFeed != null && normalizedFeed.isNotEmpty) 'feed': normalizedFeed,
       if (followingOnly) 'following_only': 'true',
       if (videoOnly) 'video_only': 'true',
+      if (normalizedListId != null && normalizedListId.isNotEmpty)
+        'list_id': normalizedListId,
     });
     return _request('GET', uri);
   }
