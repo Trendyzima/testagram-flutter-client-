@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import '../../core/widgets/testagram_brand_mark.dart';
 import '../profile/profile_screen.dart';
 import '../federation/federation_settings_screen.dart';
@@ -22,7 +23,7 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
+      appBar: const TestagramAppBar(title: 'Settings'),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [

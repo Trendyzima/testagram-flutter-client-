@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
+import '../../core/widgets/testagram_state_view.dart';
 import 'conversation_screen.dart';
 
 class DirectMessagesScreen extends StatefulWidget {
@@ -107,8 +109,8 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Direct messages'),
+    appBar: TestagramAppBar(
+      title: 'Messages',
       actions: [
         IconButton(tooltip: 'New message', onPressed: _creating ? null : _startDirectMessage, icon: const Icon(Icons.edit_outlined)),
         IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
@@ -117,17 +119,41 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
     body: RefreshIndicator(
       onRefresh: _load,
       child: _loading && _items.isEmpty
-        ? ListView(children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
+        ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              TestagramStateView(
+                icon: Icons.forum_outlined,
+                title: 'Loading conversations',
+                message: 'Checking your private inbox.',
+                loading: true,
+              ),
+            ],
+          )
         : _error != null && _items.isEmpty
-          ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!, textAlign: TextAlign.center)), Center(child: TextButton(onPressed: _load, child: const Text('Retry')))])
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                TestagramStateView(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Inbox could not load',
+                  message: _error!,
+                  actionLabel: 'Retry',
+                  onAction: _load,
+                ),
+              ],
+            )
           : _items.isEmpty
-            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [
-                SizedBox(height: 100),
-                Icon(Icons.forum_outlined, size: 52),
-                SizedBox(height: 12),
-                Center(child: Text('Your conversations will appear here.')),
-                Center(child: Text('Start a private conversation with a Testagram account.')),
-              ])
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  TestagramStateView(
+                    icon: Icons.forum_outlined,
+                    title: 'Your inbox starts here',
+                    message: 'Start a private conversation with a Testagram account.',
+                  ),
+                ],
+              )
             : ListView.separated(
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemCount: _items.length,

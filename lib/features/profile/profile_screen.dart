@@ -3,6 +3,7 @@ import 'package:material_ui/material_ui.dart';
 import '../posts/post_detail_screen.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import 'profile_connections_screen.dart';
 import 'profile_edit_screen.dart';
 
@@ -204,8 +205,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
         : <String, dynamic>{};
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Profile'),
+      appBar: TestagramAppBar(
+        title: 'Profile',
+        showBrand: !Navigator.of(context).canPop(),
         actions: [
           if (_profile != null && _profile?['is_self'] != true)
             PopupMenuButton<String>(

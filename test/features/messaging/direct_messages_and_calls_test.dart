@@ -110,7 +110,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(api.conversationListCalls, 1);
-    expect(find.text('Direct messages'), findsOneWidget);
+    expect(find.text('Messages'), findsOneWidget);
     expect(find.text('A private conversation'), findsOneWidget);
     expect(find.text('Encrypted message'), findsOneWidget);
   });

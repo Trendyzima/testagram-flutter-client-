@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../posts/post_detail_screen.dart';
+import '../../core/widgets/testagram_app_bar.dart';
+import '../../core/widgets/testagram_state_view.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key, required this.api});
@@ -99,6 +102,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Icons.notifications_none_rounded;
   }
 
+  Future<void> _openNotification(Map<String, dynamic> item) async {
+    await _markRead(item);
+    if (!mounted) return;
+    final kind = (item['kind'] ?? '').toString().toLowerCase();
+    final postId = (item['post_id'] ?? '').toString();
+    if (kind == 'mention' && postId.isNotEmpty) {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PostDetailScreen(api: widget.api, postId: postId),
+      ));
+    }
+  }
+
   Future<void> _markRead(Map<String, dynamic> item) async {
     final id = (item['id'] ?? '').toString();
     if (id.isEmpty || item['read_at'] != null || _marking.contains(id)) return;
@@ -115,18 +130,54 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Notifications'),
-      actions: [IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
+    appBar: TestagramAppBar(
+      title: 'Notifications',
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : () => _load(reset: true),
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Refresh notifications',
+        ),
+      ],
     ),
     body: RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: _loading && _items.isEmpty
-        ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
+        ? ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            TestagramStateView(
+              icon: Icons.notifications_none_rounded,
+              title: 'Loading notifications',
+              message: 'Checking for new activity.',
+              loading: true,
+            ),
+          ],
+        )
         : _error != null && _items.isEmpty
-          ? ListView(children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                TestagramStateView(
+                  icon: Icons.cloud_off_outlined,
+                  title: 'Notifications could not load',
+                  message: _error!,
+                  actionLabel: 'Retry',
+                  onAction: () => _load(reset: true),
+                ),
+              ],
+            )
           : _items.isEmpty
-            ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.notifications_none, size: 48)), SizedBox(height: 12), Center(child: Text('You are all caught up.'))])
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: const [
+                  TestagramStateView(
+                    icon: Icons.notifications_none_rounded,
+                    title: 'You are all caught up',
+                    message: 'New replies, follows and other activity will appear here.',
+                  ),
+                ],
+              )
             : ListView.separated(
                 controller: _scroll,
                 physics: const AlwaysScrollableScrollPhysics(),
@@ -142,14 +193,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   final item = _items[index];
                   final actor = item['actor'];
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
-                  final kind = (item['kind'] ?? 'activity').toString().replaceAll('_', ' ');
+                  final rawKind = (item['kind'] ?? 'activity').toString().toLowerCase();
+                  final kind = rawKind.replaceAll('_', ' ');
+                  final title = rawKind == 'mention'
+                      ? '$actorName mentioned you in a post'
+                      : '$actorName $kind';
                   final unread = item['read_at'] == null;
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: unread ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Icon(_notificationIcon((item['kind'] ?? '').toString())),
                     ),
-                    title: Text('$actorName $kind'),
+                    title: Text(title),
                     subtitle: Text((item['created_at'] ?? '').toString()),
                     trailing: unread
                       ? _marking.contains((item['id'] ?? '').toString())
@@ -160,7 +215,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             icon: const Icon(Icons.done_all_rounded),
                           )
                       : null,
-                    onTap: () => _markRead(item),
+                    onTap: () => _openNotification(item),
                   );
                 },
               ),

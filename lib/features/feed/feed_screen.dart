@@ -5,9 +5,15 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
+import '../../core/widgets/testagram_state_view.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../profile/profile_screen.dart';
+import '../discovery/hashtag_screen.dart';
+import '../discovery/explore_screen.dart';
+import 'social_post_text.dart';
 import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
@@ -209,6 +215,26 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  void _openHashtag(String tag) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => HashtagScreen(api: widget.api, tag: tag)));
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = _data(await widget.api.resolveProfileUsername(handle));
+      final raw = response['profile'] ?? response['user'] ?? response;
+      final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('@$handle is unavailable or not discoverable.')));
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProfileScreen(api: widget.api, userId: userId)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open @$handle: $error')));
+    }
+  }
+
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
     final origin = (post['origin'] ?? '').toString().toLowerCase();
@@ -324,7 +350,7 @@ class _FeedScreenState extends State<FeedScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => const _PostComposerSheet(),
+      builder: (_) => _PostComposerSheet(api: widget.api),
     );
     if (!mounted || draft == null || _publishing) return;
 
@@ -397,16 +423,10 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: widget.feedTitle != null && widget.feedTitle!.trim().isNotEmpty
-          ? Text(widget.feedTitle!)
-          : Row(
-              children: [
-                Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
-                const SizedBox(width: 9),
-                const Text('T social'),
-              ],
-            ),
+    appBar: TestagramAppBar(
+      title: widget.feedTitle?.trim().isNotEmpty == true
+          ? widget.feedTitle!.trim()
+          : 'Home',
       actions: [
         IconButton(
           onPressed: _loading ? null : () => _load(reset: true),
@@ -499,11 +519,41 @@ class _FeedScreenState extends State<FeedScreen> {
           final timeline = RefreshIndicator(
         onRefresh: () => _load(reset: true),
         child: _loading && _posts.isEmpty
-          ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
+          ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              TestagramStateView(
+                icon: Icons.dynamic_feed_outlined,
+                title: 'Loading your feed',
+                message: 'Fetching the latest conversations.',
+                loading: true,
+              ),
+            ],
+          )
           : _error != null && _posts.isEmpty
-            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  TestagramStateView(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Your feed could not load',
+                    message: _error!,
+                    actionLabel: 'Retry',
+                    onAction: () => _load(reset: true),
+                  ),
+                ],
+              )
             : _posts.isEmpty
-              ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.dynamic_feed_outlined, size: 48)), SizedBox(height: 12), Center(child: Text('No posts are available yet.'))])
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    TestagramStateView(
+                      icon: Icons.dynamic_feed_outlined,
+                      title: 'Your feed is quiet',
+                      message: 'Follow people and topics to bring conversations into your home feed.',
+                    ),
+                  ],
+                )
               : ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
@@ -529,6 +579,8 @@ class _FeedScreenState extends State<FeedScreen> {
                         ));
                     return _PostCard(
                       post: post,
+                      onHashtagTap: _openHashtag,
+                      onMentionTap: _openMention,
                       busy: _busy.contains(id),
                       onOpen: id.isEmpty || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
@@ -579,7 +631,7 @@ class _FeedScreenState extends State<FeedScreen> {
               const SizedBox(width: 24),
               SizedBox(
                 width: 292,
-                child: _ConversationSidebar(posts: _posts),
+                child: _ConversationSidebar(api: widget.api),
               ),
             ],
           );
@@ -704,61 +756,171 @@ class _FeedTab extends StatelessWidget {
   }
 }
 
-class _ConversationSidebar extends StatelessWidget {
-  const _ConversationSidebar({required this.posts});
+class _ConversationSidebar extends StatefulWidget {
+  const _ConversationSidebar({required this.api});
 
-  final List<Map<String, dynamic>> posts;
+  final BackendApi api;
+
+  @override
+  State<_ConversationSidebar> createState() => _ConversationSidebarState();
+}
+
+class _ConversationSidebarState extends State<_ConversationSidebar> {
+  List<Map<String, dynamic>> _hashtags = [];
+  List<Map<String, dynamic>> _words = [];
+  bool _loading = true;
+  String? _error;
+  String _hashtagRanking = 'Testagram topic ranking';
+  String _wordRanking = 'Testagram trend ranking';
+
+  Map<String, dynamic> _data(Map<String, dynamic> response) {
+    final raw = response['data'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : response;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final responses = await Future.wait([
+        widget.api.getTrendingHashtags(limit: 6),
+        widget.api.getTrendingWords(limit: 6),
+      ]);
+      final hashtags = _data(responses[0]);
+      final words = _data(responses[1]);
+      final hashtagItems = hashtags['items'];
+      final wordItems = words['items'];
+      if (!mounted) return;
+      setState(() {
+        _hashtags = hashtagItems is List
+            ? hashtagItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+        _words = wordItems is List
+            ? wordItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+        _hashtagRanking = (hashtags['ranking'] ?? 'recent public activity').toString();
+        _wordRanking = (words['ranking'] ?? 'recent public activity').toString();
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  void _openHashtag(String value) {
+    final tag = value.trim().replaceFirst(RegExp(r'^#'), '');
+    if (tag.isEmpty) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
+
+  void _openWord(String value) {
+    final word = value.trim();
+    if (word.length < 2) return;
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => ExploreScreen(api: widget.api, initialQuery: word),
+    ));
+  }
+
+  Widget _trendTile({
+    required String title,
+    required String subtitle,
+    required bool rising,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Icon(rising ? Icons.trending_up_rounded : Icons.chevron_right_rounded,
+          color: rising ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+          size: 19),
+        onTap: onTap,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final topics = <String, int>{};
-    final matcher = RegExp(r'#[A-Za-z0-9_]{2,30}');
-    for (final post in posts) {
-      final content = (post['content'] ?? '').toString();
-      for (final match in matcher.allMatches(content)) {
-        final topic = match.group(0)!.toLowerCase();
-        topics[topic] = (topics[topic] ?? 0) + 1;
-      }
-    }
-    final ranked = topics.entries.toList()
-      ..sort((a, b) => b.value.compareTo(a.value));
-
+    final theme = Theme.of(context);
     return Padding(
       padding: const EdgeInsets.only(top: 16, right: 16),
       child: Container(
         padding: const EdgeInsets.all(18),
         decoration: BoxDecoration(
-          color: Theme.of(context).colorScheme.surface,
+          color: theme.colorScheme.surface,
           borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: Theme.of(context).dividerColor),
+          border: Border.all(color: theme.dividerColor),
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text("What's happening", style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-            const SizedBox(height: 6),
-            Text('Topics appearing in your timeline', style: Theme.of(context).textTheme.bodySmall),
-            const SizedBox(height: 14),
-            if (ranked.isEmpty)
-              Text('Hashtags from posts will appear here as conversations grow.', style: Theme.of(context).textTheme.bodyMedium)
-            else
-              for (final topic in ranked.take(6)) ...[
-                const Divider(height: 1),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Trending in your feed', style: Theme.of(context).textTheme.labelSmall),
-                      const SizedBox(height: 4),
-                      Text(topic.key, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15)),
-                      const SizedBox(height: 3),
-                      Text('${topic.value} ${topic.value == 1 ? 'post' : 'posts'}', style: Theme.of(context).textTheme.bodySmall),
-                    ],
+            Row(children: [
+              Expanded(child: Text("What's happening", style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800))),
+              IconButton(
+                tooltip: 'Refresh trends',
+                onPressed: _loading ? null : _load,
+                icon: const Icon(Icons.refresh_rounded, size: 19),
+              ),
+            ]),
+            Text('Live discovery from public Testagram conversations',
+              style: theme.textTheme.bodySmall),
+            if (_loading && _hashtags.isEmpty && _words.isEmpty)
+              const Padding(padding: EdgeInsets.symmetric(vertical: 18), child: Center(child: CircularProgressIndicator()))
+            else if (_error != null && _hashtags.isEmpty && _words.isEmpty)
+              Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Trends are temporarily unavailable.', style: theme.textTheme.bodyMedium),
+                  TextButton(onPressed: _load, child: const Text('Retry')),
+                ]),
+              )
+            else ...[
+              const SizedBox(height: 12),
+              Text('TRENDING HASHTAGS', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: .6)),
+              const SizedBox(height: 4),
+              Text(_hashtagRanking.replaceAll('_', ' '), style: theme.textTheme.bodySmall),
+              if (_hashtags.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('Hashtag trends will appear as public conversations grow.', style: theme.textTheme.bodySmall))
+              else
+                for (final item in _hashtags) ...[
+                  _trendTile(
+                    title: '#${(item['tag'] ?? '').toString()}',
+                    subtitle: '${(item['posts_count'] ?? 0)} posts in the last 7 days',
+                    rising: item['reasons'] is List && (item['reasons'] as List).contains('accelerating'),
+                    onTap: () => _openHashtag((item['tag'] ?? '').toString()),
                   ),
-                ),
-              ],
+                ],
+              const Divider(height: 18),
+              Text('TRENDING WORDS', style: theme.textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w800, letterSpacing: .6)),
+              const SizedBox(height: 4),
+              Text(_wordRanking.replaceAll('_', ' '), style: theme.textTheme.bodySmall),
+              if (_words.isEmpty)
+                Padding(padding: const EdgeInsets.symmetric(vertical: 10), child: Text('Emerging discussion words will appear here.', style: theme.textTheme.bodySmall))
+              else
+                for (final item in _words) ...[
+                  _trendTile(
+                    title: (item['word'] ?? '').toString(),
+                    subtitle: '${(item['posts_count'] ?? 0)} posts · ${((item['reasons'] is List && (item['reasons'] as List).contains('accelerating')) ? 'Rising' : 'Trending')}',
+                    rising: item['reasons'] is List && (item['reasons'] as List).contains('accelerating'),
+                    onTap: () => _openWord((item['word'] ?? '').toString()),
+                  ),
+                ],
+            ],
+            if (_error != null && (_hashtags.isNotEmpty || _words.isNotEmpty))
+              Padding(padding: const EdgeInsets.only(top: 8), child: Text('Showing last loaded trends. Refresh when online.', style: theme.textTheme.bodySmall)),
           ],
         ),
       ),
@@ -779,7 +941,8 @@ class _PostDraft {
 }
 
 class _PostComposerSheet extends StatefulWidget {
-  const _PostComposerSheet();
+  const _PostComposerSheet({required this.api});
+  final BackendApi api;
 
   @override
   State<_PostComposerSheet> createState() => _PostComposerSheetState();
@@ -789,6 +952,48 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
   final _controller = TextEditingController();
   final _media = <_PostMediaDraft>[];
   String _visibility = 'public';
+  List<Map<String, dynamic>> _mentionSuggestions = [];
+  int _mentionGeneration = 0;
+  String _activeMention = '';
+
+  Future<void> _updateMentionSuggestions(String value) async {
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})$').firstMatch(value);
+    final query = match?.group(1) ?? '';
+    final generation = ++_mentionGeneration;
+    if (query.isEmpty) {
+      if (mounted) setState(() { _activeMention = ''; _mentionSuggestions = []; });
+      return;
+    }
+    setState(() => _activeMention = query);
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+    try {
+      final response = await widget.api.search(query: query, kind: 'people', limit: 6);
+      final raw = response['data'];
+      final data = raw is Map ? raw : response;
+      final users = data['users'];
+      final rows = users is List
+          ? users.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+      setState(() => _mentionSuggestions = rows);
+    } catch (_) {
+      if (mounted && generation == _mentionGeneration) setState(() => _mentionSuggestions = []);
+    }
+  }
+
+  void _insertMention(String username) {
+    final text = _controller.text;
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})$').firstMatch(text);
+    if (match == null) return;
+    final start = match.start + (match.group(0)!.startsWith(' ') ? 1 : 0);
+    final updated = text.replaceRange(start, text.length, '@$username ');
+    _controller.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: updated.length),
+    );
+    setState(() { _activeMention = ''; _mentionSuggestions = []; });
+  }
 
   @override
   void dispose() {
@@ -917,13 +1122,34 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
               minLines: 4,
               maxLines: 9,
               maxLength: 5000,
-              onChanged: (_) => setState(() {}),
+              onChanged: (value) {
+                setState(() {});
+                _updateMentionSuggestions(value);
+              },
               decoration: const InputDecoration(
                 hintText: 'What is happening? Use #hashtags and @mentions.',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
             ),
+            if (_mentionSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text('Mention people', style: Theme.of(context).textTheme.labelMedium),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 7,
+                runSpacing: 5,
+                children: _mentionSuggestions.map((person) {
+                  final username = (person['username'] ?? '').toString();
+                  final display = (person['display_name'] ?? username).toString();
+                  return ActionChip(
+                    avatar: const Icon(Icons.alternate_email_rounded, size: 16),
+                    label: Text('$display · @$username'),
+                    onPressed: username.isEmpty ? null : () => _insertMention(username),
+                  );
+                }).toList(),
+              ),
+            ],
             if (_media.isNotEmpty) ...[
               const SizedBox(height: 10),
               Wrap(
@@ -1117,6 +1343,8 @@ class _QuotePostComposerState extends State<_QuotePostComposer> {
 class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
+    required this.onHashtagTap,
+    required this.onMentionTap,
     required this.busy,
     required this.onLike,
     required this.onRepost,
@@ -1128,6 +1356,7 @@ class _PostCard extends StatelessWidget {
   });
 
   final Map<String, dynamic> post;
+  final ValueChanged<String> onHashtagTap, onMentionTap;
   final bool busy;
   final VoidCallback onLike, onRepost, onQuote, onBookmark, onReplies;
   final VoidCallback? onOpen, onOpenVideo;
@@ -1167,6 +1396,17 @@ class _PostCard extends StatelessWidget {
     final username = author is Map ? (author['username'] ?? '').toString() : '';
     final avatarUrl = author is Map ? (FeedMediaUrl.normalize(author['avatar_url']) ?? '') : '';
     final body = (post['content'] ?? '').toString();
+    final rawRankingReasons = post['ranking_reasons'];
+    final rankingLabels = rawRankingReasons is List
+        ? rawRankingReasons.map((value) => switch (value.toString()) {
+            'from-followed-account' => 'From someone you follow',
+            'recent' => 'Recent',
+            'matches-interests' => 'Matches your interests',
+            'quality-signal' => 'High-quality discussion',
+            'constructive-conversation' => 'Constructive conversation',
+            _ => '',
+          }).where((value) => value.isNotEmpty).toSet().take(2).toList()
+        : <String>[];
     final created = _timeLabel((post['created_at'] ?? '').toString());
     final rawMedia = post['media_urls'];
     final mediaUrls = rawMedia is List
@@ -1291,11 +1531,36 @@ class _PostCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (rankingLabels.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded, size: 13,
+                          color: Theme.of(context).colorScheme.secondary),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Why this appears: ${rankingLabels.join(' · ')}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (body.isNotEmpty) ...[
                     const SizedBox(height: 7),
                     InkWell(
                       onTap: onOpen,
-                      child: Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
+                      child: SocialPostText(
+                        text: body,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42),
+                        onHashtagTap: onHashtagTap,
+                        onMentionTap: onMentionTap,
+                      ),
                     ),
                   ],
                   if (isVideoPost && mediaUrls.isNotEmpty) ...[

@@ -1,15 +1,18 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import '../profile/profile_screen.dart';
 import '../posts/post_detail_screen.dart';
 import '../federation/remote_post_detail_screen.dart';
+import '../feed/social_post_text.dart';
 import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key, required this.api});
+  const ExploreScreen({super.key, required this.api, this.initialQuery});
   final BackendApi api;
+  final String? initialQuery;
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
@@ -23,6 +26,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _people = [];
   List<Map<String, dynamic>> _trending = [];
+  List<Map<String, dynamic>> _trendingWords = [];
+  bool _trendingWordsLoading = true;
+  String? _trendingWordsError;
   bool _trendingLoading = true;
   String? _trendingError;
   final Map<String, String> _followStatus = {};
@@ -40,6 +46,15 @@ class _ExploreScreenState extends State<ExploreScreen> {
   void initState() {
     super.initState();
     _loadTrending();
+    _loadTrendingWords();
+    final initial = widget.initialQuery?.trim() ?? '';
+    if (initial.length >= 2) {
+      _query.text = initial;
+      _searchKind = 'posts';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
+    }
   }
 
   Future<void> _loadTrending() async {
@@ -59,6 +74,60 @@ class _ExploreScreenState extends State<ExploreScreen> {
       if (mounted) setState(() => _trendingError = error.toString());
     } finally {
       if (mounted) setState(() => _trendingLoading = false);
+    }
+  }
+
+  Future<void> _loadTrendingWords() async {
+    setState(() { _trendingWordsLoading = true; _trendingWordsError = null; });
+    try {
+      final response = await widget.api.getTrendingWords(limit: 20);
+      final rawData = response['data'];
+      final data = rawData is Map ? rawData : response;
+      final rawItems = data['items'];
+      if (!mounted) return;
+      setState(() {
+        _trendingWords = rawItems is List
+            ? rawItems.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+            : [];
+      });
+    } catch (error) {
+      if (mounted) setState(() => _trendingWordsError = error.toString());
+    } finally {
+      if (mounted) setState(() => _trendingWordsLoading = false);
+    }
+  }
+
+  void _searchWord(String word) {
+    _query.text = word;
+    setState(() => _searchKind = 'posts');
+    _search();
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = await widget.api.resolveProfileUsername(handle);
+      final rawData = response['data'];
+      final data = rawData is Map ? rawData : response;
+      final raw = data['profile'] ?? data['user'] ?? data;
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('@$handle is unavailable or not discoverable.')),
+        );
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open @$handle: $error')),
+        );
+      }
     }
   }
 
@@ -96,17 +165,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     setState(() { _loading = true; _error = null; });
     try {
-      final response = await widget.api.search(
-        query: value,
-        kind: _searchKind,
-        from: _from.text,
-        since: _since.text,
-        until: _until.text,
-        language: _language.text,
-        sort: _searchSort,
-        mediaOnly: _mediaOnly,
-        videoOnly: _videoOnly,
-      );
+      final response = await widget.api.search(query: value, kind: _searchKind);
       final raw = response['data'];
       final data = raw is Map ? raw : response;
       final postRows = data['posts'];
@@ -183,8 +242,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Explore'),
+    appBar: TestagramAppBar(
+      title: 'Discover',
       actions: [
         IconButton(
           tooltip: 'Browse hashtags',
@@ -347,6 +406,42 @@ class _ExploreScreenState extends State<ExploreScreen> {
                 icon: const Icon(Icons.refresh),
               ),
             ),
+          if (_trendingWords.isNotEmpty) ...[
+            const _SectionTitle('Trending words'),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: _trendingWords.map((item) {
+                  final word = (item['word'] ?? '').toString();
+                  final count = (item['posts_count'] ?? 0).toString();
+                  final reasons = item['reasons'];
+                  final rising = reasons is List && reasons.contains('accelerating');
+                  return ActionChip(
+                    avatar: Icon(rising ? Icons.trending_up_rounded : Icons.text_fields_rounded, size: 16),
+                    label: Text('$word · $count'),
+                    onPressed: word.isEmpty ? null : () => _searchWord(word),
+                  );
+                }).toList(),
+              ),
+            ),
+          ] else if (_trendingWordsLoading)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: LinearProgressIndicator(),
+            )
+          else if (_trendingWordsError != null)
+            ListTile(
+              leading: const Icon(Icons.text_fields_rounded),
+              title: const Text('Trending words unavailable'),
+              subtitle: Text(_trendingWordsError!),
+              trailing: IconButton(
+                tooltip: 'Retry trending words',
+                onPressed: _loadTrendingWords,
+                icon: const Icon(Icons.refresh),
+              ),
+            ),
           if (_people.isNotEmpty) ...[
             const _SectionTitle('People'),
             for (final person in _people)
@@ -398,10 +493,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   leading: CircleAvatar(
                     child: Icon(isRemote ? Icons.public_rounded : Icons.article_outlined),
                   ),
-                  title: Text(
-                    (post['content'] ?? '').toString(),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                  title: SocialPostText(
+                    text: (post['content'] ?? '').toString(),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    onHashtagTap: _openHashtag,
+                    onMentionTap: _openMention,
                   ),
                   subtitle: Text([
                     if (author.isNotEmpty) '@$author',

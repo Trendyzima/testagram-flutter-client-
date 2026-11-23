@@ -34,6 +34,28 @@ void main() {
       expect(TestagramDeepLink.parse('testagram://wallet?amount=500'), isNull);
     });
 
+    test('resolves canonical hashtag timeline links', () {
+      for (final value in [
+        'https://testagram.site/tags/KenyaTech',
+        'https://www.testagram.site/tags/BuildInPublic',
+        '/tags/KenyaTech',
+        'testagram://tag/KenyaTech',
+      ]) {
+        final link = TestagramDeepLink.parse(value);
+        expect(link?.kind, TestagramDeepLinkKind.hashtag, reason: value);
+        expect(link?.tag, value.contains('BuildInPublic') ? 'BuildInPublic' : 'KenyaTech',
+            reason: value);
+      }
+      for (final value in [
+        'https://testagram.site/tags/bad%20tag',
+        'https://testagram.site/tags/',
+        'https://testagram.site/tags/a?redirect=https://evil.example',
+        'https://evil.example/tags/KenyaTech',
+      ]) {
+        expect(TestagramDeepLink.parse(value), isNull, reason: value);
+      }
+    });
+
     test('accepts only canonical UUID profile links', () {
       const id = '123e4567-e89b-42d3-a456-426614174000';
       final link = TestagramDeepLink.parse('https://testagram.site/profile/$id');

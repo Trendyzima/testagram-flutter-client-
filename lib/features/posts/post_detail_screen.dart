@@ -1,6 +1,9 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../discovery/hashtag_screen.dart';
+import '../feed/social_post_text.dart';
+import '../profile/profile_screen.dart';
 import 'post_interactions_screen.dart';
 
 /// Returns a viewer-bound CDN header only for the exact HTTPS URL authorized
@@ -152,6 +155,38 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     }
   }
 
+  void _openHashtag(String tag) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = _data(await widget.api.resolveProfileUsername(handle));
+      final raw = response?['profile'] ?? response?['user'] ?? response;
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('@$handle is unavailable or not discoverable.')),
+        );
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open @$handle: $error')),
+        );
+      }
+    }
+  }
+
   void _openInteractions(String kind) {
     Navigator.of(context).push(
       MaterialPageRoute<void>(
@@ -235,9 +270,11 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         ),
                         Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 8),
-                          child: Text(
-                            (post['content'] ?? '').toString(),
+                          child: SocialPostText(
+                            text: (post['content'] ?? '').toString(),
                             style: Theme.of(context).textTheme.bodyLarge,
+                            onHashtagTap: _openHashtag,
+                            onMentionTap: _openMention,
                           ),
                         ),
                         if (mediaUrl.startsWith('http'))
@@ -318,7 +355,12 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
                         for (final reply in _replies)
                           ListTile(
                             leading: const CircleAvatar(child: Icon(Icons.person_outline)),
-                            title: Text((reply['content'] ?? '').toString()),
+                            title: SocialPostText(
+                              text: (reply['content'] ?? '').toString(),
+                              style: Theme.of(context).textTheme.bodyMedium,
+                              onHashtagTap: _openHashtag,
+                              onMentionTap: _openMention,
+                            ),
                             subtitle: Text((reply['created_at'] ?? '').toString()),
                           ),
                         Padding(

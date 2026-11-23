@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 
 class ThreadsScreen extends StatefulWidget {
   const ThreadsScreen({super.key, required this.api});
@@ -311,7 +312,7 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Threads'), actions: [
+    appBar: TestagramAppBar(title: 'Threads', actions: [
       IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh)),
       IconButton(onPressed: _sending ? null : _compose, icon: const Icon(Icons.edit)),
     ]),

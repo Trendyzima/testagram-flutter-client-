@@ -7,8 +7,9 @@
 | Public username profile | `https://testagram.site/@{username}` or `/u/{username}` | Resolve username through the authenticated Backend, then open the canonical profile UUID |
 | UUID profile | `https://testagram.site/profile/{user_id}` | Open the profile using the canonical UUID |
 | Wallet | `https://testagram.site/wallet` | Open the wallet landing screen only |
+| Hashtag timeline | `https://testagram.site/tags/{tag}` | Open the Backend privacy-filtered hashtag timeline |
 
-The native Testagram scheme supports `testagram://profile/{username}` and `testagram://wallet` when a platform runner explicitly registers it.
+The native Testagram scheme supports `testagram://profile/{username}`, `testagram://tag/{tag}` and `testagram://wallet` when a platform runner explicitly registers it.
 
 ## Security and authorization
 

@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_state_view.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 
 class KnowledgeHubScreen extends StatefulWidget {
   const KnowledgeHubScreen({super.key, required this.api});
@@ -161,8 +163,8 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
       length: tabs.length,
       initialIndex: 1,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Knowledge'),
+        appBar: TestagramAppBar(
+          title: 'Knowledge',
           actions: [
             IconButton(
               tooltip: 'About Questions & Answers',
@@ -803,18 +805,42 @@ class _KnowledgeQuestionDetailState extends State<_KnowledgeQuestionDetail> {
       body: FutureBuilder<Map<String, dynamic>>(
         future: _future,
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-          if (snapshot.hasError) return Center(child: Text('Question unavailable: ${snapshot.error}'));
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const TestagramStateView(
+              icon: Icons.help_outline_rounded,
+              title: 'Loading question',
+              message: 'Preparing the question and its answers.',
+              loading: true,
+            );
+          }
+          if (snapshot.hasError) {
+            return TestagramStateView(
+              icon: Icons.cloud_off_outlined,
+              title: 'Question could not load',
+              message: snapshot.error.toString(),
+              actionLabel: 'Retry',
+              onAction: _reload,
+            );
+          }
           final raw = snapshot.data?['data'];
-          if (raw is! Map) return const Center(child: Text('Question not found.'));
+          if (raw is! Map) {
+            return const TestagramStateView(
+              icon: Icons.search_off_rounded,
+              title: 'Question not found',
+              message: 'It may have been removed or you may no longer have permission to view it.',
+            );
+          }
           final q = Map<String, dynamic>.from(raw);
           final author = q['author'] is Map ? Map<String, dynamic>.from(q['author'] as Map) : <String, dynamic>{};
           final answers = q['answers'] is List
               ? (q['answers'] as List).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
               : <Map<String, dynamic>>[];
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(18, 12, 18, 28),
-            children: [
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 760),
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                children: [
               Text(q['title'].toString(), style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
               Text('@${author['username'] ?? 'member'} · ${q['status'] ?? 'open'}', style: Theme.of(context).textTheme.labelMedium),
@@ -839,6 +865,16 @@ class _KnowledgeQuestionDetailState extends State<_KnowledgeQuestionDetail> {
               const SizedBox(height: 22),
               Text('Answers (${answers.length})', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
               const SizedBox(height: 8),
+              if (answers.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  child: Text(
+                    'No answers yet. Be the first to share a useful, specific answer.',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
               for (final answer in answers)
                 Card(
                   child: Padding(
@@ -884,7 +920,9 @@ class _KnowledgeQuestionDetailState extends State<_KnowledgeQuestionDetail> {
                   ),
                 ),
               ],
-            ],
+                ],
+              ),
+            ),
           );
         },
       ),

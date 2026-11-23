@@ -5,6 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'topup_attempt_store.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import 'transfer_idempotency.dart';
 
 class WalletScreen extends StatefulWidget {
@@ -479,8 +480,8 @@ class _WalletScreenState extends State<WalletScreen> {
     final currency = (_wallet['currency'] ?? 'KES').toString();
     final balance = (_wallet['balance'] ?? '0.00').toString();
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Wallet'),
+      appBar: TestagramAppBar(
+        title: 'Wallet',
         actions: [
           IconButton(
             tooltip: 'Refresh wallet',
