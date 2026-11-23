@@ -10,8 +10,9 @@ import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
 class ExploreScreen extends StatefulWidget {
-  const ExploreScreen({super.key, required this.api});
+  const ExploreScreen({super.key, required this.api, this.initialQuery});
   final BackendApi api;
+  final String? initialQuery;
   @override
   State<ExploreScreen> createState() => _ExploreScreenState();
 }
@@ -39,6 +40,14 @@ class _ExploreScreenState extends State<ExploreScreen> {
     super.initState();
     _loadTrending();
     _loadTrendingWords();
+    final initial = widget.initialQuery?.trim() ?? '';
+    if (initial.length >= 2) {
+      _query.text = initial;
+      _searchKind = 'posts';
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _search();
+      });
+    }
   }
 
   Future<void> _loadTrending() async {
