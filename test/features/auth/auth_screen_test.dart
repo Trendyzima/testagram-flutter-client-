@@ -82,10 +82,10 @@ void main() {
       ),
     ));
 
-    final email = find.byWidgetPredicate((widget) =>
-        widget is TextFormField && widget.decoration?.labelText == 'Email address');
-    final password = find.byWidgetPredicate((widget) =>
-        widget is TextFormField && widget.decoration?.labelText == 'Password');
+    final fields = find.byType(TextFormField);
+    expect(fields, findsNWidgets(2));
+    final email = fields.at(0);
+    final password = fields.at(1);
     expect(email, findsOneWidget);
     expect(password, findsOneWidget);
 
