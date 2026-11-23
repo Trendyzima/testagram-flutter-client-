@@ -2,7 +2,7 @@ import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Renders Testagram handles and hashtags as accessible, tappable inline links.
-/// Resolution and visibility checks stay with the Backend via the callbacks.
+/// Identity resolution and visibility checks remain authoritative in Backend.
 class SocialPostText extends StatefulWidget {
   const SocialPostText({
     super.key,
@@ -10,14 +10,12 @@ class SocialPostText extends StatefulWidget {
     required this.style,
     required this.onHashtagTap,
     required this.onMentionTap,
-    this.onTextTap,
   });
 
   final String text;
   final TextStyle? style;
   final ValueChanged<String> onHashtagTap;
   final ValueChanged<String> onMentionTap;
-  final VoidCallback? onTextTap;
 
   @override
   State<SocialPostText> createState() => _SocialPostTextState();
@@ -25,9 +23,10 @@ class SocialPostText extends StatefulWidget {
 
 class _SocialPostTextState extends State<SocialPostText> {
   static final RegExp _tokens = RegExp(
-    r'(?<![\p{L}\p{N}_])([#@])([\p{L}\p{N}_.]{1,64})',
+    r'(?<![\\p{L}\\p{N}_@#])([#@])([\\p{L}\\p{N}_.]{1,64})',
     unicode: true,
   );
+
   final List<TapGestureRecognizer> _recognizers = [];
 
   @override
@@ -56,7 +55,8 @@ class _SocialPostTextState extends State<SocialPostText> {
       final isHashtag = prefix == '#';
       final valid = isHashtag
           ? value.length <= 64
-          : RegExp(r'^[A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_].hasMatch(value);
+          : RegExp(r'^[A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]$')
+              .hasMatch(value);
       final callback = isHashtag ? widget.onHashtagTap : widget.onMentionTap;
       TapGestureRecognizer? recognizer;
       if (valid) {
@@ -76,35 +76,6 @@ class _SocialPostTextState extends State<SocialPostText> {
     if (offset < widget.text.length) {
       spans.add(TextSpan(text: widget.text.substring(offset)));
     }
-    return InkWell(
-      onTap: widget.onTextTap,
-      child: Text.rich(TextSpan(style: widget.style, children: spans)),
-    );
-  }
-}
-).hasMatch(value);
-      final callback = isHashtag ? widget.onHashtagTap : widget.onMentionTap;
-      TapGestureRecognizer? recognizer;
-      if (valid) {
-        recognizer = TapGestureRecognizer()..onTap = () => callback(value);
-        _recognizers.add(recognizer);
-      }
-      spans.add(TextSpan(
-        text: '$prefix$value',
-        style: widget.style?.copyWith(
-          color: Theme.of(context).colorScheme.primary,
-          fontWeight: FontWeight.w700,
-        ),
-        recognizer: recognizer,
-      ));
-      offset = match.end;
-    }
-    if (offset < widget.text.length) {
-      spans.add(TextSpan(text: widget.text.substring(offset)));
-    }
-    return InkWell(
-      onTap: widget.onTextTap,
-      child: Text.rich(TextSpan(style: widget.style, children: spans)),
-    );
+    return Text.rich(TextSpan(style: widget.style, children: spans));
   }
 }
