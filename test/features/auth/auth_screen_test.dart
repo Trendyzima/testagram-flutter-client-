@@ -215,9 +215,11 @@ void main() {
     expect(find.text('Create password'), findsOneWidget);
     expect(find.textContaining('no administrator approval is required'), findsOneWidget);
 
-    await tester.enterText(find.widgetWithText(TextFormField, 'Username'), 'native_user');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Email address'), 'native@example.test');
-    await tester.enterText(find.widgetWithText(TextFormField, 'Create password'), 'native-password-123');
+    final signupFields = find.byType(TextFormField);
+    expect(signupFields, findsNWidgets(3));
+    await tester.enterText(signupFields.at(0), 'native_user');
+    await tester.enterText(signupFields.at(1), 'native@example.test');
+    await tester.enterText(signupFields.at(2), 'native-password-123');
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
 
     expect(nativeAuth.signUpCalls, 1);
