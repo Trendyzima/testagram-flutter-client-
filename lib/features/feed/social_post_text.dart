@@ -23,7 +23,7 @@ class SocialPostText extends StatefulWidget {
 
 class _SocialPostTextState extends State<SocialPostText> {
   static final RegExp _tokens = RegExp(
-    r'(?<![\\p{L}\\p{N}_@#])(#([\\p{L}\\p{N}_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
+    r'(?<![\p{L}\p{N}_@#])(#([\p{L}\p{N}_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
     unicode: true,
   );
 
