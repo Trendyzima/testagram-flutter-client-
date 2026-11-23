@@ -23,8 +23,13 @@ class SocialPostText extends StatefulWidget {
 
 class _SocialPostTextState extends State<SocialPostText> {
   static final RegExp _tokens = RegExp(
-    r'(^|[^A-Za-z0-9_@#])(#([A-Za-z0-9_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
+    r'(#([A-Za-z0-9_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
   );
+
+  static bool _hasValidLeftBoundary(String text, int start) {
+    if (start == 0) return true;
+    return !RegExp(r'[A-Za-z0-9_@#]').hasMatch(text[start - 1]);
+  }
 
   final List<TapGestureRecognizer> _recognizers = [];
 
@@ -46,18 +51,16 @@ class _SocialPostTextState extends State<SocialPostText> {
     final spans = <InlineSpan>[];
     var offset = 0;
     for (final match in _tokens.allMatches(widget.text)) {
+      if (!_hasValidLeftBoundary(widget.text, match.start)) continue;
       if (match.start > offset) {
         spans.add(TextSpan(text: widget.text.substring(offset, match.start)));
       }
-      final delimiter = match.group(1)!;
-      if (delimiter.isNotEmpty) spans.add(TextSpan(text: delimiter));
-      final token = match.group(2)!;
+      final token = match.group(1)!;
       final isHashtag = token.startsWith('#');
-      final value = isHashtag ? match.group(3)! : match.group(4)!;
+      final value = isHashtag ? match.group(2)! : match.group(3)!;
       final prefix = isHashtag ? '#' : '@';
       final callback = isHashtag ? widget.onHashtagTap : widget.onMentionTap;
-      TapGestureRecognizer? recognizer;
-      recognizer = TapGestureRecognizer()..onTap = () => callback(value);
+      final recognizer = TapGestureRecognizer()..onTap = () => callback(value);
       _recognizers.add(recognizer);
       spans.add(TextSpan(
         text: '$prefix$value',
