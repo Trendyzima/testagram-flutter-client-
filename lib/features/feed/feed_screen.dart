@@ -830,16 +830,19 @@ class _ConversationSidebarState extends State<_ConversationSidebar> {
     required bool rising,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      dense: true,
-      contentPadding: EdgeInsets.zero,
-      title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
-        style: const TextStyle(fontWeight: FontWeight.w800)),
-      subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
-      trailing: Icon(rising ? Icons.trending_up_rounded : Icons.chevron_right_rounded,
-        color: rising ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
-        size: 19),
-      onTap: onTap,
+    return Material(
+      type: MaterialType.transparency,
+      child: ListTile(
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+        title: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis,
+          style: const TextStyle(fontWeight: FontWeight.w800)),
+        subtitle: Text(subtitle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        trailing: Icon(rising ? Icons.trending_up_rounded : Icons.chevron_right_rounded,
+          color: rising ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+          size: 19),
+        onTap: onTap,
+      ),
     );
   }
 
