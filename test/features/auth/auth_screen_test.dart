@@ -159,7 +159,7 @@ void main() {
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
-        requireIdentityReview: true,
+        requireIdentityReview: false,
         enableIdentityRegistration: false,
         identityApplicationStore: identityStore,
       ),
