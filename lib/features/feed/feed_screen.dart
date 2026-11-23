@@ -8,6 +8,9 @@ import '../../core/backend_api.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../profile/profile_screen.dart';
+import '../discovery/hashtag_screen.dart';
+import 'social_post_text.dart';
 import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
@@ -206,6 +209,36 @@ class _FeedScreenState extends State<FeedScreen> {
     }
   }
 
+  void _openHashtag(String tag) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = _data(await widget.api.resolveProfileUsername(handle));
+      final raw = response['profile'] ?? response['user'] ?? response;
+      final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('@$handle could not be found or is not discoverable.')),
+        );
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open @$handle: $error')),
+        );
+      }
+    }
+  }
+
   Future<void> _quotePost(Map<String, dynamic> post) async {
     final id = (post['id'] ?? '').toString();
     final origin = (post['origin'] ?? '').toString().toLowerCase();
@@ -321,7 +354,7 @@ class _FeedScreenState extends State<FeedScreen> {
       isScrollControlled: true,
       useSafeArea: true,
       showDragHandle: true,
-      builder: (_) => const _PostComposerSheet(),
+      builder: (_) => _PostComposerSheet(api: widget.api),
     );
     if (!mounted || draft == null || _publishing) return;
 
@@ -524,6 +557,8 @@ class _FeedScreenState extends State<FeedScreen> {
                         ));
                     return _PostCard(
                       post: post,
+                      onHashtagTap: _openHashtag,
+                      onMentionTap: _openMention,
                       busy: _busy.contains(id),
                       onOpen: id.isEmpty || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
@@ -774,7 +809,9 @@ class _PostDraft {
 }
 
 class _PostComposerSheet extends StatefulWidget {
-  const _PostComposerSheet();
+  const _PostComposerSheet({required this.api});
+
+  final BackendApi api;
 
   @override
   State<_PostComposerSheet> createState() => _PostComposerSheetState();
@@ -784,6 +821,1341 @@ class _PostComposerSheetState extends State<_PostComposerSheet> {
   final _controller = TextEditingController();
   final _media = <_PostMediaDraft>[];
   String _visibility = 'public';
+  List<Map<String, dynamic>> _mentionSuggestions = [];
+  int _mentionGeneration = 0;
+  String _activeMention = '';
+
+  Future<void> _updateMentionSuggestions(String value) async {
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    if (_media.any((media) => media.contentType.startsWith('video/'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    if (_media.length >= 4) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      if (!mounted || picked == null) return;
+      final extension = picked.name.toLowerCase().split('.').last;
+      const types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+        'avif': 'image/avif',
+      };
+      final contentType = types[extension];
+      if (contentType == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
+        );
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty || bytes.length > MediaUploadPolicy.imageMaxBytes) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Each image must be 20 MiB or smaller.')),
+        );
+        return;
+      }
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select image: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    if (_media.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 3),
+      );
+      if (!mounted || picked == null) return;
+      final extension = MediaUploadPolicy.normalizeExtension(picked.name, isVideo: true);
+      final contentType = MediaUploadPolicy.contentType(extension);
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      MediaUploadPolicy.validateSize(bytes.length, isVideo: true);
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select video: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _controller.text.runes.length;
+    final hasVideo = _media.any((media) => media.contentType.startsWith('video/'));
+    final canPublish = count > 0 &&
+        count <= 5000 &&
+        _media.length <= 4 &&
+        (!hasVideo || _media.length == 1) &&
+        (_visibility == 'public' || _media.isEmpty);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        18, 8, 18, MediaQuery.viewInsetsOf(context).bottom + 18,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(child: Text('Create a post', style: Theme.of(context).textTheme.titleLarge)),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ]),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 9,
+              maxLength: 5000,
+              onChanged: (value) {
+                setState(() {});
+                _updateMentionSuggestions(value);
+              },
+              decoration: const InputDecoration(
+                hintText: 'What is happening? Use #hashtags and @mentions.',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            if (_mentionSuggestions.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Align(
+                alignment: Alignment.centerLeft,
+                child: Text('Mention people', style: Theme.of(context).textTheme.labelMedium),
+              ),
+              const SizedBox(height: 5),
+              Wrap(
+                spacing: 7,
+                runSpacing: 5,
+                children: _mentionSuggestions.map((person) {
+                  final username = (person['username'] ?? '').toString();
+                  final display = (person['display_name'] ?? username).toString();
+                  return ActionChip(
+                    avatar: const Icon(Icons.alternate_email_rounded, size: 16),
+                    label: Text('$display · @$username'),
+                    onPressed: username.isEmpty ? null : () => _insertMention(username),
+                  );
+                }).toList(),
+              ),
+            ],
+            if (_media.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var index = 0; index < _media.length; index++)
+                    SizedBox(
+                      width: 104,
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: _media[index].contentType.startsWith('video/')
+                                ? Container(
+                                    width: 104,
+                                    height: 104,
+                                    color: Colors.black87,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.play_circle_fill, color: Colors.white, size: 38),
+                                  )
+                                : Image.memory(
+                                    _media[index].bytes,
+                                    width: 104,
+                                    height: 104,
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: IconButton.filledTonal(
+                              tooltip: _media[index].contentType.startsWith('video/') ? 'Remove video' : 'Remove image',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => setState(() => _media.removeAt(index)),
+                              icon: const Icon(Icons.close, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: _media.length >= 4 || hasVideo ? null : _pickImage,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text('Add photo (${_media.where((media) => media.contentType.startsWith('image/')).length}/4)'),
+                ),
+                TextButton.icon(
+                  onPressed: _media.isNotEmpty ? null : _pickVideo,
+                  icon: const Icon(Icons.video_library_outlined),
+                  label: Text('Add video (${hasVideo ? 1 : 0}/1)'),
+                ),
+              ],
+            ),
+            if (_media.isNotEmpty && _visibility != 'public') ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Media attachments are currently available on public posts only. Remove media to publish to followers or privately.',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text('Who can see this post?', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'public', label: Text('Everyone'), icon: Icon(Icons.public)),
+                ButtonSegment(value: 'followers', label: Text('Followers'), icon: Icon(Icons.people_outline)),
+                ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
+              ],
+              selected: {_visibility},
+              onSelectionChanged: (value) => setState(() => _visibility = value.first),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: Text('$count / 5000', style: Theme.of(context).textTheme.bodySmall)),
+              FilledButton.icon(
+                onPressed: canPublish ? () => Navigator.pop(context, _PostDraft(
+                  content: _controller.text.trim(),
+                  visibility: _visibility,
+                  media: List<_PostMediaDraft>.from(_media),
+                )) : null,
+                icon: const Icon(Icons.send),
+                label: const Text('Publish'),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Public posts can be delivered to federated servers when federation is enabled for your account.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PostMediaDraft {
+  const _PostMediaDraft({
+    required this.name,
+    required this.contentType,
+    required this.bytes,
+  });
+
+  final String name;
+  final String contentType;
+  final Uint8List bytes;
+}
+
+class _QuotePostComposer extends StatefulWidget {
+  const _QuotePostComposer({required this.post});
+
+  final Map<String, dynamic> post;
+
+  @override
+  State<_QuotePostComposer> createState() => _QuotePostComposerState();
+}
+
+class _QuotePostComposerState extends State<_QuotePostComposer> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // Keyboard insets can exceed the test viewport (and occasionally
+    // transient webview viewport bounds). Cap them and allow compact layouts
+    // to scroll instead of overflowing the modal sheet.
+    final keyboardInset =
+        media.viewInsets.bottom.clamp(0.0, media.size.height * 0.6);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Quote post', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                (widget.post['content'] ?? '').toString(),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 7,
+                maxLength: 5000,
+                decoration: const InputDecoration(
+                  hintText: 'Add your perspective…',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _controller.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(_controller.text.trim()),
+                  icon: const Icon(Icons.repeat_rounded),
+                  label: const Text('Publish quote'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostCard extends StatelessWidget {
+  const _PostCard({
+    required this.post,
+    required this.onHashtagTap,
+    required this.onMentionTap,
+    required this.busy,
+    required this.onLike,
+    required this.onRepost,
+    required this.onQuote,
+    required this.onBookmark,
+    required this.onReplies,
+    this.onOpen,
+    this.onOpenVideo,
+  });
+
+  final Map<String, dynamic> post;
+  final ValueChanged<String> onHashtagTap, onMentionTap;
+  final bool busy;
+  final VoidCallback onLike, onRepost, onQuote, onBookmark, onReplies;
+  final VoidCallback? onOpen, onOpenVideo;
+
+  String _timeLabel(String value) {
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return '';
+    final difference = DateTime.now().difference(date);
+    if (difference.isNegative || difference.inMinutes < 1) return 'now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays < 7) return '${difference.inDays}d';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final author = post['author'];
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    final isRemote = origin != 'local';
+    final sourceLabel = switch (origin) {
+      'activitypub' => 'Fediverse',
+      'atproto' || 'bluesky' => 'Bluesky',
+      'local' => null,
+      _ => 'Federated',
+    };
+    // The current Backend social mutation handlers only operate on local
+    // UUID-backed posts. Remote capability flags are not actionable until
+    // matching Backend + Federation mutation routes and client contracts exist.
+    final canLike = !isRemote;
+    final canReply = !isRemote;
+    final canRepost = !isRemote;
+    final canQuote = !isRemote;
+    final name = author is Map
+        ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
+        : 'Testagram user';
+    final username = author is Map ? (author['username'] ?? '').toString() : '';
+    final avatarUrl = author is Map ? (FeedMediaUrl.normalize(author['avatar_url']) ?? '') : '';
+    final body = (post['content'] ?? '').toString();
+    final rawRankingReasons = post['ranking_reasons'];
+    final rankingLabels = rawRankingReasons is List
+        ? rawRankingReasons
+            .map((value) => switch (value.toString()) {
+              'from-followed-account' => 'From someone you follow',
+              'recent' => 'Recent',
+              'matches-interests' => 'Matches your interests',
+              'quality-signal' => 'High-quality discussion',
+              'constructive-conversation' => 'Constructive conversation',
+              _ => '',
+            })
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .take(2)
+            .toList()
+        : <String>[];
+    final created = _timeLabel((post['created_at'] ?? '').toString());
+    final rawMedia = post['media_urls'];
+    final mediaUrls = rawMedia is List
+        ? rawMedia.map(FeedMediaUrl.normalize).whereType<String>().take(4).toList()
+        : <String>[];
+    final rawContentTypes = post['media_content_types'];
+    final contentTypes = rawContentTypes is List
+        ? rawContentTypes.map((value) => value.toString().toLowerCase()).toList()
+        : <String>[];
+    final isVideoPost = post['is_video'] == true || contentTypes.any((type) => type.startsWith('video/'));
+    final rawMediaAuthHeaders = post['media_auth_headers'];
+    final mediaAuthHeaders = <String, String>{};
+    if (rawMediaAuthHeaders is Map) {
+      for (final entry in rawMediaAuthHeaders.entries) {
+        final url = FeedMediaUrl.normalize(entry.key);
+        final authorization = entry.value.toString();
+        if (url != null && url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
+          mediaAuthHeaders[url] = authorization;
+        }
+      }
+    }
+    Map<String, String>? headersForMedia(String url) {
+      final authorization = mediaAuthHeaders[url];
+      return authorization == null ? null : {'Authorization': authorization};
+    }
+    if (mediaUrls.isEmpty) {
+      final legacyUrl = FeedMediaUrl.normalize(post['media_url']);
+      if (legacyUrl != null && !mediaUrls.contains(legacyUrl)) mediaUrls.add(legacyUrl);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
+              backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl.startsWith('http')
+                  ? null
+                  : Text(
+                      name.isEmpty ? 'T' : name[0].toUpperCase(),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      if (author is Map && (author['is_verified'] == true || author['verified'] == true))
+                        Padding(
+                          padding: const EdgeInsets.only(left: 3),
+                          child: Tooltip(
+                            message: 'Verified account',
+                            child: Icon(Icons.verified_rounded, size: 15, color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
+                      if (username.isNotEmpty) ...[
+                        const SizedBox(width: 5),
+                        Flexible(child: Text('@$username', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
+                      ],
+                      if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                      if (sourceLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: switch (origin) {
+                            'activitypub' => 'Remote content delivered through ActivityPub / Fediverse',
+                            'atproto' || 'bluesky' => 'Remote content delivered through AT Protocol / Bluesky',
+                            _ => 'Remote content delivered through a federated network',
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(width: 3),
+                              Text(
+                                'via $sourceLabel',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      PopupMenuButton<String>(
+                        tooltip: 'Post actions',
+                        icon: Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
+                        onSelected: (action) {
+                          if (action == 'quote') onQuote();
+                          if (action == 'open') onOpen?.call();
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'quote',
+                            enabled: canQuote,
+                            child: const ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.format_quote_rounded),
+                              title: Text('Quote post'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'open',
+                            enabled: onOpen != null,
+                            child: const ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.open_in_new_rounded),
+                              title: Text('Open post'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (rankingLabels.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded, size: 13,
+                          color: Theme.of(context).colorScheme.secondary),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Why this appears: ' + rankingLabels.join(' · '),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    SocialPostText(
+                      text: body,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42),
+                      onHashtagTap: onHashtagTap,
+                      onMentionTap: onMentionTap,
+                    ),
+                  ],
+                  if (isVideoPost && mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    InkWell(
+                      onTap: onOpenVideo ?? onOpen,
+                      borderRadius: BorderRadius.circular(18),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Container(
+                            color: Colors.black,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 58),
+                                SizedBox(height: 7),
+                                Text('Watch in Shorts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else if (mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    if (mediaUrls.length == 1)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(mediaUrls.first, width: double.infinity, height: 250, fit: BoxFit.cover, headers: headersForMedia(mediaUrls.first), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      )
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final tileWidth = (constraints.maxWidth - 6) / 2;
+                          return Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: mediaUrls.map((url) => SizedBox(
+                              width: tileWidth,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.network(
+                                  url,
+                                  height: 146,
+                                  fit: BoxFit.cover,
+                                  headers: headersForMedia(url),
+                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            )).toList(),
+                          );
+                        },
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (canReply)
+                        _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
+                      if (canRepost)
+                        _Action(icon: post['is_reposted'] == true ? Icons.repeat_on_rounded : Icons.repeat_rounded, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
+                      if (canLike)
+                        _Action(icon: post['is_liked'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
+                      if (!isRemote)
+                        _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+    );
+  }
+}
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.label, required this.onTap, this.active = false});
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool active;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor),
+          if (label.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+            )),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+).firstMatch(value);
+    final query = match?.group(1) ?? '';
+    final generation = ++_mentionGeneration;
+    if (query.isEmpty) {
+      if (mounted) setState(() {
+        _activeMention = '';
+        _mentionSuggestions = [];
+      });
+      return;
+    }
+    setState(() => _activeMention = query);
+    await Future<void>.delayed(const Duration(milliseconds: 220));
+    if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+    try {
+      final response = await widget.api.search(query: query, kind: 'people', limit: 6);
+      final raw = response['data'];
+      final data = raw is Map ? raw : response;
+      final users = data['users'];
+      final rows = users is List
+          ? users.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      if (!mounted || generation != _mentionGeneration || _activeMention != query) return;
+      setState(() => _mentionSuggestions = rows);
+    } catch (_) {
+      if (mounted && generation == _mentionGeneration) setState(() => _mentionSuggestions = []);
+    }
+  }
+
+  void _insertMention(String username) {
+    final text = _controller.text;
+    final match = RegExp(r'(?:^|\s)@([A-Za-z0-9_.]{2,30})
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _pickImage() async {
+    if (_media.any((media) => media.contentType.startsWith('video/'))) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    if (_media.length >= 4) return;
+    try {
+      final picked = await ImagePicker().pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+      );
+      if (!mounted || picked == null) return;
+      final extension = picked.name.toLowerCase().split('.').last;
+      const types = {
+        'jpg': 'image/jpeg',
+        'jpeg': 'image/jpeg',
+        'png': 'image/png',
+        'webp': 'image/webp',
+        'gif': 'image/gif',
+        'avif': 'image/avif',
+      };
+      final contentType = types[extension];
+      if (contentType == null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Choose a JPEG, PNG, WebP, GIF or AVIF image.')),
+        );
+        return;
+      }
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty || bytes.length > MediaUploadPolicy.imageMaxBytes) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Each image must be 20 MiB or smaller.')),
+        );
+        return;
+      }
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select image: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _pickVideo() async {
+    if (_media.isNotEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('A post can contain either one video or up to four photos.')),
+      );
+      return;
+    }
+    try {
+      final picked = await ImagePicker().pickVideo(
+        source: ImageSource.gallery,
+        maxDuration: const Duration(minutes: 3),
+      );
+      if (!mounted || picked == null) return;
+      final extension = MediaUploadPolicy.normalizeExtension(picked.name, isVideo: true);
+      final contentType = MediaUploadPolicy.contentType(extension);
+      final bytes = await picked.readAsBytes();
+      if (!mounted) return;
+      MediaUploadPolicy.validateSize(bytes.length, isVideo: true);
+      setState(() => _media.add(_PostMediaDraft(
+        name: picked.name,
+        contentType: contentType,
+        bytes: bytes,
+      )));
+    } on FormatException catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(error.message)),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not select video: $error')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final count = _controller.text.runes.length;
+    final hasVideo = _media.any((media) => media.contentType.startsWith('video/'));
+    final canPublish = count > 0 &&
+        count <= 5000 &&
+        _media.length <= 4 &&
+        (!hasVideo || _media.length == 1) &&
+        (_visibility == 'public' || _media.isEmpty);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(
+        18, 8, 18, MediaQuery.viewInsetsOf(context).bottom + 18,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(children: [
+              Expanded(child: Text('Create a post', style: Theme.of(context).textTheme.titleLarge)),
+              TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ]),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _controller,
+              autofocus: true,
+              minLines: 4,
+              maxLines: 9,
+              maxLength: 5000,
+              onChanged: (_) => setState(() {}),
+              decoration: const InputDecoration(
+                hintText: 'What is happening? Use #hashtags and @mentions.',
+                border: OutlineInputBorder(),
+                alignLabelWithHint: true,
+              ),
+            ),
+            if (_media.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  for (var index = 0; index < _media.length; index++)
+                    SizedBox(
+                      width: 104,
+                      child: Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: _media[index].contentType.startsWith('video/')
+                                ? Container(
+                                    width: 104,
+                                    height: 104,
+                                    color: Colors.black87,
+                                    alignment: Alignment.center,
+                                    child: const Icon(Icons.play_circle_fill, color: Colors.white, size: 38),
+                                  )
+                                : Image.memory(
+                                    _media[index].bytes,
+                                    width: 104,
+                                    height: 104,
+                                    fit: BoxFit.cover,
+                                  ),
+                          ),
+                          Positioned(
+                            top: 2,
+                            right: 2,
+                            child: IconButton.filledTonal(
+                              tooltip: _media[index].contentType.startsWith('video/') ? 'Remove video' : 'Remove image',
+                              visualDensity: VisualDensity.compact,
+                              onPressed: () => setState(() => _media.removeAt(index)),
+                              icon: const Icon(Icons.close, size: 16),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            Wrap(
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  onPressed: _media.length >= 4 || hasVideo ? null : _pickImage,
+                  icon: const Icon(Icons.add_photo_alternate_outlined),
+                  label: Text('Add photo (${_media.where((media) => media.contentType.startsWith('image/')).length}/4)'),
+                ),
+                TextButton.icon(
+                  onPressed: _media.isNotEmpty ? null : _pickVideo,
+                  icon: const Icon(Icons.video_library_outlined),
+                  label: Text('Add video (${hasVideo ? 1 : 0}/1)'),
+                ),
+              ],
+            ),
+            if (_media.isNotEmpty && _visibility != 'public') ...[
+              const SizedBox(height: 8),
+              const Text(
+                'Media attachments are currently available on public posts only. Remove media to publish to followers or privately.',
+                style: TextStyle(color: Colors.orange),
+              ),
+            ],
+            const SizedBox(height: 8),
+            Text('Who can see this post?', style: Theme.of(context).textTheme.labelLarge),
+            const SizedBox(height: 8),
+            SegmentedButton<String>(
+              segments: const [
+                ButtonSegment(value: 'public', label: Text('Everyone'), icon: Icon(Icons.public)),
+                ButtonSegment(value: 'followers', label: Text('Followers'), icon: Icon(Icons.people_outline)),
+                ButtonSegment(value: 'private', label: Text('Only me'), icon: Icon(Icons.lock_outline)),
+              ],
+              selected: {_visibility},
+              onSelectionChanged: (value) => setState(() => _visibility = value.first),
+            ),
+            const SizedBox(height: 14),
+            Row(children: [
+              Expanded(child: Text('$count / 5000', style: Theme.of(context).textTheme.bodySmall)),
+              FilledButton.icon(
+                onPressed: canPublish ? () => Navigator.pop(context, _PostDraft(
+                  content: _controller.text.trim(),
+                  visibility: _visibility,
+                  media: List<_PostMediaDraft>.from(_media),
+                )) : null,
+                icon: const Icon(Icons.send),
+                label: const Text('Publish'),
+              ),
+            ]),
+            const SizedBox(height: 4),
+            Text(
+              'Public posts can be delivered to federated servers when federation is enabled for your account.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _PostMediaDraft {
+  const _PostMediaDraft({
+    required this.name,
+    required this.contentType,
+    required this.bytes,
+  });
+
+  final String name;
+  final String contentType;
+  final Uint8List bytes;
+}
+
+class _QuotePostComposer extends StatefulWidget {
+  const _QuotePostComposer({required this.post});
+
+  final Map<String, dynamic> post;
+
+  @override
+  State<_QuotePostComposer> createState() => _QuotePostComposerState();
+}
+
+class _QuotePostComposerState extends State<_QuotePostComposer> {
+  final _controller = TextEditingController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final media = MediaQuery.of(context);
+    // Keyboard insets can exceed the test viewport (and occasionally
+    // transient webview viewport bounds). Cap them and allow compact layouts
+    // to scroll instead of overflowing the modal sheet.
+    final keyboardInset =
+        media.viewInsets.bottom.clamp(0.0, media.size.height * 0.6);
+    return Padding(
+      padding: EdgeInsets.fromLTRB(18, 8, 18, keyboardInset + 18),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxHeight: media.size.height * 0.8),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text('Quote post', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 12),
+              Text(
+                (widget.post['content'] ?? '').toString(),
+                maxLines: 4,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.bodyMedium,
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _controller,
+                autofocus: true,
+                minLines: 3,
+                maxLines: 7,
+                maxLength: 5000,
+                decoration: const InputDecoration(
+                  hintText: 'Add your perspective…',
+                  border: OutlineInputBorder(),
+                ),
+                onChanged: (_) => setState(() {}),
+              ),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: FilledButton.icon(
+                  onPressed: _controller.text.trim().isEmpty
+                      ? null
+                      : () => Navigator.of(context).pop(_controller.text.trim()),
+                  icon: const Icon(Icons.repeat_rounded),
+                  label: const Text('Publish quote'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _PostCard extends StatelessWidget {
+  const _PostCard({
+    required this.post,
+    required this.busy,
+    required this.onLike,
+    required this.onRepost,
+    required this.onQuote,
+    required this.onBookmark,
+    required this.onReplies,
+    this.onOpen,
+    this.onOpenVideo,
+  });
+
+  final Map<String, dynamic> post;
+  final bool busy;
+  final VoidCallback onLike, onRepost, onQuote, onBookmark, onReplies;
+  final VoidCallback? onOpen, onOpenVideo;
+
+  String _timeLabel(String value) {
+    final date = DateTime.tryParse(value)?.toLocal();
+    if (date == null) return '';
+    final difference = DateTime.now().difference(date);
+    if (difference.isNegative || difference.inMinutes < 1) return 'now';
+    if (difference.inMinutes < 60) return '${difference.inMinutes}m';
+    if (difference.inHours < 24) return '${difference.inHours}h';
+    if (difference.inDays < 7) return '${difference.inDays}d';
+    return '${date.day}/${date.month}/${date.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final author = post['author'];
+    final origin = (post['origin'] ?? '').toString().toLowerCase();
+    final isRemote = origin != 'local';
+    final sourceLabel = switch (origin) {
+      'activitypub' => 'Fediverse',
+      'atproto' || 'bluesky' => 'Bluesky',
+      'local' => null,
+      _ => 'Federated',
+    };
+    // The current Backend social mutation handlers only operate on local
+    // UUID-backed posts. Remote capability flags are not actionable until
+    // matching Backend + Federation mutation routes and client contracts exist.
+    final canLike = !isRemote;
+    final canReply = !isRemote;
+    final canRepost = !isRemote;
+    final canQuote = !isRemote;
+    final name = author is Map
+        ? (author['display_name'] ?? author['username'] ?? 'Testagram user').toString()
+        : 'Testagram user';
+    final username = author is Map ? (author['username'] ?? '').toString() : '';
+    final avatarUrl = author is Map ? (FeedMediaUrl.normalize(author['avatar_url']) ?? '') : '';
+    final body = (post['content'] ?? '').toString();
+    final created = _timeLabel((post['created_at'] ?? '').toString());
+    final rawMedia = post['media_urls'];
+    final mediaUrls = rawMedia is List
+        ? rawMedia.map(FeedMediaUrl.normalize).whereType<String>().take(4).toList()
+        : <String>[];
+    final rawContentTypes = post['media_content_types'];
+    final contentTypes = rawContentTypes is List
+        ? rawContentTypes.map((value) => value.toString().toLowerCase()).toList()
+        : <String>[];
+    final isVideoPost = post['is_video'] == true || contentTypes.any((type) => type.startsWith('video/'));
+    final rawMediaAuthHeaders = post['media_auth_headers'];
+    final mediaAuthHeaders = <String, String>{};
+    if (rawMediaAuthHeaders is Map) {
+      for (final entry in rawMediaAuthHeaders.entries) {
+        final url = FeedMediaUrl.normalize(entry.key);
+        final authorization = entry.value.toString();
+        if (url != null && url.startsWith('https://') && authorization.startsWith('Bearer v1.')) {
+          mediaAuthHeaders[url] = authorization;
+        }
+      }
+    }
+    Map<String, String>? headersForMedia(String url) {
+      final authorization = mediaAuthHeaders[url];
+      return authorization == null ? null : {'Authorization': authorization};
+    }
+    if (mediaUrls.isEmpty) {
+      final legacyUrl = FeedMediaUrl.normalize(post['media_url']);
+      if (legacyUrl != null && !mediaUrls.contains(legacyUrl)) mediaUrls.add(legacyUrl);
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 15, 16, 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: Theme.of(context).colorScheme.primary.withValues(alpha: 0.13),
+              backgroundImage: avatarUrl.startsWith('http') ? NetworkImage(avatarUrl) : null,
+              child: avatarUrl.startsWith('http')
+                  ? null
+                  : Text(
+                      name.isEmpty ? 'T' : name[0].toUpperCase(),
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.w800),
+                    ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(child: Text(name, style: const TextStyle(fontWeight: FontWeight.w800, letterSpacing: -0.2), overflow: TextOverflow.ellipsis)),
+                      if (author is Map && (author['is_verified'] == true || author['verified'] == true))
+                        Padding(
+                          padding: const EdgeInsets.only(left: 3),
+                          child: Tooltip(
+                            message: 'Verified account',
+                            child: Icon(Icons.verified_rounded, size: 15, color: Theme.of(context).colorScheme.primary),
+                          ),
+                        ),
+                      if (username.isNotEmpty) ...[
+                        const SizedBox(width: 5),
+                        Flexible(child: Text('@$username', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor), overflow: TextOverflow.ellipsis)),
+                      ],
+                      if (created.isNotEmpty) Text(' · $created', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Theme.of(context).hintColor)),
+                      if (sourceLabel != null) ...[
+                        const SizedBox(width: 6),
+                        Tooltip(
+                          message: switch (origin) {
+                            'activitypub' => 'Remote content delivered through ActivityPub / Fediverse',
+                            'atproto' || 'bluesky' => 'Remote content delivered through AT Protocol / Bluesky',
+                            _ => 'Remote content delivered through a federated network',
+                          },
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.public_rounded, size: 13, color: Theme.of(context).colorScheme.secondary),
+                              const SizedBox(width: 3),
+                              Text(
+                                'via $sourceLabel',
+                                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.secondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                      const Spacer(),
+                      PopupMenuButton<String>(
+                        tooltip: 'Post actions',
+                        icon: Icon(Icons.more_horiz_rounded, size: 19, color: Theme.of(context).hintColor),
+                        onSelected: (action) {
+                          if (action == 'quote') onQuote();
+                          if (action == 'open') onOpen?.call();
+                        },
+                        itemBuilder: (_) => [
+                          PopupMenuItem(
+                            value: 'quote',
+                            enabled: canQuote,
+                            child: const ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.format_quote_rounded),
+                              title: Text('Quote post'),
+                            ),
+                          ),
+                          PopupMenuItem(
+                            value: 'open',
+                            enabled: onOpen != null,
+                            child: const ListTile(
+                              dense: true,
+                              contentPadding: EdgeInsets.zero,
+                              leading: Icon(Icons.open_in_new_rounded),
+                              title: Text('Open post'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  if (body.isNotEmpty) ...[
+                    const SizedBox(height: 7),
+                    InkWell(
+                      onTap: onOpen,
+                      child: Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
+                    ),
+                  ],
+                  if (isVideoPost && mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    InkWell(
+                      onTap: onOpenVideo ?? onOpen,
+                      borderRadius: BorderRadius.circular(18),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: AspectRatio(
+                          aspectRatio: 16 / 9,
+                          child: Container(
+                            color: Colors.black,
+                            child: const Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.play_circle_fill_rounded, color: Colors.white, size: 58),
+                                SizedBox(height: 7),
+                                Text('Watch in Shorts', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else if (mediaUrls.isNotEmpty) ...[
+                    const SizedBox(height: 11),
+                    if (mediaUrls.length == 1)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(18),
+                        child: Image.network(mediaUrls.first, width: double.infinity, height: 250, fit: BoxFit.cover, headers: headersForMedia(mediaUrls.first), errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                      )
+                    else
+                      LayoutBuilder(
+                        builder: (context, constraints) {
+                          final tileWidth = (constraints.maxWidth - 6) / 2;
+                          return Wrap(
+                            spacing: 6,
+                            runSpacing: 6,
+                            children: mediaUrls.map((url) => SizedBox(
+                              width: tileWidth,
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(14),
+                                child: Image.network(
+                                  url,
+                                  height: 146,
+                                  fit: BoxFit.cover,
+                                  headers: headersForMedia(url),
+                                  errorBuilder: (_, __, ___) => const SizedBox.shrink(),
+                                ),
+                              ),
+                            )).toList(),
+                          );
+                        },
+                      ),
+                  ],
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      if (canReply)
+                        _Action(icon: Icons.mode_comment_outlined, label: (post['replies_count'] ?? 0).toString(), onTap: onReplies),
+                      if (canRepost)
+                        _Action(icon: post['is_reposted'] == true ? Icons.repeat_on_rounded : Icons.repeat_rounded, label: (post['reposts_count'] ?? 0).toString(), active: post['is_reposted'] == true, onTap: busy ? null : onRepost),
+                      if (canLike)
+                        _Action(icon: post['is_liked'] == true ? Icons.favorite_rounded : Icons.favorite_border_rounded, label: (post['likes_count'] ?? 0).toString(), active: post['is_liked'] == true, onTap: busy ? null : onLike),
+                      if (!isRemote)
+                        _Action(icon: post['is_bookmarked'] == true ? Icons.bookmark_rounded : Icons.bookmark_border_rounded, label: '', active: post['is_bookmarked'] == true, onTap: busy ? null : onBookmark),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+    );
+  }
+}
+class _Action extends StatelessWidget {
+  const _Action({required this.icon, required this.label, required this.onTap, this.active = false});
+  final IconData icon;
+  final String label;
+  final VoidCallback? onTap;
+  final bool active;
+  @override
+  Widget build(BuildContext context) => InkWell(
+    onTap: onTap,
+    borderRadius: BorderRadius.circular(12),
+    child: Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 7),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor),
+          if (label.isNotEmpty) ...[
+            const SizedBox(width: 6),
+            Text(label, style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: active ? Theme.of(context).colorScheme.primary : Theme.of(context).hintColor,
+              fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+            )),
+          ],
+        ],
+      ),
+    ),
+  );
+}
+).firstMatch(text);
+    if (match == null) return;
+    final start = match.start + (match.group(0)!.startsWith(' ') ? 1 : 0);
+    final updated = text.replaceRange(start, text.length, '@$username ');
+    _controller.value = TextEditingValue(
+      text: updated,
+      selection: TextSelection.collapsed(offset: updated.length),
+    );
+    setState(() {
+      _activeMention = '';
+      _mentionSuggestions = [];
+    });
+  }
 
   @override
   void dispose() {
