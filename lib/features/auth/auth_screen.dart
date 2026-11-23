@@ -89,7 +89,12 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     // Ordinary registration always uses the native email/password flow.
     // Do not restore or create identity-review applications during signup.
-    if (widget.requireIdentityReview) {
+    // Preserve explicit email-verification and password-recovery callbacks.
+    // The legacy review flag may select the signup entry only for a plain
+    // sign-in launch; it must never override a security-sensitive deep link.
+    if (widget.requireIdentityReview &&
+        entry.mode == AuthEntryMode.signIn &&
+        !widget.requireVerification) {
       _page = _Page.signUp;
     }
   }
@@ -758,18 +763,18 @@ class _AuthScreenState extends State<AuthScreen> {
             // mobileHero() on narrow screens and brandPanel() on desktop.
             // Repeating the wordmark here caused duplicate branding at tablet
             // widths and in the desktop form column.
-            modeSwitch(),
-            const SizedBox(height: 28),
+            if (_page != _Page.verify) modeSwitch(),
+            SizedBox(height: _page == _Page.verify ? 12 : 28),
             Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
             const SizedBox(height: 8),
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
-              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', readOnly: _identityDraft != null, autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
+              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
               const SizedBox(height: 14),
             ],
             if ({_Page.signIn, _Page.signUp, _Page.forgot, _Page.verify}.contains(_page)) ...[
-              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, readOnly: _identityDraft != null, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
+              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
             if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
@@ -861,12 +866,19 @@ class _AuthScreenState extends State<AuthScreen> {
                 SizedBox(height: 52, child: OutlinedButton.icon(
                   onPressed: _busy ? null : () => _go(_Page.signUp),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Create your account'),
+                  label: const Text('Create account'),
                   style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 )),
               ],
-            ] else if (_page != _Page.verify)
-              Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
+            ] else
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : () => _go(_Page.signIn),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Back to sign in'),
+                ),
+              ),
             const SizedBox(height: 18),
             const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.shield_outlined, size: 15, color: muted),
