@@ -564,6 +564,39 @@ class BackendApi {
   }
 
   /// Lists a profile's privacy-filtered followers or following accounts.
+  Future<Map<String, dynamic>> getSocialLists() =>
+      _request('GET', baseUri.resolve('/api/social/lists'));
+
+  Future<Map<String, dynamic>> createSocialList({
+    required String name,
+    String description = '',
+    String visibility = 'private',
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/social/lists'),
+        body: {
+          'name': name,
+          'description': description,
+          'visibility': visibility,
+        },
+      );
+
+  Future<Map<String, dynamic>> getSocialListFeed(
+    String listId, {
+    int limit = 20,
+    String? cursor,
+  }) =>
+      _request(
+        'GET',
+        baseUri.resolve('/api/social/lists/$listId/feed').replace(
+          queryParameters: {
+            'limit': '$limit',
+            if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+          },
+        ),
+      );
+
   Future<Map<String, dynamic>> listProfileConnections(
     String userId, {
     required String kind,
