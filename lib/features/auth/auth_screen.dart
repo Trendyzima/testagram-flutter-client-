@@ -480,7 +480,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
         final status = await api.getStatus(application);
         _identityProvisioningAuthorization = null;
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         _password.clear();
         _confirm.clear();
         setState(() {
@@ -679,7 +681,7 @@ class _AuthScreenState extends State<AuthScreen> {
     Widget modeSwitch() {
       final modes = <(_Page, String)>[
         (_Page.signIn, 'Sign in'),
-        if (widget.enableIdentityRegistration) (_Page.signUp, 'Sign up'),
+        (_Page.signUp, 'Sign up'),
         (_Page.forgot, 'Reset password'),
       ];
       return Container(
