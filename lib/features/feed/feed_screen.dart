@@ -10,6 +10,9 @@ import '../../core/widgets/testagram_state_view.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
+import '../profile/profile_screen.dart';
+import '../discovery/hashtag_screen.dart';
+import 'social_post_text.dart';
 import '../federation/remote_post_detail_screen.dart';
 import 'feed_media_url.dart';
 import 'feed_request_policy.dart';
@@ -205,6 +208,26 @@ class _FeedScreenState extends State<FeedScreen> {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
       if (mounted) setState(() => _busy.remove(id));
+    }
+  }
+
+  void _openHashtag(String tag) {
+    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => HashtagScreen(api: widget.api, tag: tag)));
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = _data(await widget.api.resolveProfileUsername(handle));
+      final raw = response['profile'] ?? response['user'] ?? response;
+      final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('@$handle is unavailable or not discoverable.')));
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ProfileScreen(api: widget.api, userId: userId)));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Could not open @$handle: $error')));
     }
   }
 
@@ -550,6 +573,8 @@ class _FeedScreenState extends State<FeedScreen> {
                         ));
                     return _PostCard(
                       post: post,
+                      onHashtagTap: _openHashtag,
+                      onMentionTap: _openMention,
                       busy: _busy.contains(id),
                       onOpen: id.isEmpty || (!isRemote && !_isCanonicalFeedPostUuid(id))
                           ? null
@@ -1138,6 +1163,8 @@ class _QuotePostComposerState extends State<_QuotePostComposer> {
 class _PostCard extends StatelessWidget {
   const _PostCard({
     required this.post,
+    required this.onHashtagTap,
+    required this.onMentionTap,
     required this.busy,
     required this.onLike,
     required this.onRepost,
@@ -1149,6 +1176,7 @@ class _PostCard extends StatelessWidget {
   });
 
   final Map<String, dynamic> post;
+  final ValueChanged<String> onHashtagTap, onMentionTap;
   final bool busy;
   final VoidCallback onLike, onRepost, onQuote, onBookmark, onReplies;
   final VoidCallback? onOpen, onOpenVideo;
@@ -1314,10 +1342,7 @@ class _PostCard extends StatelessWidget {
                   ),
                   if (body.isNotEmpty) ...[
                     const SizedBox(height: 7),
-                    InkWell(
-                      onTap: onOpen,
-                      child: Text(body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42)),
-                    ),
+                    SocialPostText(text: body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42), onHashtagTap: onHashtagTap, onMentionTap: onMentionTap),
                   ],
                   if (isVideoPost && mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 11),
