@@ -9,6 +9,7 @@ import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/knowledge/knowledge_hub_screen.dart';
+import '../features/lists/social_lists_screen.dart';
 import '../features/monetization/monetization_hub_screen.dart';
 import '../features/notifications/notifications_screen.dart';
 import '../features/shorts/shorts_screen.dart';
@@ -132,6 +133,7 @@ class _MainShellState extends State<MainShell> {
               (11, Icons.monetization_on_outlined, 'Monetization', 'Creator tools and earnings'),
               (12, Icons.forum_outlined, 'Direct messages', 'Private conversations'),
               (13, Icons.call_outlined, 'Calls', 'Voice and video call centre'),
+              (14, Icons.list_alt_rounded, 'Lists and custom feeds', 'Curate accounts and their timelines'),
             ])
               ListTile(
                 selected: _index == item.$1,
@@ -176,6 +178,7 @@ class _MainShellState extends State<MainShell> {
         MonetizationHubScreen(api: widget.api),
         DirectMessagesScreen(api: widget.api),
         CallsScreen(api: widget.api),
+        SocialListsScreen(api: widget.api, onSignOut: widget.onSignOut),
       ];
 
   @override
