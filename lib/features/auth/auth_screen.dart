@@ -69,9 +69,13 @@ class _AuthScreenState extends State<AuthScreen> {
       case AuthEntryMode.verifyEmail:
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _verify(entry.applicationId!, entry.token!),
-          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (entry.applicationId != null) {
+              _verify(entry.applicationId!, entry.token!);
+            } else {
+              _verifyNative(entry.token!);
+            }
+          });
         } else {
           _notice = 'Open the complete Testagram verification link from your email, or request another one.';
         }
@@ -972,10 +976,10 @@ class _AuthScreenState extends State<AuthScreen> {
               field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, readOnly: _identityDraft != null, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
-            if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
+            if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
-                label: _page == _Page.reset ? 'New password' : 'Password',
+                label: _page == _Page.reset ? 'New password' : (_page == _Page.signUp ? 'Create password' : 'Password'),
                 icon: Icons.lock_outline_rounded,
                 obscure: _obscure,
                 autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
@@ -1055,10 +1059,10 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
             if (_page == _Page.signUp && widget.enableIdentityRegistration)
-              primaryAction('Submit application', _signUp),
+              primaryAction('Create account', _signUp),
             if (_page == _Page.signUp && !widget.enableIdentityRegistration)
               statusMessage(
-                'Registration is currently closed. No application or account can be created yet.',
+                'New account creation is temporarily unavailable. Please try again shortly.',
                 error: false,
               ),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
