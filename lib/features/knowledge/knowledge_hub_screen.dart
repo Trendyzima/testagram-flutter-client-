@@ -553,6 +553,9 @@ class _KnowledgeQuestionList extends StatefulWidget {
 
 class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
   late Future<Map<String, dynamic>> _future;
+  String _nextCursor = '';
+  bool _hasMore = false;
+  bool _loadingMore = false;
 
   @override
   void initState() {
@@ -560,18 +563,65 @@ class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
     _future = _load();
   }
 
-  Future<Map<String, dynamic>> _load() => widget.api.getKnowledgeQuestions(
-        status: widget.status,
-        mine: widget.mine,
-        following: widget.following,
-        topicsFollowing: widget.topicsFollowing,
-        topicSlug: widget.topicSlug,
-      );
+  Future<Map<String, dynamic>> _load({String? before}) async {
+    final response = await widget.api.getKnowledgeQuestions(
+      status: widget.status,
+      mine: widget.mine,
+      following: widget.following,
+      topicsFollowing: widget.topicsFollowing,
+      topicSlug: widget.topicSlug,
+      before: before,
+    );
+    final raw = response['data'];
+    if (raw is Map) {
+      _nextCursor = (raw['next_cursor'] ?? '').toString();
+      _hasMore = raw['has_more'] == true && _nextCursor.isNotEmpty;
+    }
+    return response;
+  }
 
   Future<void> _refresh() async {
+    _nextCursor = '';
+    _hasMore = false;
     final next = _load();
-    setState(() => _future = next);
+    setState(() {
+      _loadingMore = false;
+      _future = next;
+    });
     await next;
+  }
+
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore || _nextCursor.isEmpty) return;
+    setState(() => _loadingMore = true);
+    try {
+      final current = await _future;
+      final next = await _load(before: _nextCursor);
+      final currentData = current['data'];
+      final nextData = next['data'];
+      if (currentData is! Map || nextData is! Map) return;
+      final existing = currentData['items'] is List
+          ? List<dynamic>.from(currentData['items'] as List)
+          : <dynamic>[];
+      final incoming = nextData['items'] is List
+          ? List<dynamic>.from(nextData['items'] as List)
+          : <dynamic>[];
+      final merged = <String, dynamic>{
+        ...Map<String, dynamic>.from(currentData),
+        'items': [...existing, ...incoming],
+        'has_more': nextData['has_more'] == true,
+        'next_cursor': nextData['next_cursor'] ?? '',
+      };
+      setState(() => _future = Future.value({...current, 'data': merged}));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not load more questions: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
   }
 
   @override
@@ -626,9 +676,20 @@ class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
           child: ListView.separated(
             physics: const AlwaysScrollableScrollPhysics(),
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 96),
-            itemCount: items.length,
+            itemCount: items.length + (_hasMore ? 1 : 0),
             separatorBuilder: (_, __) => const Divider(height: 1),
             itemBuilder: (context, index) {
+              if (index == items.length) {
+                return Center(
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: TextButton(
+                      onPressed: _loadingMore ? null : _loadMore,
+                      child: Text(_loadingMore ? 'Loading questions…' : 'Load more questions'),
+                    ),
+                  ),
+                );
+              }
               final question = items[index];
               final author = question['author'] is Map ? Map<String, dynamic>.from(question['author'] as Map) : <String, dynamic>{};
               return ListTile(
@@ -665,7 +726,7 @@ class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
                   await Navigator.of(context).push(MaterialPageRoute<void>(
                     builder: (_) => _KnowledgeQuestionDetail(api: widget.api, questionId: (question['id'] ?? '').toString()),
                   ));
-                  if (mounted) setState(() => _future = _load());
+                  if (mounted) _refresh();
                 },
               );
             },
