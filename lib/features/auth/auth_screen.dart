@@ -286,101 +286,6 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
-  Future<void> _restoreSavedIdentityApplication() async {
-    IdentityApplicationDraft? draft;
-    try {
-      draft = await _identityStore.load();
-    } catch (_) {
-      // Secure storage can be unavailable in an unsupported browser context.
-      // Do not submit a new application when its recovery key cannot be saved.
-      return;
-    }
-    if (draft == null || !mounted) return;
-    final restoredDraft = draft;
-    setState(() {
-      _identityDraft = restoredDraft;
-      _identityApplication = restoredDraft.application;
-      _name.text = restoredDraft.displayName;
-      _email.text = restoredDraft.email;
-      _username.text = restoredDraft.username;
-      _page = _Page.identity;
-      _notice = 'Your saved identity application was restored. Your password is never stored; create it only after approval.';
-    });
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      var currentDraft = restoredDraft;
-      late IdentityApplication application;
-      if (currentDraft.application == null) {
-        final created = await _submitIdentityDraft(api, currentDraft);
-        if (created == null) return;
-        application = created;
-        currentDraft = currentDraft.copyWith(application: application);
-        await _identityStore.save(currentDraft);
-      } else {
-        application = currentDraft.application!;
-      }
-      IdentityApplicationStatus status;
-      try {
-        status = await api.getStatus(application);
-      } on IdentityVerificationException catch (error) {
-        if (error.statusCode != 404) rethrow;
-        final created = await _submitIdentityDraft(api, currentDraft);
-        if (created == null) return;
-        application = created;
-        currentDraft = currentDraft.copyWith(application: application);
-        await _identityStore.save(currentDraft);
-        status = await api.getStatus(application);
-      }
-      if (application.sessionId.isNotEmpty && application.sessionToken.isNotEmpty) {
-        try {
-          await api.getSessionExpiry(application);
-        } on IdentityVerificationException catch (error) {
-          if (error.statusCode != 404) rethrow;
-          final created = await _submitIdentityDraft(api, currentDraft);
-          if (created == null) return;
-          application = created;
-          currentDraft = currentDraft.copyWith(application: application);
-          await _identityStore.save(currentDraft);
-          status = await api.getStatus(application);
-        }
-      }
-      if (status.provisioningStatus == 'active') {
-        try {
-          await _identityStore.clear();
-        } catch (_) {}
-        if (mounted) {
-          setState(() {
-            _identityDraft = null;
-            _identityApplication = null;
-            _identityStatus = status;
-            _page = _Page.signIn;
-            _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
-          });
-        }
-      } else if (mounted) {
-        setState(() {
-          _identityDraft = currentDraft;
-          _identityApplication = application;
-          _identityStatus = status;
-          _page = status.provisioningStatus == 'verification_pending'
-              ? _Page.verify
-              : _Page.identity;
-          _notice = status.provisioningStatus == 'verification_pending'
-              ? 'Your Testagram account has been created. Verify your email to activate it.'
-              : 'Your application is ready to continue. Refresh its status at any time.';
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'Your saved application could not be refreshed. Check your connection and retry.';
-        });
-      }
-    } finally {
-      api.close();
-    }
-  }
-
   Future<void> _signUp() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
@@ -887,8 +792,6 @@ class _AuthScreenState extends State<AuthScreen> {
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
-              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, readOnly: _identityDraft != null, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
-              const SizedBox(height: 14),
               field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', readOnly: _identityDraft != null, autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
               const SizedBox(height: 14),
             ],
