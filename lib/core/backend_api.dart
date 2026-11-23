@@ -434,6 +434,19 @@ class BackendApi {
     );
   }
 
+  /// Returns globally trending public discussion words from the last seven days.
+  Future<Map<String, dynamic>> getTrendingWords({int limit = 20}) {
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/trends/words').replace(
+        queryParameters: {'limit': '$limit'},
+      ),
+    );
+  }
+
   /// Loads a privacy-filtered, cursor-paginated hashtag timeline.
   Future<Map<String, dynamic>> getHashtagTimeline(
     String tag, {
