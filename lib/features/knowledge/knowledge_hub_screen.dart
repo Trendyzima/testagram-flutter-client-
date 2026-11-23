@@ -162,8 +162,8 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
       length: tabs.length,
       initialIndex: 1,
       child: Scaffold(
-        appBar: AppBar(
-          title: const Text('Knowledge'),
+        appBar: TestagramAppBar(
+          title: 'Knowledge',
           actions: [
             IconButton(
               tooltip: 'About Questions & Answers',
