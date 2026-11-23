@@ -47,6 +47,7 @@ class BackendApi {
     int limit = 20,
     String status = 'all',
     bool mine = false,
+    bool following = false,
     String? before,
   }) =>
       _request(
@@ -55,6 +56,7 @@ class BackendApi {
           'limit': '$limit',
           'status': status,
           if (mine) 'mine': 'true',
+          if (following) 'following': 'true',
           if (before != null && before.isNotEmpty) 'before': before,
         }),
       );
