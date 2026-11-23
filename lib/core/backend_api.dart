@@ -43,6 +43,67 @@ class BackendApi {
     return _request('GET', uri);
   }
 
+  Future<Map<String, dynamic>> getKnowledgeQuestions({
+    int limit = 20,
+    String status = 'all',
+    bool mine = false,
+    bool following = false,
+    String? before,
+  }) =>
+      _request(
+        'GET',
+        baseUri.resolve('/api/knowledge/questions').replace(queryParameters: {
+          'limit': '$limit',
+          'status': status,
+          if (mine) 'mine': 'true',
+          if (following) 'following': 'true',
+          if (before != null && before.isNotEmpty) 'before': before,
+        }),
+      );
+
+  Future<Map<String, dynamic>> createKnowledgeQuestion({
+    required String title,
+    String body = '',
+    String visibility = 'public',
+    String language = '',
+    required String idempotencyKey,
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/knowledge/questions'),
+        body: {
+          'title': title,
+          'body': body,
+          'visibility': visibility,
+          'language': language,
+        },
+        extraHeaders: {'Idempotency-Key': idempotencyKey},
+      );
+
+  Future<Map<String, dynamic>> getKnowledgeQuestion(String questionId) =>
+      _request('GET', baseUri.resolve('/api/knowledge/questions/$questionId'));
+
+  Future<Map<String, dynamic>> createKnowledgeAnswer({
+    required String questionId,
+    required String body,
+    required String idempotencyKey,
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/knowledge/questions/$questionId/answers'),
+        body: {'body': body},
+        extraHeaders: {'Idempotency-Key': idempotencyKey},
+      );
+
+  Future<Map<String, dynamic>> acceptKnowledgeAnswer({
+    required String questionId,
+    required String answerId,
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/knowledge/questions/$questionId/answers/$answerId/accept'),
+      );
+
   Future<Map<String, dynamic>> getThreads({int limit = 20, String? cursor, String tab = 'for-you'}) =>
       _request('GET', baseUri.resolve('/api/threads').replace(queryParameters: {
         'tab': tab,

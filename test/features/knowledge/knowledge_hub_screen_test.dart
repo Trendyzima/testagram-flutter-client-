@@ -1,56 +1,54 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
+import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/knowledge/knowledge_hub_screen.dart';
 
 void main() {
-  testWidgets('knowledge hub exposes the four Q&A discovery lanes', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: KnowledgeHubScreen()));
+  testWidgets('knowledge hub loads authenticated question lanes and exposes composer', (tester) async {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async => http.Response(
+        jsonEncode({'ok': true, 'data': {'items': [], 'has_more': false}}),
+        200,
+      )),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: KnowledgeHubScreen(api: api)));
+    await tester.pumpAndSettle();
 
     expect(find.text('Knowledge'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
     expect(find.text('Following'), findsOneWidget);
     expect(find.text('Unanswered'), findsOneWidget);
     expect(find.text('Your questions'), findsOneWidget);
-    expect(find.text('A place for thoughtful answers'), findsOneWidget);
-  });
-
-  testWidgets('question creation stays disabled until Backend contracts exist',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: KnowledgeHubScreen()));
-
-    final composer = tester.widget<FloatingActionButton>(
-      find.byType(FloatingActionButton),
-    );
-    expect(composer.onPressed, isNull);
     expect(find.text('Ask a question'), findsOneWidget);
-    expect(
-      find.textContaining('authenticated Backend routes'),
-      findsOneWidget,
-    );
+    expect(find.text('No questions here yet.'), findsOneWidget);
+    api.close();
   });
 
-  testWidgets('each Q&A lane remains honest and does not fabricate records',
-      (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: KnowledgeHubScreen()));
-
-    await tester.tap(find.text('Unanswered'));
-    await tester.pumpAndSettle();
-
-    expect(find.text('Help answer the open questions'), findsOneWidget);
-    expect(
-      find.textContaining('will not show sample or invented questions'),
-      findsOneWidget,
+  testWidgets('question composer validates title and offers visibility controls', (tester) async {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async => http.Response(
+        jsonEncode({'ok': true, 'data': {'items': []}}),
+        200,
+      )),
     );
-  });
 
-  testWidgets('knowledge information action is accessible', (tester) async {
-    await tester.pumpWidget(const MaterialApp(home: KnowledgeHubScreen()));
-
-    final info = find.byTooltip('About Questions & Answers');
-    expect(info, findsOneWidget);
-    await tester.tap(info);
+    await tester.pumpWidget(MaterialApp(home: KnowledgeHubScreen(api: api)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Ask a question'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Testagram Questions & Answers'), findsOneWidget);
+    expect(find.text('Ask the community'), findsOneWidget);
+    expect(find.text('Who can see this?'), findsOneWidget);
+    expect(find.text('Publish question'), findsOneWidget);
+    api.close();
   });
 }

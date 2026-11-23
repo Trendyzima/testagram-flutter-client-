@@ -155,7 +155,7 @@ class _MainShellState extends State<MainShell> {
   List<Widget> _pages() => [
         FeedScreen(api: widget.api, onSignOut: widget.onSignOut),
         ExploreScreen(api: widget.api),
-        const KnowledgeHubScreen(),
+        KnowledgeHubScreen(api: widget.api),
         NotificationsScreen(api: widget.api),
         ProfileScreen.currentUser(api: widget.api),
         VideoFeedScreen(
