@@ -156,7 +156,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const tabs = ['Topics', 'For you', 'Following', 'Unanswered', 'Your questions'];
+    const tabs = ['Topics', 'For you', 'Following', 'Topic feed', 'Unanswered', 'Your questions'];
     return DefaultTabController(
       length: tabs.length,
       initialIndex: 1,
@@ -188,6 +188,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
             _KnowledgeTopicsTab(api: widget.api),
             _KnowledgeQuestionList(api: widget.api, status: 'all'),
             _KnowledgeQuestionList(api: widget.api, status: 'all', following: true),
+            _KnowledgeQuestionList(api: widget.api, status: 'all', topicsFollowing: true),
             _KnowledgeQuestionList(api: widget.api, status: 'open'),
             _KnowledgeQuestionList(api: widget.api, status: 'all', mine: true),
           ],
@@ -536,12 +537,14 @@ class _KnowledgeQuestionList extends StatefulWidget {
     required this.status,
     this.mine = false,
     this.following = false,
+    this.topicsFollowing = false,
     this.topicSlug,
   });
   final BackendApi api;
   final String status;
   final bool mine;
   final bool following;
+  final bool topicsFollowing;
   final String? topicSlug;
 
   @override
@@ -561,6 +564,7 @@ class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
         status: widget.status,
         mine: widget.mine,
         following: widget.following,
+        topicsFollowing: widget.topicsFollowing,
         topicSlug: widget.topicSlug,
       );
 
