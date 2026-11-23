@@ -116,9 +116,15 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Notifications'),
-      actions: [IconButton(onPressed: () => _load(reset: true), icon: const Icon(Icons.refresh), tooltip: 'Refresh')],
+    appBar: TestagramAppBar(
+      title: 'Notifications',
+      actions: [
+        IconButton(
+          onPressed: _loading ? null : () => _load(reset: true),
+          icon: const Icon(Icons.refresh_rounded),
+          tooltip: 'Refresh notifications',
+        ),
+      ],
     ),
     body: RefreshIndicator(
       onRefresh: () => _load(reset: true),
