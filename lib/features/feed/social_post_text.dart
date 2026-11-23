@@ -23,8 +23,7 @@ class SocialPostText extends StatefulWidget {
 
 class _SocialPostTextState extends State<SocialPostText> {
   static final RegExp _tokens = RegExp(
-    r'(?<![\p{L}\p{N}_@#])(#([\p{L}\p{N}_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
-    unicode: true,
+    r'(^|[^A-Za-z0-9_@#])(#([A-Za-z0-9_]{1,64})|@([A-Za-z0-9_][A-Za-z0-9_.]{0,28}[A-Za-z0-9_]))',
   );
 
   final List<TapGestureRecognizer> _recognizers = [];
@@ -50,9 +49,11 @@ class _SocialPostTextState extends State<SocialPostText> {
       if (match.start > offset) {
         spans.add(TextSpan(text: widget.text.substring(offset, match.start)));
       }
-      final token = match.group(1)!;
+      final delimiter = match.group(1)!;
+      if (delimiter.isNotEmpty) spans.add(TextSpan(text: delimiter));
+      final token = match.group(2)!;
       final isHashtag = token.startsWith('#');
-      final value = isHashtag ? match.group(2)! : match.group(3)!;
+      final value = isHashtag ? match.group(3)! : match.group(4)!;
       final prefix = isHashtag ? '#' : '@';
       final callback = isHashtag ? widget.onHashtagTap : widget.onMentionTap;
       TapGestureRecognizer? recognizer;
