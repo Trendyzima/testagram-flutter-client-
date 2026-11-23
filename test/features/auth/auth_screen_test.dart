@@ -220,7 +220,22 @@ void main() {
     await tester.enterText(signupFields.at(0), 'native_user');
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
+
+    // Consent and age assurance are mandatory; no request is sent until all
+    // three acknowledgements have been explicitly selected.
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    await tester.pumpAndSettle();
+    expect(nativeAuth.signUpCalls, 0);
+    expect(find.text('Confirm that you are at least 18 years old to create an account.'), findsOneWidget);
+
+    final consent = find.byType(CheckboxListTile);
+    expect(consent, findsNWidgets(3));
+    await tester.tap(consent.at(0));
+    await tester.tap(consent.at(1));
+    await tester.tap(consent.at(2));
+    await tester.pumpAndSettle();
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    await tester.pumpAndSettle();
 
     expect(nativeAuth.signUpCalls, 1);
     expect(nativeAuth.signedUpEmail, 'native@example.test');
