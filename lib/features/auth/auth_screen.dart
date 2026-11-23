@@ -305,16 +305,20 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _resend() async => _run(() async {
     await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
-    if (mounted) setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
+    if (mounted) {
+      setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
+    }
   });
 
   Future<void> _verifyNative(String token) async => _run(() async {
     await widget.authClient.verifyEmail(token);
-    if (mounted) setState(() {
-      _page = _Page.signIn;
-      _notice = 'Your email is verified. Sign in to start using Testagram.';
-      _recoveryToken = null;
-    });
+    if (mounted) {
+      setState(() {
+        _page = _Page.signIn;
+        _notice = 'Your email is verified. Sign in to start using Testagram.';
+        _recoveryToken = null;
+      });
+    }
   });
 
   Future<void> _forgot() async {
