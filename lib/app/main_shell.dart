@@ -1,4 +1,5 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/rendering.dart' show ScrollDirection;
 
 import '../core/backend_api.dart';
 import '../core/app_config.dart';
@@ -42,9 +43,27 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  // Primary destinations: Home, Discover, Ask, Notifications.
-  // Index 4 and above are secondary destinations opened from More.
+  // All signed-in destinations are reachable directly from the mobile strip
+  // and desktop sidebar. Keep these indexes aligned with _pages().
   int _index = 0;
+  bool _bottomBarVisible = true;
+
+  static const _destinations = <(int, IconData, IconData, String)>[
+    (0, Icons.home_outlined, Icons.home_rounded, 'Home'),
+    (1, Icons.travel_explore_outlined, Icons.travel_explore_rounded, 'Discover'),
+    (2, Icons.lightbulb_outline_rounded, Icons.lightbulb_rounded, 'Ask'),
+    (3, Icons.notifications_none_rounded, Icons.notifications_rounded, 'Notifications'),
+    (4, Icons.person_outline_rounded, Icons.person_rounded, 'Profile'),
+    (5, Icons.video_library_outlined, Icons.video_library_rounded, 'Video'),
+    (6, Icons.play_circle_outline_rounded, Icons.play_circle_rounded, 'Shorts'),
+    (7, Icons.forum_outlined, Icons.forum_rounded, 'Threads'),
+    (8, Icons.poll_outlined, Icons.poll_rounded, 'Polls'),
+    (9, Icons.account_balance_wallet_outlined, Icons.account_balance_wallet_rounded, 'Wallet'),
+    (10, Icons.settings_outlined, Icons.settings_rounded, 'Settings'),
+    (11, Icons.monetization_on_outlined, Icons.monetization_on_rounded, 'Creator'),
+    (12, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Messages'),
+    (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
+  ];
 
   @override
   void initState() {
@@ -94,59 +113,140 @@ class _MainShellState extends State<MainShell> {
       builder: (_) => ProfileScreen(api: widget.api, userId: userId),
     ));
   }
-  int get _selectedPrimaryIndex => _index < 4 ? _index : 4;
 
   void _selectDestination(int value) {
-    if (value == 4) {
-      _openMoreMenu();
-      return;
-    }
-    setState(() => _index = value);
+    if (value < 0 || value >= _destinations.length) return;
+    setState(() {
+      _index = value;
+      _bottomBarVisible = true;
+    });
   }
 
-  void _openMoreMenu() {
-    showModalBottomSheet<void>(
-      context: context,
-      showDragHandle: true,
-      useSafeArea: true,
-      builder: (sheetContext) => SafeArea(
-        child: ListView(
-          shrinkWrap: true,
-          padding: const EdgeInsets.fromLTRB(12, 4, 12, 16),
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-              child: Text(
-                'More from Testagram',
-                style: Theme.of(context).textTheme.titleLarge,
+  bool _handleScroll(ScrollNotification notification) {
+    if (notification.metrics.axis != Axis.vertical) return false;
+    final direction = notification.direction;
+    final shouldShow = notification.metrics.extentBefore <= 0 ||
+        direction == ScrollDirection.forward;
+    final shouldHide = direction == ScrollDirection.reverse &&
+        notification.metrics.extentBefore > 0;
+    if ((shouldShow && !_bottomBarVisible) ||
+        (shouldHide && _bottomBarVisible)) {
+      setState(() => _bottomBarVisible = shouldShow);
+    }
+    return false;
+  }
+
+  Widget _buildSidebar(BuildContext context, bool extended) {
+    return SizedBox(
+      width: extended ? 224 : 88,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 14, 12, 18),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const TestagramBrandMark(size: 42, radius: 13),
+                if (extended) ...[
+                  const SizedBox(width: 12),
+                  const Text('Testagram', style: TextStyle(
+                    fontSize: 20, fontWeight: FontWeight.w900, letterSpacing: -0.7,
+                  )),
+                ],
+              ],
+            ),
+          ),
+          Expanded(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: NavigationRail(
+                selectedIndex: _index,
+                onDestinationSelected: _selectDestination,
+                extended: extended,
+                labelType: extended ? null : NavigationRailLabelType.all,
+                groupAlignment: -1,
+                minWidth: 76,
+                minExtendedWidth: 224,
+                destinations: [
+                  for (final item in _destinations)
+                    NavigationRailDestination(
+                      icon: Icon(item.$2),
+                      selectedIcon: Icon(item.$3),
+                      label: Text(item.$4),
+                    ),
+                ],
               ),
             ),
-            for (final item in const [
-              (4, Icons.person_outline_rounded, 'Your profile', 'Posts and profile details'),
-              (5, Icons.video_library_outlined, 'Video', 'Long-form video'),
-              (6, Icons.play_circle_outline_rounded, 'Shorts', 'Short-form video'),
-              (7, Icons.forum_outlined, 'Threads', 'Long-form conversations'),
-              (8, Icons.poll_outlined, 'Polls', 'Community polls'),
-              (9, Icons.account_balance_wallet_outlined, 'Wallet', 'Your wallet'),
-              (10, Icons.settings_outlined, 'Settings', 'Privacy and account controls'),
-              (11, Icons.monetization_on_outlined, 'Monetization', 'Creator tools and earnings'),
-              (12, Icons.forum_outlined, 'Direct messages', 'Private conversations'),
-              (13, Icons.call_outlined, 'Calls', 'Voice and video call centre'),
-            ])
-              ListTile(
-                selected: _index == item.$1,
-                leading: Icon(item.$2),
-                title: Text(item.$3),
-                subtitle: Text(item.$4),
-                trailing: _index == item.$1
-                    ? const Icon(Icons.check_rounded)
-                    : null,
-                onTap: () {
-                  Navigator.pop(sheetContext);
-                  if (mounted) setState(() => _index = item.$1);
-                },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildBottomNavigation(BuildContext context) {
+    final theme = Theme.of(context);
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 190),
+      curve: Curves.easeOutCubic,
+      height: _bottomBarVisible
+          ? 76 + MediaQuery.of(context).padding.bottom
+          : 0,
+      child: ClipRect(
+        child: Align(
+          alignment: Alignment.topCenter,
+          heightFactor: _bottomBarVisible ? 1 : 0,
+          child: SafeArea(
+            top: false,
+            child: SizedBox(
+              height: 76,
+              child: Material(
+                color: theme.colorScheme.surface,
+                elevation: 8,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
+                  physics: const BouncingScrollPhysics(),
+                  itemCount: _destinations.length,
+                  separatorBuilder: (_, __) => const SizedBox(width: 2),
+                  itemBuilder: (context, position) {
+                    final item = _destinations[position];
+                    final selected = _index == item.$1;
+                    final color = selected
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.onSurfaceVariant;
+                    return Semantics(
+                      button: true,
+                      selected: selected,
+                      label: item.$4,
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => _selectDestination(item.$1),
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 68, maxWidth: 94),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 4),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(selected ? item.$3 : item.$2, color: color, size: 23),
+                                const SizedBox(height: 4),
+                                Text(item.$4, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: color,
+                                    fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                                  )),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
               ),
-          ],
+            ),
+          ),
         ),
       ),
     );
@@ -188,9 +288,7 @@ class _MainShellState extends State<MainShell> {
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(
-                maxWidth: TestagramTheme.contentMaxWidth,
-              ),
+              constraints: const BoxConstraints(maxWidth: TestagramTheme.contentMaxWidth),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),
@@ -199,107 +297,25 @@ class _MainShellState extends State<MainShell> {
         return Scaffold(
           body: SafeArea(
             bottom: false,
-            child: desktop
-                ? Row(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      NavigationRail(
-                        selectedIndex: _selectedPrimaryIndex,
-                        onDestinationSelected: _selectDestination,
-                        extended: extended,
-                        labelType: extended ? null : NavigationRailLabelType.all,
-                        groupAlignment: -0.82,
-                        leading: Padding(
-                          padding: const EdgeInsets.fromLTRB(12, 14, 12, 24),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const TestagramBrandMark(size: 42, radius: 13),
-                              if (extended) ...[
-                                const SizedBox(width: 12),
-                                const Text(
-                                  'Testagram',
-                                  style: TextStyle(
-                                    fontSize: 20,
-                                    fontWeight: FontWeight.w900,
-                                    letterSpacing: -0.7,
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
+            child: NotificationListener<ScrollNotification>(
+              onNotification: _handleScroll,
+              child: desktop
+                  ? Row(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildSidebar(context, extended),
+                        VerticalDivider(
+                          width: 1,
+                          thickness: 1,
+                          color: Theme.of(context).dividerColor,
                         ),
-                        destinations: const [
-                          NavigationRailDestination(
-                            icon: Icon(Icons.home_outlined),
-                            selectedIcon: Icon(Icons.home_rounded),
-                            label: Text('Home'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.travel_explore_outlined),
-                            selectedIcon: Icon(Icons.travel_explore_rounded),
-                            label: Text('Discover'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.lightbulb_outline_rounded),
-                            selectedIcon: Icon(Icons.lightbulb_rounded),
-                            label: Text('Ask'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.notifications_none_rounded),
-                            selectedIcon: Icon(Icons.notifications_rounded),
-                            label: Text('Notifications'),
-                          ),
-                          NavigationRailDestination(
-                            icon: Icon(Icons.menu_rounded),
-                            selectedIcon: Icon(Icons.menu_open_rounded),
-                            label: Text('More'),
-                          ),
-                        ],
-                      ),
-                      VerticalDivider(
-                        width: 1,
-                        thickness: 1,
-                        color: Theme.of(context).dividerColor,
-                      ),
-                      Expanded(child: content),
-                    ],
-                  )
-                : content,
+                        Expanded(child: content),
+                      ],
+                    )
+                  : content,
+            ),
           ),
-          bottomNavigationBar: desktop
-              ? null
-              : NavigationBar(
-                  selectedIndex: _selectedPrimaryIndex,
-                  onDestinationSelected: _selectDestination,
-                  destinations: const [
-                    NavigationDestination(
-                      icon: Icon(Icons.home_outlined),
-                      selectedIcon: Icon(Icons.home_rounded),
-                      label: 'Home',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.travel_explore_outlined),
-                      selectedIcon: Icon(Icons.travel_explore_rounded),
-                      label: 'Discover',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.lightbulb_outline_rounded),
-                      selectedIcon: Icon(Icons.lightbulb_rounded),
-                      label: 'Ask',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.notifications_none_rounded),
-                      selectedIcon: Icon(Icons.notifications_rounded),
-                      label: 'Notifications',
-                    ),
-                    NavigationDestination(
-                      icon: Icon(Icons.menu_rounded),
-                      selectedIcon: Icon(Icons.menu_open_rounded),
-                      label: 'More',
-                    ),
-                  ],
-                ),
+          bottomNavigationBar: desktop ? null : _buildBottomNavigation(context),
         );
       },
     );
