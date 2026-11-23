@@ -10,12 +10,14 @@ class SocialPostText extends StatefulWidget {
     required this.style,
     required this.onHashtagTap,
     required this.onMentionTap,
+    this.onTextTap,
   });
 
   final String text;
   final TextStyle? style;
   final ValueChanged<String> onHashtagTap;
   final ValueChanged<String> onMentionTap;
+  final VoidCallback? onTextTap;
 
   @override
   State<SocialPostText> createState() => _SocialPostTextState();
@@ -74,6 +76,9 @@ class _SocialPostTextState extends State<SocialPostText> {
     if (offset < widget.text.length) {
       spans.add(TextSpan(text: widget.text.substring(offset)));
     }
-    return SelectableText.rich(TextSpan(style: widget.style, children: spans));
+    return InkWell(
+      onTap: widget.onTextTap,
+      child: Text.rich(TextSpan(style: widget.style, children: spans)),
+    );
   }
 }
