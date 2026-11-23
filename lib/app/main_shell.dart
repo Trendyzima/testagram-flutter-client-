@@ -122,7 +122,7 @@ class _MainShellState extends State<MainShell> {
     });
   }
 
-  bool _handleScroll(ScrollNotification notification) {
+  bool _handleScroll(UserScrollNotification notification) {
     if (notification.metrics.axis != Axis.vertical) return false;
     final direction = notification.direction;
     final shouldShow = notification.metrics.extentBefore <= 0 ||
@@ -297,7 +297,7 @@ class _MainShellState extends State<MainShell> {
         return Scaffold(
           body: SafeArea(
             bottom: false,
-            child: NotificationListener<ScrollNotification>(
+            child: NotificationListener<UserScrollNotification>(
               onNotification: _handleScroll,
               child: desktop
                   ? Row(
