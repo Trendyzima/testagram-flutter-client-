@@ -395,14 +395,8 @@ class _FeedScreenState extends State<FeedScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: Row(
-        children: [
-          Icon(Icons.forum_rounded, color: Theme.of(context).colorScheme.primary, size: 25),
-          const SizedBox(width: 9),
-          const Text('T social'),
-        ],
-      ),
+    appBar: TestagramAppBar(
+      title: 'Home',
       actions: [
         IconButton(
           onPressed: _loading ? null : () => _load(reset: true),
