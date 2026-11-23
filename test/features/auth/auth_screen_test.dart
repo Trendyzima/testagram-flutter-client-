@@ -279,7 +279,7 @@ void main() {
 
     expect(nativeAuth.resendCalls, 1);
     expect(nativeAuth.resentEmail, 'person@example.test');
-    expect(find.textContaining('fresh verification link has been sent'), findsOneWidget);
+    expect(find.textContaining('fresh verification code and link have been sent'), findsOneWidget);
   });
 
   testWidgets('verification page accepts the emailed six-digit OTP', (tester) async {
