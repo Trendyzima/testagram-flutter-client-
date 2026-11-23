@@ -798,6 +798,22 @@ class _AuthScreenState extends State<AuthScreen> {
               field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
+            if (_page == _Page.verify) ...[
+              field(
+                controller: _otp,
+                label: 'Six-digit email code',
+                icon: Icons.password_rounded,
+                keyboardType: TextInputType.number,
+                autocorrect: false,
+                action: TextInputAction.done,
+                validator: (value) {
+                  final code = (value ?? '').trim();
+                  final valid = code.length == 6 && code.codeUnits.every((unit) => unit >= 48 && unit <= 57);
+                  return valid ? null : 'Enter the six-digit code from your email.';
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
             if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
@@ -871,8 +887,11 @@ class _AuthScreenState extends State<AuthScreen> {
               primaryAction('Create account', _signUp),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
-            if (_page == _Page.verify)
-              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend verification email'))),
+            if (_page == _Page.verify) ...[
+              primaryAction('Verify email', _verifyCode),
+              const SizedBox(height: 10),
+              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend code and link'))),
+            ],
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
