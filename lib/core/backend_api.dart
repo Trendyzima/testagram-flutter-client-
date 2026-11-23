@@ -773,6 +773,24 @@ class BackendApi {
         body: {'enabled': enabled},
       );
 
+  /// Reads explicit opt-in settings for Testagram social activity emails.
+  Future<Map<String, dynamic>> getMyEmailNotificationPreferences() =>
+      _request('GET', baseUri.resolve('/api/me/email-notifications'));
+
+  /// Saves granular consent for new-follower and new-post email notifications.
+  Future<Map<String, dynamic>> updateMyEmailNotificationPreferences({
+    required bool newFollowerEmailEnabled,
+    required bool newPostEmailEnabled,
+  }) =>
+      _request(
+        'PUT',
+        baseUri.resolve('/api/me/email-notifications'),
+        body: {
+          'new_follower_email_enabled': newFollowerEmailEnabled,
+          'new_post_email_enabled': newPostEmailEnabled,
+        },
+      );
+
   /// Lists remote ActivityPub and Bluesky authors followed by this native
   /// Testagram account. Remote identities remain distinct from local accounts.
   Future<Map<String, dynamic>> listRemoteAuthorSubscriptions() =>
