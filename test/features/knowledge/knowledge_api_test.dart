@@ -57,4 +57,52 @@ void main() {
     expect(requests.every((r) => r.headers['authorization'] == 'Bearer native-session-token'), isTrue);
     api.close();
   });
+
+  test('Knowledge topics use authenticated canonical endpoints and topic-tagged questions', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await api.getKnowledgeTopics(query: 'Kenya', limit: 10, after: 'kenya');
+    await api.getKnowledgeTopic('kenya');
+    await api.followKnowledgeTopic('kenya');
+    await api.unfollowKnowledgeTopic('kenya');
+    await api.getKnowledgeQuestions(topicSlug: 'kenya', status: 'open');
+    await api.getKnowledgeQuestions(topicsFollowing: true);
+    await api.getKnowledgeQuestions(before: 'opaque-cursor');
+    await api.createKnowledgeQuestion(
+      title: 'How is Kenyan agriculture changing?',
+      body: 'Discuss modern production.',
+      topicSlugs: const ['kenya', 'agriculture'],
+      idempotencyKey: 'question-topics-123456',
+    );
+
+    expect(requests, hasLength(8));
+    expect(requests[0].url.path, '/api/knowledge/topics');
+    expect(requests[0].url.queryParameters, {
+      'limit': '10',
+      'q': 'Kenya',
+      'after': 'kenya',
+    });
+    expect(requests[1].url.path, '/api/knowledge/topics/kenya');
+    expect(requests[2].method, 'POST');
+    expect(requests[2].url.path, '/api/knowledge/topics/kenya/follow');
+    expect(requests[3].method, 'DELETE');
+    expect(requests[3].url.path, '/api/knowledge/topics/kenya/follow');
+    expect(requests[4].url.path, '/api/knowledge/topics/kenya/questions');
+    expect(requests[4].url.queryParameters['status'], 'open');
+    expect(requests[5].url.path, '/api/knowledge/questions');
+    expect(requests[5].url.queryParameters['topics_following'], 'true');
+    expect(requests[6].url.queryParameters['before'], 'opaque-cursor');
+    expect(jsonDecode(requests[7].body)['topic_slugs'], ['kenya', 'agriculture']);
+    expect(requests[7].headers['idempotency-key'], 'question-topics-123456');
+    expect(requests.every((request) => request.headers['authorization'] == 'Bearer native-session-token'), isTrue);
+    api.close();
+  });
 }

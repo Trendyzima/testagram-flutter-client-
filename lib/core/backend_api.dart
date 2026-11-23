@@ -43,20 +43,50 @@ class BackendApi {
     return _request('GET', uri);
   }
 
+  Future<Map<String, dynamic>> getKnowledgeTopics({
+    String? query,
+    int limit = 30,
+    String? after,
+  }) =>
+      _request(
+        'GET',
+        baseUri.resolve('/api/knowledge/topics').replace(queryParameters: {
+          'limit': '$limit',
+          if (query != null && query.trim().isNotEmpty) 'q': query.trim(),
+          if (after != null && after.isNotEmpty) 'after': after,
+        }),
+      );
+
+  Future<Map<String, dynamic>> getKnowledgeTopic(String slug) =>
+      _request('GET', baseUri.resolve('/api/knowledge/topics/${Uri.encodeComponent(slug)}'));
+
+  Future<Map<String, dynamic>> followKnowledgeTopic(String slug) =>
+      _request('POST', baseUri.resolve('/api/knowledge/topics/${Uri.encodeComponent(slug)}/follow'));
+
+  Future<Map<String, dynamic>> unfollowKnowledgeTopic(String slug) =>
+      _request('DELETE', baseUri.resolve('/api/knowledge/topics/${Uri.encodeComponent(slug)}/follow'));
+
   Future<Map<String, dynamic>> getKnowledgeQuestions({
     int limit = 20,
     String status = 'all',
     bool mine = false,
     bool following = false,
     String? before,
+    String? topicSlug,
+    bool topicsFollowing = false,
   }) =>
       _request(
         'GET',
-        baseUri.resolve('/api/knowledge/questions').replace(queryParameters: {
+        baseUri.resolve(
+          topicSlug == null || topicSlug.isEmpty
+              ? '/api/knowledge/questions'
+              : '/api/knowledge/topics/${Uri.encodeComponent(topicSlug)}/questions',
+        ).replace(queryParameters: {
           'limit': '$limit',
           'status': status,
           if (mine) 'mine': 'true',
           if (following) 'following': 'true',
+          if (topicsFollowing) 'topics_following': 'true',
           if (before != null && before.isNotEmpty) 'before': before,
         }),
       );
@@ -66,6 +96,7 @@ class BackendApi {
     String body = '',
     String visibility = 'public',
     String language = '',
+    List<String> topicSlugs = const [],
     required String idempotencyKey,
   }) =>
       _request(
@@ -76,6 +107,7 @@ class BackendApi {
           'body': body,
           'visibility': visibility,
           'language': language,
+          if (topicSlugs.isNotEmpty) 'topic_slugs': topicSlugs,
         },
         extraHeaders: {'Idempotency-Key': idempotencyKey},
       );
