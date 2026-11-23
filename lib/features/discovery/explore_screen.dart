@@ -35,6 +35,9 @@ class _ExploreScreenState extends State<ExploreScreen> {
   final Set<String> _busyFollow = {};
   bool _loading = false;
   String _searchKind = 'all';
+  String _searchSort = 'latest';
+  bool _mediaOnly = false;
+  bool _videoOnly = false;
   bool _hasSearched = false;
   int _searchGeneration = 0;
   String? _error;
