@@ -83,9 +83,12 @@ class NativeAuthClient implements NativeAuthSession {
             },
             body: jsonEncode(body ?? const <String, dynamic>{}),
           )
-          // Give the platform's native wake-on-request path time to resume
-          // an idle-paused API machine before reporting a timeout.
-          .timeout(const Duration(seconds: 45));
+          // The edge recovery path can spend up to 40 seconds resolving a
+          // provider lifecycle operation, then up to 20 seconds confirming
+          // authenticated PostgreSQL/application readiness. Keep the original
+          // request alive long enough to receive the explicit ready marker;
+          // this does not replay login credentials or change user intent.
+          .timeout(const Duration(seconds: 90));
     } on TimeoutException {
       throw const NativeAuthException(
         'Testagram is taking longer than expected to respond. Wait a moment and retry.',
