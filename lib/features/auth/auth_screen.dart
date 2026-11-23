@@ -316,10 +316,13 @@ class _AuthScreenState extends State<AuthScreen> {
   Future<void> _resend() async {
     if (!_form.currentState!.validate()) return;
     await _run(() async {
-    await widget.authClient.resendVerification(_email.text.trim().toLowerCase());
-    if (mounted) {
-      setState(() => _notice = 'If an unverified account exists for this email, a fresh verification link has been sent.');
-    }
+      await widget.authClient.resendVerification(
+        _email.text.trim().toLowerCase(),
+      );
+      if (mounted) {
+        setState(() => _notice =
+            'If an unverified account exists for this email, a fresh verification link has been sent.');
+      }
     });
   }
 
