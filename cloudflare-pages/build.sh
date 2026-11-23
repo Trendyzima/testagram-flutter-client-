@@ -64,8 +64,8 @@ for marker in 'Sign in' 'Reset password' 'Create account'; do
   }
 done
 if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]]; then
-  grep -aFq 'Submit application' build/web/main.dart.js || {
-    echo "::error::Flutter production bundle is missing enabled registration UI marker."
+  grep -aFq 'Create account' build/web/main.dart.js || {
+    echo "::error::Flutter production bundle is missing Create account UI marker."
     exit 1
   }
 fi
