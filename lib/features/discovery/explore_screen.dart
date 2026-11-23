@@ -163,8 +163,8 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Explore'),
+    appBar: TestagramAppBar(
+      title: 'Discover',
       actions: [
         IconButton(
           tooltip: 'Browse hashtags',
