@@ -73,6 +73,7 @@ class BackendApi {
     bool following = false,
     String? before,
     String? topicSlug,
+    bool topicsFollowing = false,
   }) =>
       _request(
         'GET',
@@ -85,6 +86,7 @@ class BackendApi {
           'status': status,
           if (mine) 'mine': 'true',
           if (following) 'following': 'true',
+          if (topicsFollowing) 'topics_following': 'true',
           if (before != null && before.isNotEmpty) 'before': before,
         }),
       );
