@@ -26,6 +26,30 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _RecoveryReadyNativeAuthSession extends _FakeNativeAuthSession {
+  int attempts = 0;
+  String? lastEmail;
+  String? lastPassword;
+
+  @override
+  Future<Map<String, dynamic>> signIn({
+    required String email,
+    required String password,
+  }) async {
+    attempts += 1;
+    lastEmail = email;
+    lastPassword = password;
+    if (attempts == 1) {
+      throw const NativeAuthException(
+        'Testagram is awake and its application database is ready. Retry sign-in to continue.',
+        statusCode: 503,
+        code: 'API_ORIGIN_RETRY_READY',
+      );
+    }
+    return <String, dynamic>{};
+  }
+}
+
 void main() {
   late NativeAuthSession authClient;
   late IdentityApplicationStore identityStore;
@@ -42,6 +66,42 @@ void main() {
     await tester.tap(finder);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('keeps login form intent after verified VPS recovery and allows explicit retry',
+      (tester) async {
+    final recoveryAuth = _RecoveryReadyNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: recoveryAuth,
+        onSignedIn: () {},
+        enableIdentityRegistration: false,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+
+    final email = find.widgetWithText(TextFormField, 'Email address');
+    final password = find.widgetWithText(TextFormField, 'Password');
+    expect(email, findsOneWidget);
+    expect(password, findsOneWidget);
+
+    await tester.enterText(email, 'person@example.test');
+    await tester.enterText(password, 'correct-password-123');
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Testagram is awake and ready'), findsOneWidget);
+    expect(find.text('person@example.test'), findsOneWidget);
+    expect(find.text('correct-password-123'), findsNothing);
+    expect(recoveryAuth.attempts, 1);
+    expect(recoveryAuth.lastEmail, 'person@example.test');
+    expect(recoveryAuth.lastPassword, 'correct-password-123');
+
+    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.pumpAndSettle();
+    expect(recoveryAuth.attempts, 2);
+    expect(recoveryAuth.lastEmail, 'person@example.test');
+    expect(recoveryAuth.lastPassword, 'correct-password-123');
+  });
 
   testWidgets('disabled registration removes every sign-up entry point', (tester) async {
     await tester.pumpWidget(MaterialApp(
