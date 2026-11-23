@@ -5,6 +5,7 @@ import '../../core/widgets/testagram_app_bar.dart';
 import '../profile/profile_screen.dart';
 import '../posts/post_detail_screen.dart';
 import '../federation/remote_post_detail_screen.dart';
+import '../feed/social_post_text.dart';
 import 'hashtag_screen.dart';
 import 'hashtags_screen.dart';
 
@@ -84,6 +85,34 @@ class _ExploreScreenState extends State<ExploreScreen> {
     _query.text = word;
     setState(() => _searchKind = 'posts');
     _search();
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = await widget.api.resolveProfileUsername(handle);
+      final rawData = response['data'];
+      final data = rawData is Map ? rawData : response;
+      final raw = data['profile'] ?? data['user'] ?? data;
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('@$handle is unavailable or not discoverable.')),
+        );
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open @$handle: $error')),
+        );
+      }
+    }
   }
 
   void _openHashtag(String value) {
@@ -360,10 +389,11 @@ class _ExploreScreenState extends State<ExploreScreen> {
                   leading: CircleAvatar(
                     child: Icon(isRemote ? Icons.public_rounded : Icons.article_outlined),
                   ),
-                  title: Text(
-                    (post['content'] ?? '').toString(),
-                    maxLines: 3,
-                    overflow: TextOverflow.ellipsis,
+                  title: SocialPostText(
+                    text: (post['content'] ?? '').toString(),
+                    style: Theme.of(context).textTheme.bodyLarge,
+                    onHashtagTap: _openHashtag,
+                    onMentionTap: _openMention,
                   ),
                   subtitle: Text([
                     if (author.isNotEmpty) '@$author',
