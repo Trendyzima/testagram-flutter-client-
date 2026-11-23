@@ -1,6 +1,5 @@
 
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -42,9 +41,9 @@ class _AuthScreenState extends State<AuthScreen> {
   final _name = TextEditingController(), _email = TextEditingController();
   final _username = TextEditingController();
   final _password = TextEditingController(), _confirm = TextEditingController();
+  final _otp = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
-  bool _ageConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   late final IdentityApplicationStore _identityStore;
   IdentityApplicationDraft? _identityDraft;
   IdentityApplication? _identityApplication;
@@ -69,20 +68,15 @@ class _AuthScreenState extends State<AuthScreen> {
       case AuthEntryMode.verifyEmail:
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
-          WidgetsBinding.instance.addPostFrameCallback(
-            (_) => _verify(entry.applicationId!, entry.token!),
-          );
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            _verifyNative(entry.token!);
+          });
         } else {
           _notice = 'Open the complete Testagram verification link from your email, or request another one.';
         }
         break;
       case AuthEntryMode.signUp:
-        if (widget.enableIdentityRegistration) {
-          _page = _Page.signUp;
-        } else {
-          _page = _Page.signIn;
-          _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
-        }
+        _page = _Page.signUp;
         break;
       case AuthEntryMode.forgotPassword:
         _page = _Page.forgot;
@@ -94,37 +88,24 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
-    if (widget.requireIdentityReview) {
-      if (widget.enableIdentityRegistration) {
-        _page = _Page.signUp;
-        _notice = 'Complete identity verification and independent account approval to finish setting up your account.';
-      } else {
-        _page = _Page.signIn;
-        _notice = 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
-      }
-    }
-    // A saved draft must not reopen the application workflow after the
-    // registration release gate has been disabled. Keep the encrypted draft
-    // intact so it can be resumed if registration is deliberately re-enabled.
-    if (widget.enableIdentityRegistration) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreSavedIdentityApplication());
+    // Ordinary registration always uses the native email/password flow.
+    // Do not restore or create identity-review applications during signup.
+    // Preserve explicit email-verification and password-recovery callbacks.
+    // The legacy review flag may select the signup entry only for a plain
+    // sign-in launch; it must never override a security-sensitive deep link.
+    if (widget.requireIdentityReview &&
+        entry.mode == AuthEntryMode.signIn &&
+        !widget.requireVerification) {
+      _page = _Page.signUp;
     }
   }
 
   @override
   void dispose() {
-    _name.dispose(); _email.dispose(); _username.dispose(); _password.dispose(); _confirm.dispose(); super.dispose();
+    _name.dispose(); _email.dispose(); _username.dispose(); _password.dispose(); _confirm.dispose(); _otp.dispose(); super.dispose();
   }
 
   void _go(_Page p) {
-    if (p == _Page.signUp && !widget.enableIdentityRegistration) {
-      setState(() {
-        _page = _Page.signIn;
-        _error = null;
-        _notice = 'New account registration is temporarily unavailable. Sign in to an existing account.';
-      });
-      return;
-    }
     setState(() {
       _page = p;
       _error = null;
@@ -151,7 +132,7 @@ class _AuthScreenState extends State<AuthScreen> {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
       if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Identity review and two-person account approval are required before accessing Testagram.';
+        return 'This legacy account still has an approval restriction. Contact Testagram support; ordinary new accounts do not require administrator approval.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
@@ -184,7 +165,7 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
       }
       if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Your account is waiting for the required independent Testagram identity approvals.';
+        return 'This legacy account still has an approval restriction. Contact Testagram support.';
       }
       if (e.code == 'PASSWORD_RESET_REQUIRED') {
         return 'Set a new Testagram password using the recovery link before signing in.';
@@ -223,12 +204,6 @@ class _AuthScreenState extends State<AuthScreen> {
     finally { if (mounted) setState(() => _busy = false); }
   }
 
-  String _newIdentityIdempotencyKey() {
-    final random = Random.secure();
-    final bytes = List<int>.generate(32, (_) => random.nextInt(256));
-    return base64Url.encode(bytes).replaceAll('=', '');
-  }
-
   String? _usernameValid(String? value) {
     final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
     if (!RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(username)) {
@@ -250,18 +225,7 @@ class _AuthScreenState extends State<AuthScreen> {
           if (mounted) {
             setState(() {
               _page = _Page.verify;
-              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh link from your saved application.';
-            });
-          }
-          return;
-        }
-        if (error.code == 'IDENTITY_APPROVAL_REQUIRED') {
-          if (mounted) {
-            setState(() {
-              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
-              _notice = widget.enableIdentityRegistration
-                  ? 'This account has not completed Testagram identity review and two-person account approval. Submit an application to continue.'
-                  : 'This account has not completed identity review and two-person account approval. Registration is temporarily unavailable.';
+              _notice = 'Your password is correct, but your Testagram email is not verified yet. Check your inbox or request a fresh verification link.';
             });
           }
           return;
@@ -275,34 +239,11 @@ class _AuthScreenState extends State<AuthScreen> {
       try {
         await backend.getMyProfile();
       } on BackendApiException catch (error) {
-        final message = error.message.toLowerCase();
-        if (error.statusCode == 403 &&
-            (error.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-                message.contains('identity review') ||
-                message.contains('two-person account approval'))) {
-          if (mounted) {
-            setState(() {
-              _email.text = _email.text.trim().toLowerCase();
-              _username.text = _email.text.split('@').first
-                  .toLowerCase().replaceAll(RegExp(r'[^a-z0-9_]'), '_')
-                  .replaceAll(RegExp(r'_+'), '_');
-              if (_username.text.length < 3) _username.text = 'user_account';
-              if (_username.text.length > 30) {
-                _username.text = _username.text.substring(0, 30);
-              }
-              _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
-              _notice = widget.enableIdentityRegistration
-                  ? 'This Testagram account has not completed identity review and two-person approval. Submit an application to continue.'
-                  : 'This account has not completed identity review and two-person approval. Registration is temporarily unavailable.';
-            });
-          }
-          return;
-        }
         if (error.statusCode == 403 && error.code == 'EMAIL_VERIFICATION_REQUIRED') {
           if (mounted) {
             setState(() {
               _page = _Page.verify;
-              _notice = 'Verify the email address linked to your approved Testagram application before signing in.';
+              _notice = 'Verify the email address linked to your Testagram account before signing in.';
             });
           }
           return;
@@ -349,205 +290,76 @@ class _AuthScreenState extends State<AuthScreen> {
     return null;
   }
 
-  Future<void> _restoreSavedIdentityApplication() async {
-    IdentityApplicationDraft? draft;
-    try {
-      draft = await _identityStore.load();
-    } catch (_) {
-      // Secure storage can be unavailable in an unsupported browser context.
-      // Do not submit a new application when its recovery key cannot be saved.
-      return;
-    }
-    if (draft == null || !mounted) return;
-    final restoredDraft = draft;
-    setState(() {
-      _identityDraft = restoredDraft;
-      _identityApplication = restoredDraft.application;
-      _name.text = restoredDraft.displayName;
-      _email.text = restoredDraft.email;
-      _username.text = restoredDraft.username;
-      _page = _Page.identity;
-      _notice = 'Your saved identity application was restored. Your password is never stored; create it only after approval.';
+  Future<void> _signUp() async {
+    if (!_form.currentState!.validate()) return;
+    await _run(() async {
+      await widget.authClient.signUp(
+        email: _email.text.trim().toLowerCase(),
+        username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+        password: _password.text,
+      );
+      if (!mounted) return;
+      setState(() {
+        _page = _Page.verify;
+        _notice = 'Your account has been created. Check your email for a six-digit code or use the secure verification link. No administrator approval is required.';
+        _password.clear();
+        _confirm.clear();
+      });
     });
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      var currentDraft = restoredDraft;
-      late IdentityApplication application;
-      if (currentDraft.application == null) {
-        final created = await _submitIdentityDraft(api, currentDraft);
-        if (created == null) return;
-        application = created;
-        currentDraft = currentDraft.copyWith(application: application);
-        await _identityStore.save(currentDraft);
-      } else {
-        application = currentDraft.application!;
-      }
-      IdentityApplicationStatus status;
-      try {
-        status = await api.getStatus(application);
-      } on IdentityVerificationException catch (error) {
-        if (error.statusCode != 404) rethrow;
-        final created = await _submitIdentityDraft(api, currentDraft);
-        if (created == null) return;
-        application = created;
-        currentDraft = currentDraft.copyWith(application: application);
-        await _identityStore.save(currentDraft);
-        status = await api.getStatus(application);
-      }
-      if (application.sessionId.isNotEmpty && application.sessionToken.isNotEmpty) {
-        try {
-          await api.getSessionExpiry(application);
-        } on IdentityVerificationException catch (error) {
-          if (error.statusCode != 404) rethrow;
-          final created = await _submitIdentityDraft(api, currentDraft);
-          if (created == null) return;
-          application = created;
-          currentDraft = currentDraft.copyWith(application: application);
-          await _identityStore.save(currentDraft);
-          status = await api.getStatus(application);
-        }
-      }
-      if (status.provisioningStatus == 'active') {
-        try {
-          await _identityStore.clear();
-        } catch (_) {}
-        if (mounted) {
-          setState(() {
-            _identityDraft = null;
-            _identityApplication = null;
-            _identityStatus = status;
-            _page = _Page.signIn;
-            _notice = 'Your Testagram account is active. Sign in with your Testagram password.';
-          });
-        }
-      } else if (mounted) {
-        setState(() {
-          _identityDraft = currentDraft;
-          _identityApplication = application;
-          _identityStatus = status;
-          _page = status.provisioningStatus == 'verification_pending'
-              ? _Page.verify
-              : _Page.identity;
-          _notice = status.provisioningStatus == 'verification_pending'
-              ? 'Your Testagram account has been created. Verify your email to activate it.'
-              : 'Your application is ready to continue. Refresh its status at any time.';
-        });
-      }
-    } catch (_) {
-      if (mounted) {
-        setState(() {
-          _error = 'Your saved application could not be refreshed. Check your connection and retry.';
-        });
-      }
-    } finally {
-      api.close();
-    }
   }
 
-  Future<void> _signUp() async {
-    // The visible account-creation entry is independent from the server-side
-    // registration switch. Never submit or persist an application while the
-    // frontend release gate is closed.
-    if (!widget.enableIdentityRegistration) {
-      if (mounted) {
-        setState(() => _notice =
-            'Registration is currently closed. Your details have not been submitted or saved.');
-      }
-      return;
-    }
-    if (!_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm your age and accept both policy documents to continue.');
+  Future<void> _resend() async {
+    final emailError = _emailValid(_email.text);
+    if (emailError != null) {
+      setState(() => _error = emailError);
       return;
     }
     await _run(() async {
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        var draft = _identityDraft;
-        if (draft == null) {
-          final newDraft = IdentityApplicationDraft(
-            email: _email.text.trim().toLowerCase(),
-            username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-            displayName: _name.text.trim(),
-            idempotencyKey: _newIdentityIdempotencyKey(),
-            createdAt: DateTime.now().toUtc(),
-          );
-          // Persist the idempotency capability before the network request so
-          // a lost response can be recovered after an app/browser restart.
-          await _identityStore.save(newDraft);
-          draft = newDraft;
-          _identityDraft = newDraft;
-          if (mounted) setState(() {});
-        }
-        final submissionDraft = draft;
-        final application = await _submitIdentityDraft(api, submissionDraft);
-        if (application == null) return;
-        final savedDraft = submissionDraft.copyWith(application: application);
-        await _identityStore.save(savedDraft);
-        if (!mounted) return;
-        setState(() {
-          _identityDraft = savedDraft;
-          _identityApplication = application;
-          _identityStatus = null;
-          _page = _Page.identity;
-          _notice = 'Your application has been created. Submit the requested private evidence; account creation becomes available only after independent review and two-person approval.';
-        });
-        final status = await api.getStatus(application);
-        if (mounted) setState(() => _identityStatus = status);
-      } finally {
-        api.close();
+      await widget.authClient.resendVerification(
+        _email.text.trim().toLowerCase(),
+      );
+      if (mounted) {
+        setState(() => _notice =
+            'If an unverified account exists for this email, a fresh verification code and link have been sent.');
       }
     });
   }
 
-  Future<void> _resend() async => _run(() async {
-    final application = _identityApplication;
-    if (application == null) {
-      if (mounted) {
-        setState(() => _notice =
-            'If your approved application is awaiting email verification, reopen it on this device to request a new link.');
-      }
+  Future<void> _verifyNative(String token) async => _run(() async {
+    await widget.authClient.verifyEmail(token);
+    if (mounted) {
+      setState(() {
+        _page = _Page.signIn;
+        _notice = 'Your email is verified. Sign in to start using Testagram.';
+        _recoveryToken = null;
+      });
+    }
+  });
+
+  Future<void> _verifyCode() async {
+    if (!_form.currentState!.validate()) return;
+    final code = _otp.text.trim();
+    final isSixDigits = code.length == 6 && code.codeUnits.every((unit) => unit >= 48 && unit <= 57);
+    if (!isSixDigits) {
+      setState(() => _error = 'Enter the six-digit code from your Testagram email.');
       return;
     }
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      await api.resendVerification(application);
-      if (mounted) {
-        setState(() => _notice =
-            'If your approved application is awaiting verification, a fresh Testagram email link has been requested.');
-      }
-    } finally {
-      api.close();
-    }
-  });
-
-  Future<void> _verify(String applicationId, String token) async => _run(() async {
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      await api.verifyEmail(applicationId: applicationId, token: token);
-      try {
-        await _identityStore.clear();
-      } catch (_) {
-        // The server has consumed the one-time token; local cleanup is best-effort.
-      }
+    await _run(() async {
+      await widget.authClient.verifyEmail(code, email: _email.text.trim().toLowerCase());
       if (mounted) {
         setState(() {
-          _identityDraft = null;
-          _identityApplication = null;
-          _identityStatus = null;
-          _identityProvisioningAuthorization = null;
-          _recoveryToken = null;
           _page = _Page.signIn;
-          _notice = 'Your Testagram email is verified. Sign in with your new Testagram password.';
+          _notice = 'Your email is verified. Sign in to start using Testagram.';
+          _otp.clear();
         });
       }
-    } finally {
-      api.close();
-    }
-  });
+    });
+  }
 
   Future<void> _forgot() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     await _run(() async {
       await widget.authClient.requestPasswordReset(_email.text.trim().toLowerCase());
       if (mounted) {
@@ -683,7 +495,9 @@ class _AuthScreenState extends State<AuthScreen> {
 
         final status = await api.getStatus(application);
         _identityProvisioningAuthorization = null;
-        if (!mounted) return;
+        if (!mounted) {
+          return;
+        }
         _password.clear();
         _confirm.clear();
         setState(() {
@@ -771,9 +585,6 @@ class _AuthScreenState extends State<AuthScreen> {
       _identityApplication = null;
       _identityStatus = null;
       _identityProvisioningAuthorization = null;
-      _ageConfirmed = false;
-      _termsAccepted = false;
-      _privacyAccepted = false;
       _password.clear();
       _confirm.clear();
       _page = widget.enableIdentityRegistration ? _Page.signUp : _Page.signIn;
@@ -783,17 +594,6 @@ class _AuthScreenState extends State<AuthScreen> {
       _error = null;
     });
   }
-
-  Future<void> _showLegalDocument(String title, String body) async {
-    await showDialog<void>(context: context, builder: (context) => AlertDialog(
-      title: Text(title),
-      content: SizedBox(width: 520, child: SingleChildScrollView(child: SelectableText(body))),
-      actions: [TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Close'))],
-    ));
-  }
-
-  static const _termsText = '''TESTAGRAM TERMS AND CONDITIONS\n\nEffective version: 2026-11-11\n\n1. Eligibility and accounts\nTestagram is intended for people aged 18 or older. You must provide accurate registration information, keep your credentials secure, and be responsible for activity carried out through your account. Do not impersonate another person, create deceptive accounts, or bypass account restrictions.\n\n2. Acceptable use\nDo not use Testagram to threaten, harass, exploit, defraud, stalk, or unlawfully discriminate against people; share illegal content; distribute malware or spam; infringe intellectual property or privacy rights; manipulate engagement; or interfere with platform security. Do not attempt to access another account or private system without authorization.\n\n3. Content and permissions\nYou retain rights you own in content you submit. You grant Testagram the limited, non-exclusive permission needed to host, process, display, distribute, and technically adapt that content to operate the features you choose, including delivery to people and services you direct it to. You must have the rights and permissions needed to submit the content. You remain responsible for it.\n\n4. Safety and moderation\nTestagram may review, label, restrict, remove, or preserve content and may limit or suspend accounts to protect users, comply with law, enforce these terms, investigate abuse, or maintain service security. Where appropriate, we may provide a review or appeal route.\n\n5. Third-party services and availability\nSome features rely on third-party infrastructure and external services. Features may change or be temporarily unavailable. We do not promise uninterrupted access, and you must follow applicable third-party terms when using their services.\n\n6. Security and termination\nYou must not probe, disrupt, reverse engineer, or circumvent platform safeguards except where applicable law permits. You may stop using Testagram at any time. We may restrict access for serious or repeated violations or where required to protect the platform or comply with law.\n\n7. Changes and contact\nWe may update these terms as the service evolves. Material changes will be communicated through an appropriate platform notice. Continued use after the effective date constitutes acceptance only where permitted by applicable law; where renewed consent is required, we will ask for it.\n\nThis is a product-policy draft and must be reviewed by qualified counsel before public launch.''';
-  static const _privacyText = '''TESTAGRAM PRIVACY NOTICE\n\nEffective version: 2026-11-11\n\nTestagram uses information you provide, account and device security signals, and information generated when you use the platform to operate accounts, protect users, deliver features, prevent abuse, and improve reliability.\n\nInformation may include your name, username, email address, profile details, content you choose to upload, account activity, device/app diagnostics, and security/audit events. Do not upload identity documents or sensitive personal information unless a specific, secure platform flow requests it.\n\nWe use information to authenticate you, manage your account, deliver content and communications, enforce platform rules, respond to support requests, secure the service, and meet legal obligations. We do not ask for your password by email or public message.\n\nInformation is processed by Testagram systems and service providers acting to provide hosting, authentication, delivery, security, and support. Access is limited according to operational need. We apply safeguards intended to protect information, but no online service can guarantee absolute security.\n\nDepending on applicable law, you may have rights to access, correct, delete, restrict, or object to certain processing, and to raise a complaint with a relevant authority. Retention depends on account status, security needs, legal requirements, and operational records.\n\nBefore public launch, this notice must be completed with the operator's legal identity, contact details, retention periods, international transfer information, and jurisdiction-specific rights and disclosures. Contact the Testagram operator through the official support channel for privacy requests.''';
 
   @override
   Widget build(BuildContext context) {
@@ -882,7 +682,7 @@ class _AuthScreenState extends State<AuthScreen> {
     Widget modeSwitch() {
       final modes = <(_Page, String)>[
         (_Page.signIn, 'Sign in'),
-        if (widget.enableIdentityRegistration) (_Page.signUp, 'Sign up'),
+        (_Page.signUp, 'Sign up'),
         (_Page.forgot, 'Reset password'),
       ];
       return Container(
@@ -988,26 +788,40 @@ class _AuthScreenState extends State<AuthScreen> {
             // mobileHero() on narrow screens and brandPanel() on desktop.
             // Repeating the wordmark here caused duplicate branding at tablet
             // widths and in the desktop form column.
-            modeSwitch(),
-            const SizedBox(height: 28),
+            if (_page != _Page.verify) modeSwitch(),
+            SizedBox(height: _page == _Page.verify ? 12 : 28),
             Text(title, style: TextStyle(fontSize: compact ? 29 : 32, height: 1.12, letterSpacing: -1.0, fontWeight: FontWeight.w800, color: isDark ? Colors.white : ink)),
             const SizedBox(height: 8),
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
-              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, readOnly: _identityDraft != null, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (v) => v == null || v.trim().length < 2 ? 'Enter your name.' : null),
-              const SizedBox(height: 14),
-              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', readOnly: _identityDraft != null, autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
+              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
               const SizedBox(height: 14),
             ],
-            if ({_Page.signIn, _Page.signUp, _Page.forgot}.contains(_page)) ...[
-              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, readOnly: _identityDraft != null, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
+            if ({_Page.signIn, _Page.signUp, _Page.forgot, _Page.verify}.contains(_page)) ...[
+              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
-            if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
+            if (_page == _Page.verify) ...[
+              field(
+                controller: _otp,
+                label: 'Six-digit email code',
+                icon: Icons.password_rounded,
+                keyboardType: TextInputType.number,
+                autocorrect: false,
+                action: TextInputAction.done,
+                validator: (value) {
+                  final code = (value ?? '').trim();
+                  final valid = code.length == 6 && code.codeUnits.every((unit) => unit >= 48 && unit <= 57);
+                  return valid ? null : 'Enter the six-digit code from your email.';
+                },
+              ),
+              const SizedBox(height: 14),
+            ],
+            if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
-                label: _page == _Page.reset ? 'New password' : 'Password',
+                label: _page == _Page.reset ? 'New password' : (_page == _Page.signUp ? 'Create password' : 'Password'),
                 icon: Icons.lock_outline_rounded,
                 obscure: _obscure,
                 autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
@@ -1033,26 +847,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Icon(Icons.verified_user_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
-                  Expanded(child: Text('Account safety comes first. Your application is reviewed independently before account activation.', style: TextStyle(height: 1.45, fontSize: 13))),
+                  Expanded(child: Text('Create your Testagram account with your email, username and password. Verify your email to activate it—no administrator approval is required.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
               ),
               const SizedBox(height: 12),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _ageConfirmed, onChanged: _busy ? null : (v) => setState(() => _ageConfirmed = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I confirm that I am 18 years old or above.'), dense: true),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _termsAccepted, onChanged: _busy ? null : (v) => setState(() => _termsAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Terms and Conditions.'), dense: true),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _privacyAccepted, onChanged: _busy ? null : (v) => setState(() => _privacyAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Privacy Notice.'), dense: true),
-              ),
-              Wrap(alignment: WrapAlignment.start, spacing: 8, children: [
-                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read terms')),
-                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Privacy Notice', _privacyText), child: const Text('Read privacy notice')),
-              ]),
+              // Age assurance and legal acknowledgements are intentionally
+              // suppressed in ordinary signup for now. Their state and
+              // legal-document content remain available for a future rollout.
               const SizedBox(height: 8),
             ],
             if (_page == _Page.identity) ...[
@@ -1086,21 +887,19 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_notice != null) ...[const SizedBox(height: 16), statusMessage(_notice!, error: false)],
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
-            if (_page == _Page.signUp && widget.enableIdentityRegistration)
-              primaryAction('Submit application', _signUp),
-            if (_page == _Page.signUp && !widget.enableIdentityRegistration)
-              statusMessage(
-                'Registration is currently closed. No application or account can be created yet.',
-                error: false,
-              ),
+            if (_page == _Page.signUp)
+              primaryAction('Create account', _signUp),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
-            if (_page == _Page.verify)
-              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend verification email'))),
+            if (_page == _Page.verify) ...[
+              primaryAction('Verify email', _verifyCode),
+              const SizedBox(height: 10),
+              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend code and link'))),
+            ],
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
               Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.forgot), child: const Text('Forgot password?'))),
-              if (widget.enableIdentityRegistration) ...[
+              ...[
                 const SizedBox(height: 8),
                 const Row(children: [
                   Expanded(child: Divider()),
@@ -1111,12 +910,19 @@ class _AuthScreenState extends State<AuthScreen> {
                 SizedBox(height: 52, child: OutlinedButton.icon(
                   onPressed: _busy ? null : () => _go(_Page.signUp),
                   icon: const Icon(Icons.person_add_alt_1_rounded),
-                  label: const Text('Create your account'),
+                  label: const Text('Create account'),
                   style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 )),
               ],
-            ] else if (_page != _Page.verify)
-              Align(alignment: Alignment.center, child: TextButton(onPressed: _busy ? null : () => _go(_Page.signIn), child: const Text('Back to sign in'))),
+            ] else
+              Align(
+                alignment: Alignment.center,
+                child: TextButton.icon(
+                  onPressed: _busy ? null : () => _go(_Page.signIn),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Back to sign in'),
+                ),
+              ),
             const SizedBox(height: 18),
             const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               Icon(Icons.shield_outlined, size: 15, color: muted),

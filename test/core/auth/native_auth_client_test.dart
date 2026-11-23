@@ -64,6 +64,44 @@ void main() {
         },
       };
 
+  test('uses the native signup, resend-verification and verify-email endpoints', () async {
+    final storage = _MemoryNativeAuthStorage();
+    final requests = <http.Request>[];
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'message': 'accepted'}), 202);
+      }),
+    );
+
+    await client.signUp(
+      email: '  New.User@Example.Test ',
+      username: '@New_User',
+      password: 'native-password-123',
+    );
+    await client.resendVerification(' New.User@Example.Test ');
+    await client.verifyEmail('single-use-native-verification-token');
+
+    expect(requests.map((request) => request.url.path).toList(), [
+      '/api/auth/signup',
+      '/api/auth/resend-verification',
+      '/api/auth/verify-email',
+    ]);
+    expect(jsonDecode(requests[0].body), {
+      'email': 'new.user@example.test',
+      'username': 'new_user',
+      'password': 'native-password-123',
+    });
+    expect(jsonDecode(requests[1].body), {'email': 'new.user@example.test'});
+    expect(jsonDecode(requests[2].body), {
+      'token': 'single-use-native-verification-token',
+    });
+    expect(storage.values, isEmpty);
+    client.close();
+  });
+
   test('stores only the refresh token and keeps access token in memory', () async {
     final storage = _MemoryNativeAuthStorage();
     late http.Request seen;

@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/core/auth/native_auth_client.dart';
+import 'package:testagram/features/auth/auth_legal_documents.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 import 'package:testagram/features/auth/identity_application_store.dart';
 
@@ -22,6 +23,37 @@ class _MemoryIdentityStorage implements IdentityApplicationSecureStorage {
 }
 
 class _FakeNativeAuthSession implements NativeAuthSession {
+  int signUpCalls = 0;
+  int resendCalls = 0;
+  String? resentEmail;
+  int verifyCalls = 0;
+  String? verifiedToken;
+  String? verifiedEmail;
+  String? signedUpEmail;
+  String? signedUpUsername;
+  String? signedUpPassword;
+
+  @override
+  Future<void> signUp({required String email, required String username, required String password}) async {
+    signUpCalls++;
+    signedUpEmail = email;
+    signedUpUsername = username;
+    signedUpPassword = password;
+  }
+
+  @override
+  Future<void> resendVerification(String email) async {
+    resendCalls++;
+    resentEmail = email;
+  }
+
+  @override
+  Future<void> verifyEmail(String token, {String? email}) async {
+    verifyCalls++;
+    verifiedToken = token;
+    verifiedEmail = email;
+  }
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -106,7 +138,7 @@ void main() {
     expect(recoveryAuth.lastPassword, 'correct-password-123');
   });
 
-  testWidgets('disabled registration removes every sign-up entry point', (tester) async {
+  testWidgets('native account creation remains available when legacy identity flag is disabled', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: authClient,
@@ -118,15 +150,14 @@ void main() {
 
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
-    expect(find.text('NEW HERE?'), findsNothing);
-    expect(find.text('Create your account'), findsNothing);
-    expect(find.text('Sign up'), findsNothing);
-    expect(find.text('Join the conversation'), findsNothing);
+    expect(find.text('NEW HERE?'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
-    expect(find.textContaining('New account registration is temporarily unavailable'), findsNothing);
+    await tapVisible(tester, find.text('Sign up'));
+    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
   });
 
-  testWidgets('disabled registration does not restore a saved identity application',
+  testWidgets('native signup does not restore an old identity application',
       (tester) async {
     final draft = IdentityApplicationDraft(
       email: 'saved-applicant@example.test',
@@ -141,7 +172,7 @@ void main() {
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
-        requireIdentityReview: true,
+        requireIdentityReview: false,
         enableIdentityRegistration: false,
         identityApplicationStore: identityStore,
       ),
@@ -149,7 +180,10 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome back'), findsOneWidget);
-    expect(find.text('Join the conversation'), findsNothing);
+    expect(find.text('Create account'), findsOneWidget);
+    await tapVisible(tester, find.text('Create account'));
+    await tester.pumpAndSettle();
+    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
     expect(find.text('saved-applicant@example.test'), findsNothing);
     // Preserve the user's encrypted draft for a future, deliberate reopening.
@@ -166,14 +200,14 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
     expect(find.text('Forgot password?'), findsOneWidget);
     expect(find.text('NEW HERE?'), findsOneWidget);
-    expect(find.widgetWithText(OutlinedButton, 'Create your account'), findsOneWidget);
+    expect(find.widgetWithText(OutlinedButton, 'Create account'), findsOneWidget);
     expect(find.text('Sign up'), findsOneWidget);
     expect(find.text('Reset password'), findsOneWidget);
 
     await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
     expect(find.text('Join the conversation'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
 
     await tapVisible(tester, find.text('Reset password'));
     await tester.pumpAndSettle();
@@ -185,70 +219,136 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('registration requires private identity evidence and dual approval before account creation',
-      (tester) async {
+  testWidgets('ordinary signup calls native auth and needs no admin review', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: nativeAuth, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
     ));
 
-    // Identity review mode intentionally opens the application page directly;
-    // it must not require a second tap on the sign-in-only Create account action.
     expect(find.text('Join the conversation'), findsOneWidget);
-    expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
-    expect(find.text('Password'), findsNothing);
-    expect(find.text('Confirm password'), findsNothing);
-    expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
-    expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
-    expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.textContaining('Complete identity verification and independent account approval'), findsOneWidget);
+    expect(find.text('Create password'), findsOneWidget);
+    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
 
-    final action = find.widgetWithText(FilledButton, 'Submit application');
-    expect(action, findsOneWidget);
-    expect(tester.widget<FilledButton>(action).onPressed, isNotNull);
+    final signupFields = find.byType(TextFormField);
+    expect(signupFields, findsNWidgets(3));
+    await tester.enterText(signupFields.at(0), 'native_user');
+    await tester.enterText(signupFields.at(1), 'native@example.test');
+    await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // The form still validates locally before any backend request is made.
-    await tapVisible(tester, action);
-    expect(find.text('Enter your name.'), findsOneWidget);
-    expect(find.text('Use 3–30 letters, numbers or underscores.'), findsOneWidget);
-    expect(find.text('Enter your email address.'), findsOneWidget);
+    // Future age/legal-consent controls are intentionally hidden for this
+    // release; ordinary email signup must not require those acknowledgements.
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('Read terms'), findsNothing);
+    expect(find.text('Read privacy notice'), findsNothing);
+
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(nativeAuth.signUpCalls, 1);
+    expect(nativeAuth.signedUpEmail, 'native@example.test');
+    expect(nativeAuth.signedUpUsername, 'native_user');
+    expect(nativeAuth.signedUpPassword, 'native-password-123');
+    expect(find.textContaining('Check your email'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
   });
 
-  testWidgets('accounts without an approved identity link are routed to identity application',
-      (tester) async {
+  testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        requireVerification: true,
+      ),
+    ));
+
+    expect(find.text('Verify your email'), findsOneWidget);
+    expect(find.text('Email address'), findsOneWidget);
+    expect(find.text('Resend code and link'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Resend code and link'));
+    await tester.pumpAndSettle();
+    expect(nativeAuth.resendCalls, 0);
+    expect(find.text('Enter your email address.'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextFormField).first, 'person@example.test');
+    await tapVisible(tester, find.text('Resend code and link'));
+    await tester.pumpAndSettle();
+
+    expect(nativeAuth.resendCalls, 1);
+    expect(nativeAuth.resentEmail, 'person@example.test');
+    expect(find.textContaining('fresh verification code and link have been sent'), findsOneWidget);
+  });
+
+  testWidgets('verification page accepts the emailed six-digit OTP', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        requireVerification: true,
+        initialEmail: 'person@example.test',
+      ),
+    ));
+
+    expect(find.text('Six-digit email code'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).last, '012345');
+    await tapVisible(tester, find.text('Verify email'));
+
+    expect(nativeAuth.verifyCalls, 1);
+    expect(nativeAuth.verifiedToken, '012345');
+    expect(nativeAuth.verifiedEmail, 'person@example.test');
+    expect(find.text('Welcome back'), findsOneWidget);
+  });
+
+  testWidgets('verification page has a clear route back to sign in without unrelated tabs', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: authClient,
         onSignedIn: () {},
-        requireIdentityReview: true,
-        enableIdentityRegistration: true,
-        identityApplicationStore: identityStore,
+        requireVerification: true,
       ),
     ));
 
-    expect(find.text('Join the conversation'), findsOneWidget);
-    expect(find.text('Submit application'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
-    expect(find.text('I confirm that I am 18 years old or above.'), findsOneWidget);
-    expect(find.text('I accept the Terms and Conditions.'), findsOneWidget);
-    expect(find.text('I accept the Privacy Notice.'), findsOneWidget);
-    expect(find.textContaining('Complete identity verification and independent account approval'), findsOneWidget);
+    expect(find.text('Verify your email'), findsOneWidget);
+    expect(find.text('Sign up'), findsNothing);
+    expect(find.text('Reset password'), findsNothing);
+    expect(find.text('Back to sign in'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Back to sign in'));
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
   });
 
-  testWidgets('legal documents can be read before consent', (tester) async {
+  testWidgets('signup entry opens native account creation instead of identity application', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    // Identity review mode opens the gated application page directly.
-    await tapVisible(tester, find.text('Read terms'));
-    expect(find.text('Terms and Conditions'), findsOneWidget);
-    expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
-        findsOneWidget);
-    await tapVisible(tester, find.text('Close'));
+    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
+    expect(find.text('Username'), findsOneWidget);
+    expect(find.text('Create password'), findsOneWidget);
+    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
+  });
 
-    await tapVisible(tester, find.text('Read privacy notice'));
-    expect(find.textContaining('TESTAGRAM PRIVACY NOTICE'), findsOneWidget);
+  testWidgets('legal copy is retained for later but hidden from current signup', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+    ));
+    await tapVisible(tester, find.text('Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('Read terms'), findsNothing);
+    expect(find.text('Read privacy notice'), findsNothing);
+    expect(find.textContaining('18 years old'), findsNothing);
+    expect(find.textContaining('Terms and Conditions'), findsNothing);
+    expect(find.textContaining('Privacy Notice'), findsNothing);
+    expect(AuthLegalDocuments.termsText, contains('TESTAGRAM TERMS AND CONDITIONS'));
+    expect(AuthLegalDocuments.privacyText, contains('TESTAGRAM PRIVACY NOTICE'));
   });
 
   testWidgets('forgot-password page is reachable from sign in',

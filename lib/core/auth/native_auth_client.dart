@@ -30,6 +30,13 @@ class FlutterNativeAuthStorage implements NativeAuthStorage {
 }
 
 abstract interface class NativeAuthSession {
+  Future<void> signUp({
+    required String email,
+    required String username,
+    required String password,
+  });
+  Future<void> resendVerification(String email);
+  Future<void> verifyEmail(String token, {String? email});
   Future<Map<String, dynamic>> signIn({
     required String email,
     required String password,
@@ -193,6 +200,32 @@ class NativeAuthClient implements NativeAuthSession {
     _accessExpiresAt = DateTime.now().toUtc().add(
       Duration(seconds: data['expires_in'] as int),
     );
+  }
+
+  @override
+  Future<void> signUp({
+    required String email,
+    required String username,
+    required String password,
+  }) async {
+    await _post('signup', body: {
+      'email': email.trim().toLowerCase(),
+      'username': username.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+      'password': password,
+    });
+  }
+
+  @override
+  Future<void> resendVerification(String email) async {
+    await _post('resend-verification', body: {'email': email.trim().toLowerCase()});
+  }
+
+  @override
+  Future<void> verifyEmail(String token, {String? email}) async {
+    await _post('verify-email', body: {
+      'token': token,
+      if (email != null && email.trim().isNotEmpty) 'email': email.trim().toLowerCase(),
+    });
   }
 
   @override

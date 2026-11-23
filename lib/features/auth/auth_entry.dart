@@ -15,10 +15,7 @@ class AuthEntry {
 
   bool get hasCompleteCallback {
     if (mode == AuthEntryMode.verifyEmail) {
-      return applicationId != null &&
-          applicationId!.isNotEmpty &&
-          token != null &&
-          token!.isNotEmpty;
+      return token != null && token!.isNotEmpty;
     }
     if (mode == AuthEntryMode.resetPassword) {
       return token != null && token!.isNotEmpty;
@@ -32,10 +29,11 @@ class AuthEntry {
     final applicationId = query['application_id'];
     final token = query['token'];
     final path = uri.path.toLowerCase();
-    final isNativeVerification = applicationId != null && token != null;
+    final isNativeVerification = path.endsWith('/verify-email') ||
+        (applicationId != null && token != null);
     final isNativeReset = token != null && !isNativeVerification;
     final AuthEntryMode mode;
-    if (isNativeVerification || path.endsWith('/verify-email')) {
+    if (isNativeVerification) {
       mode = AuthEntryMode.verifyEmail;
     } else if (isNativeReset || path.endsWith('/reset-password')) {
       mode = AuthEntryMode.resetPassword;
