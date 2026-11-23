@@ -317,33 +317,10 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   });
 
-  Future<void> _verify(String applicationId, String token) async => _run(() async {
-    final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-    try {
-      await api.verifyEmail(applicationId: applicationId, token: token);
-      try {
-        await _identityStore.clear();
-      } catch (_) {
-        // The server has consumed the one-time token; local cleanup is best-effort.
-      }
-      if (mounted) {
-        setState(() {
-          _identityDraft = null;
-          _identityApplication = null;
-          _identityStatus = null;
-          _identityProvisioningAuthorization = null;
-          _recoveryToken = null;
-          _page = _Page.signIn;
-          _notice = 'Your Testagram email is verified. Sign in with your new Testagram password.';
-        });
-      }
-    } finally {
-      api.close();
-    }
-  });
-
   Future<void> _forgot() async {
-    if (!_form.currentState!.validate()) return;
+    if (!_form.currentState!.validate()) {
+      return;
+    }
     await _run(() async {
       await widget.authClient.requestPasswordReset(_email.text.trim().toLowerCase());
       if (mounted) {
