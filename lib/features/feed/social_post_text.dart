@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:material_ui/material_ui.dart';
 
 /// Renders Testagram handles and hashtags as accessible, tappable inline links.
@@ -22,7 +23,7 @@ class SocialPostText extends StatefulWidget {
 
 class _SocialPostTextState extends State<SocialPostText> {
   static final RegExp _tokens = RegExp(
-    r'(?<![\\p{L}\\p{N}_])([#@])([\\p{L}\\p{N}_.]{1,64})',
+    r'(?<![\p{L}\p{N}_])([#@])([\p{L}\p{N}_.]{1,64})',
     unicode: true,
   );
   final List<TapGestureRecognizer> _recognizers = [];
