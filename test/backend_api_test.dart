@@ -48,13 +48,13 @@ void main() {
       api.close();
     });
 
-    test('rejects malformed custom feed List IDs before network access', () {
+    test('rejects malformed custom feed List IDs before network access', () async {
       final api = BackendApi(
         baseUri: Uri.parse('https://api.testagram.site'),
         getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
         client: MockClient((_) async => http.Response('{}', 200)),
       );
-      expect(() => api.getHomeFeed(listId: 'not-a-uuid'), throwsArgumentError);
+      await expectLater(api.getHomeFeed(listId: 'not-a-uuid'), throwsArgumentError);
       api.close();
     });
 
