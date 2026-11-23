@@ -145,6 +145,52 @@ class BackendApi {
         baseUri.resolve('/api/knowledge/questions/$questionId/answers/$answerId/accept'),
       );
 
+  Future<Map<String, dynamic>> getSocialLists() =>
+      _request('GET', baseUri.resolve('/api/social/lists'));
+
+  Future<Map<String, dynamic>> createSocialList({
+    required String name,
+    String description = '',
+    String visibility = 'private',
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/social/lists'),
+        body: {
+          'name': name,
+          'description': description,
+          'visibility': visibility,
+        },
+      );
+
+  Future<Map<String, dynamic>> getSocialList(String listId) =>
+      _request('GET', baseUri.resolve('/api/social/lists/$listId'));
+
+  Future<Map<String, dynamic>> getSocialListMembers(String listId) =>
+      _request('GET', baseUri.resolve('/api/social/lists/$listId/members'));
+
+  Future<Map<String, dynamic>> addSocialListMember({
+    required String listId,
+    required String userId,
+  }) =>
+      _request(
+        'POST',
+        baseUri.resolve('/api/social/lists/$listId/members'),
+        body: {'user_id': userId},
+      );
+
+  Future<Map<String, dynamic>> removeSocialListMember({
+    required String listId,
+    required String userId,
+  }) =>
+      _request(
+        'DELETE',
+        baseUri.resolve('/api/social/lists/$listId/members/$userId'),
+      );
+
+  Future<Map<String, dynamic>> deleteSocialList(String listId) =>
+      _request('DELETE', baseUri.resolve('/api/social/lists/$listId'));
+
   Future<Map<String, dynamic>> getThreads({int limit = 20, String? cursor, String tab = 'for-you'}) =>
       _request('GET', baseUri.resolve('/api/threads').replace(queryParameters: {
         'tab': tab,
