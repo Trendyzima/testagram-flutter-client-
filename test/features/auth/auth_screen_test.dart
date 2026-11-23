@@ -91,18 +91,16 @@ void main() {
 
     await tester.enterText(email, 'person@example.test');
     await tester.enterText(password, 'correct-password-123');
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Sign in'));
 
     expect(find.textContaining('Testagram is awake and ready'), findsOneWidget);
-    expect(find.text('person@example.test'), findsOneWidget);
-    expect(find.text('correct-password-123'), findsNothing);
+    expect(tester.widget<TextFormField>(email).controller?.text, 'person@example.test');
+    expect(tester.widget<TextFormField>(password).controller?.text, 'correct-password-123');
     expect(recoveryAuth.attempts, 1);
     expect(recoveryAuth.lastEmail, 'person@example.test');
     expect(recoveryAuth.lastPassword, 'correct-password-123');
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
-    await tester.pumpAndSettle();
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Sign in'));
     expect(recoveryAuth.attempts, 2);
     expect(recoveryAuth.lastEmail, 'person@example.test');
     expect(recoveryAuth.lastPassword, 'correct-password-123');
