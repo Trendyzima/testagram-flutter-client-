@@ -40,7 +40,7 @@ flutter analyze
 flutter test --reporter expanded
 
 TESTAGRAM_API_URL="${TESTAGRAM_API_URL:-https://api.testagram.site}"
-TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-false}"
+TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-true}"
 flutter build web --release --base-href / \
   --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
   --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
@@ -55,9 +55,9 @@ test -s build/web/flutter_bootstrap.js
 test -s build/web/main.dart.js
 grep -Fq "flutter_bootstrap.js?v=$version" build/web/index.html
 grep -Fq "main.dart.js?v=$version" build/web/flutter_bootstrap.js
-# The Create account entry point is always present. Actual application
-# submission remains separately gated by TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED.
-for marker in 'Sign in' 'Reset password'; do
+# Keep the Create account entry point visible by default. The Backend remains
+# authoritative for application acceptance and private-evidence readiness.
+for marker in 'Sign in' 'Reset password' 'Create account'; do
   grep -aFq "$marker" build/web/main.dart.js || {
     echo "::error::Flutter production bundle is missing authentication UI marker: $marker"
     exit 1
