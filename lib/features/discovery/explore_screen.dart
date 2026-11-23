@@ -19,6 +19,10 @@ class ExploreScreen extends StatefulWidget {
 
 class _ExploreScreenState extends State<ExploreScreen> {
   final _query = TextEditingController();
+  final _from = TextEditingController();
+  final _since = TextEditingController();
+  final _until = TextEditingController();
+  final _language = TextEditingController();
   List<Map<String, dynamic>> _posts = [];
   List<Map<String, dynamic>> _people = [];
   List<Map<String, dynamic>> _trending = [];
@@ -135,6 +139,10 @@ class _ExploreScreenState extends State<ExploreScreen> {
   @override
   void dispose() {
     _query.dispose();
+    _from.dispose();
+    _since.dispose();
+    _until.dispose();
+    _language.dispose();
     super.dispose();
   }
 
@@ -274,6 +282,90 @@ class _ExploreScreenState extends State<ExploreScreen> {
         ),
       ),
       if (_loading) const LinearProgressIndicator(),
+      ExpansionTile(
+        title: const Text('Advanced search'),
+        leading: const Icon(Icons.tune_rounded),
+        childrenPadding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
+        children: [
+          TextField(
+            controller: _from,
+            decoration: const InputDecoration(
+              labelText: 'From account',
+              prefixText: '@',
+              hintText: 'username',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(children: [
+            Expanded(
+              child: TextField(
+                controller: _since,
+                decoration: const InputDecoration(
+                  labelText: 'Since',
+                  hintText: 'YYYY-MM-DD',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: TextField(
+                controller: _until,
+                decoration: const InputDecoration(
+                  labelText: 'Until (exclusive)',
+                  hintText: 'YYYY-MM-DD',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _language,
+            decoration: const InputDecoration(
+              labelText: 'Language',
+              hintText: 'e.g. en-KE',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          DropdownButtonFormField<String>(
+            initialValue: _searchSort,
+            decoration: const InputDecoration(
+              labelText: 'Sort results',
+              border: OutlineInputBorder(),
+            ),
+            items: const [
+              DropdownMenuItem(value: 'latest', child: Text('Newest first')),
+              DropdownMenuItem(value: 'popular', child: Text('Most engaging')),
+            ],
+            onChanged: (value) {
+              if (value != null) setState(() => _searchSort = value);
+            },
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Posts with media'),
+            value: _mediaOnly,
+            onChanged: (value) => setState(() => _mediaOnly = value),
+          ),
+          SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            title: const Text('Videos only'),
+            value: _videoOnly,
+            onChanged: (value) => setState(() => _videoOnly = value),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: _search,
+              icon: const Icon(Icons.search_rounded),
+              label: const Text('Apply filters'),
+            ),
+          ),
+        ],
+      ),
       if (_error != null) Padding(padding: const EdgeInsets.all(12), child: Text(_error!)),
       Expanded(child: ListView(
         children: [
