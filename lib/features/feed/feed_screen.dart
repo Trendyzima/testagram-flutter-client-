@@ -1233,6 +1233,15 @@ class _PostCard extends StatelessWidget {
     return '${date.day}/${date.month}/${date.year}';
   }
 
+  String _rankingReasonLabel(String reason) => switch (reason) {
+    'from-followed-account' => 'From someone you follow',
+    'recent' => 'Recent',
+    'matches-interests' => 'Matches your interests',
+    'quality-signal' => 'High-quality discussion',
+    'constructive-conversation' => 'Constructive conversation',
+    _ => '',
+  };
+
   @override
   Widget build(BuildContext context) {
     final author = post['author'];
@@ -1257,6 +1266,15 @@ class _PostCard extends StatelessWidget {
     final username = author is Map ? (author['username'] ?? '').toString() : '';
     final avatarUrl = author is Map ? (FeedMediaUrl.normalize(author['avatar_url']) ?? '') : '';
     final body = (post['content'] ?? '').toString();
+    final rawRankingReasons = post['ranking_reasons'];
+    final rankingLabels = rawRankingReasons is List
+        ? rawRankingReasons
+            .map((value) => _rankingReasonLabel(value.toString()))
+            .where((value) => value.isNotEmpty)
+            .toSet()
+            .take(2)
+            .toList()
+        : <String>[];
     final created = _timeLabel((post['created_at'] ?? '').toString());
     final rawMedia = post['media_urls'];
     final mediaUrls = rawMedia is List
@@ -1381,6 +1399,26 @@ class _PostCard extends StatelessWidget {
                       ),
                     ],
                   ),
+                  if (rankingLabels.isNotEmpty) ...[
+                    const SizedBox(height: 3),
+                    Row(
+                      children: [
+                        Icon(Icons.auto_awesome_rounded, size: 13,
+                          color: Theme.of(context).colorScheme.secondary),
+                        const SizedBox(width: 5),
+                        Expanded(
+                          child: Text(
+                            'Why this appears: ${rankingLabels.join(' · ')}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: Theme.of(context).colorScheme.secondary,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   if (body.isNotEmpty) ...[
                     const SizedBox(height: 7),
                     SocialPostText(
