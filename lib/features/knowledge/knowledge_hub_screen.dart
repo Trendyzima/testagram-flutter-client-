@@ -46,7 +46,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
-                  value: visibility,
+                  initialValue: visibility,
                   decoration: const InputDecoration(
                     labelText: 'Who can see this?',
                     border: OutlineInputBorder(),
@@ -122,7 +122,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
               icon: const Icon(Icons.info_outline_rounded),
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             tabs: [for (final tab in tabs) Tab(text: tab)],
