@@ -275,6 +275,25 @@ void main() {
     expect(find.textContaining('fresh verification link has been sent'), findsOneWidget);
   });
 
+  testWidgets('verification page has a clear route back to sign in without unrelated tabs', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: authClient,
+        onSignedIn: () {},
+        requireVerification: true,
+      ),
+    ));
+
+    expect(find.text('Verify your email'), findsOneWidget);
+    expect(find.text('Sign up'), findsNothing);
+    expect(find.text('Reset password'), findsNothing);
+    expect(find.text('Back to sign in'), findsOneWidget);
+
+    await tapVisible(tester, find.text('Back to sign in'));
+    expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
+  });
+
   testWidgets('signup entry opens native account creation instead of identity application', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
