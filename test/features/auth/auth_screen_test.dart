@@ -174,7 +174,7 @@ void main() {
 
     expect(find.text('Welcome back'), findsOneWidget);
     expect(find.text('Create account'), findsOneWidget);
-    await tapVisible(tester, find.text('Create your account'));
+    await tapVisible(tester, find.text('Create account'));
     await tester.pumpAndSettle();
     expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
@@ -310,7 +310,7 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    await tapVisible(tester, find.text('Create your account'));
+    await tapVisible(tester, find.text('Create account'));
     await tester.pumpAndSettle();
 
     expect(find.byType(CheckboxListTile), findsNothing);
