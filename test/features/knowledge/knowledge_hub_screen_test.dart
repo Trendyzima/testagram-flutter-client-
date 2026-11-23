@@ -109,7 +109,7 @@ void main() {
     expect(find.textContaining('12 followers · 4 questions'), findsOneWidget);
     await tester.tap(find.text('Follow'));
     await tester.pumpAndSettle();
-    expect(find.text('Following'), findsOneWidget);
+    expect(find.text('Following'), findsNWidgets(2));
 
     await tester.tap(find.text('Kenya'));
     await tester.pumpAndSettle();
