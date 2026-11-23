@@ -6,6 +6,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../../core/backend_api.dart';
 import '../../core/widgets/testagram_app_bar.dart';
+import '../../core/widgets/testagram_state_view.dart';
 import '../../core/media/media_upload_policy.dart';
 import '../shorts/shorts_screen.dart';
 import '../posts/post_detail_screen.dart';
@@ -489,11 +490,41 @@ class _FeedScreenState extends State<FeedScreen> {
           final timeline = RefreshIndicator(
         onRefresh: () => _load(reset: true),
         child: _loading && _posts.isEmpty
-          ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: const [SizedBox(height: 180), Center(child: CircularProgressIndicator())])
+          ? ListView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            children: const [
+              TestagramStateView(
+                icon: Icons.dynamic_feed_outlined,
+                title: 'Loading your feed',
+                message: 'Fetching the latest conversations.',
+                loading: true,
+              ),
+            ],
+          )
           : _error != null && _posts.isEmpty
-            ? ListView(physics: const AlwaysScrollableScrollPhysics(), children: [const SizedBox(height: 100), Center(child: Text(_error!)), Center(child: TextButton(onPressed: () => _load(reset: true), child: const Text('Retry')))])
+            ? ListView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                children: [
+                  TestagramStateView(
+                    icon: Icons.cloud_off_outlined,
+                    title: 'Your feed could not load',
+                    message: _error!,
+                    actionLabel: 'Retry',
+                    onAction: () => _load(reset: true),
+                  ),
+                ],
+              )
             : _posts.isEmpty
-              ? ListView(children: const [SizedBox(height: 120), Center(child: Icon(Icons.dynamic_feed_outlined, size: 48)), SizedBox(height: 12), Center(child: Text('No posts are available yet.'))])
+              ? ListView(
+                  physics: const AlwaysScrollableScrollPhysics(),
+                  children: const [
+                    TestagramStateView(
+                      icon: Icons.dynamic_feed_outlined,
+                      title: 'Your feed is quiet',
+                      message: 'Follow people and topics to bring conversations into your home feed.',
+                    ),
+                  ],
+                )
               : ListView.separated(
                   controller: _scroll,
                   physics: const AlwaysScrollableScrollPhysics(),
