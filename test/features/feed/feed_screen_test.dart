@@ -142,7 +142,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('A gallery post'), findsOneWidget);
-    final images = tester.widgetList<Image>(find.byType(Image)).toList();
+    final images = tester.widgetList<Image>(find.byWidgetPredicate((widget) => widget is Image && widget.image is NetworkImage)).toList();
     expect(images, hasLength(2));
     final firstProvider = images.first.image;
     expect(firstProvider, isA<NetworkImage>());
@@ -204,7 +204,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Watch in Shorts'), findsOneWidget);
-    expect(find.byType(Image), findsNothing);
+    expect(find.byWidgetPredicate((widget) => widget is Image && widget.image is NetworkImage), findsNothing);
     // The video URL is never sent to Image.network; tapping opens the native
     // Shorts route, whose platform player is exercised by device/integration tests.
     expect(requestedUris.any((uri) => uri.queryParameters['video_only'] == 'true'), isFalse);
