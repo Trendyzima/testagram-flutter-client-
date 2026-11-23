@@ -5,6 +5,7 @@ import 'core/auth/native_auth_client.dart';
 import 'core/backend_api.dart';
 import 'core/testagram_theme.dart';
 import 'features/auth/auth_screen.dart';
+import 'features/settings/email_notification_settings_screen.dart';
 import 'app/main_shell.dart';
 
 class TestagramApp extends StatefulWidget {
@@ -73,6 +74,7 @@ class _AuthGateState extends State<AuthGate> {
   bool _signedIn = false;
   String? _restoreError;
   BackendApi? _api;
+  bool _consentPromptChecked = false;
 
   @override
   void initState() {
@@ -112,16 +114,75 @@ class _AuthGateState extends State<AuthGate> {
           ? error.message
           : 'Testagram could not restore your secure session. Sign in again.';
     }
-    if (mounted) setState(() => _loading = false);
+    if (mounted) {
+      setState(() => _loading = false);
+      if (_signedIn) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _maybePromptSocialEmailConsent());
+      }
+    }
   }
 
   void _onSignedIn() {
+    _consentPromptChecked = false;
     _api?.close();
     setState(() {
       _api = _createApi();
       _signedIn = true;
       _restoreError = null;
     });
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybePromptSocialEmailConsent());
+  }
+
+  Future<void> _maybePromptSocialEmailConsent() async {
+    final api = _api;
+    if (!mounted || !_signedIn || api == null || _consentPromptChecked) return;
+    _consentPromptChecked = true;
+    try {
+      final response = await api.getMyEmailNotificationPreferences();
+      final value = response['data'];
+      final data = value is Map ? Map<String, dynamic>.from(value) : response;
+      if (!mounted || data['consent_prompt_required'] != true) return;
+      final chooseSettings = await showDialog<bool>(
+        context: context,
+        barrierDismissible: false,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Choose your email updates'),
+          content: const Text(
+            'Would you like Testagram to email you when someone follows you '
+            'or when people you follow share a new post? These updates are '
+            'optional. Nothing is emailed until you choose the categories '
+            'and save your consent.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Not now'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(dialogContext, true),
+              child: const Text('Choose settings'),
+            ),
+          ],
+        ),
+      );
+      if (!mounted) return;
+      if (chooseSettings == true) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => EmailNotificationSettingsScreen(
+            api: api,
+            skipInitialPrompt: true,
+          ),
+        ));
+      } else if (chooseSettings == false) {
+        await api.updateMyEmailNotificationPreferences(
+          newFollowerEmailEnabled: false,
+          newPostEmailEnabled: false,
+        );
+      }
+    } catch (_) {
+      // Keep social email disabled if the consent state cannot be read or saved.
+      _consentPromptChecked = false;
+    }
   }
 
   Future<void> _signOut() async {
@@ -144,6 +205,7 @@ class _AuthGateState extends State<AuthGate> {
     if (mounted) {
       setState(() {
         _signedIn = false;
+        _consentPromptChecked = false;
         _restoreError = null;
         _api = null;
       });
