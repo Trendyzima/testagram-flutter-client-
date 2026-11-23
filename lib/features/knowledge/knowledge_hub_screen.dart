@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 
 class KnowledgeHubScreen extends StatefulWidget {
   const KnowledgeHubScreen({super.key, required this.api});
