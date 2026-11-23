@@ -287,16 +287,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _signUp() async {
     if (!_form.currentState!.validate()) return;
-    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() {
-        _error = !_ageConfirmed
-            ? 'Confirm that you are at least 18 years old to create an account.'
-            : (!_termsAccepted
-                ? 'Accept the Terms and Conditions to create an account.'
-                : 'Accept the Privacy Notice to create an account.');
-      });
-      return;
-    }
     await _run(() async {
       await widget.authClient.signUp(
         email: _email.text.trim().toLowerCase(),
@@ -830,22 +820,9 @@ class _AuthScreenState extends State<AuthScreen> {
                 ]),
               ),
               const SizedBox(height: 12),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _ageConfirmed, onChanged: _busy ? null : (v) => setState(() => _ageConfirmed = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I confirm that I am 18 years old or above.'), dense: true),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _termsAccepted, onChanged: _busy ? null : (v) => setState(() => _termsAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Terms and Conditions.'), dense: true),
-              ),
-              Material(
-                color: Colors.transparent,
-                child: CheckboxListTile(contentPadding: EdgeInsets.zero, value: _privacyAccepted, onChanged: _busy ? null : (v) => setState(() => _privacyAccepted = v ?? false), controlAffinity: ListTileControlAffinity.leading, title: const Text('I accept the Privacy Notice.'), dense: true),
-              ),
-              Wrap(alignment: WrapAlignment.start, spacing: 8, children: [
-                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Terms and Conditions', _termsText), child: const Text('Read terms')),
-                TextButton(onPressed: _busy ? null : () => _showLegalDocument('Privacy Notice', _privacyText), child: const Text('Read privacy notice')),
-              ]),
+              // Age assurance and legal acknowledgements are intentionally
+              // suppressed in ordinary signup for now. Their state and
+              // legal-document content remain available for a future rollout.
               const SizedBox(height: 8),
             ],
             if (_page == _Page.identity) ...[
