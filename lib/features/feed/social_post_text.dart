@@ -56,10 +56,8 @@ class _SocialPostTextState extends State<SocialPostText> {
       final prefix = isHashtag ? '#' : '@';
       final callback = isHashtag ? widget.onHashtagTap : widget.onMentionTap;
       TapGestureRecognizer? recognizer;
-      if (valid) {
-        recognizer = TapGestureRecognizer()..onTap = () => callback(value);
-        _recognizers.add(recognizer);
-      }
+      recognizer = TapGestureRecognizer()..onTap = () => callback(value);
+      _recognizers.add(recognizer);
       spans.add(TextSpan(
         text: '$prefix$value',
         style: widget.style?.copyWith(
