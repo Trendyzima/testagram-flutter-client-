@@ -1,7 +1,10 @@
 import 'package:material_ui/material_ui.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/backend_api.dart';
 import '../posts/post_detail_screen.dart';
+import '../feed/social_post_text.dart';
+import '../profile/profile_screen.dart';
 
 class HashtagScreen extends StatefulWidget {
   const HashtagScreen({super.key, required this.api, required this.tag});
@@ -95,6 +98,48 @@ class _HashtagScreenState extends State<HashtagScreen> {
     }
   }
 
+  void _openHashtag(String tag) {
+    Navigator.of(context).push(MaterialPageRoute<void>(
+      builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+    ));
+  }
+
+  Future<void> _openMention(String handle) async {
+    try {
+      final response = await widget.api.resolveProfileUsername(handle);
+      final raw = response['data'];
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('@$handle is unavailable or not discoverable.')),
+        );
+        return;
+      }
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ProfileScreen(api: widget.api, userId: userId),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open @$handle: $error')),
+        );
+      }
+    }
+  }
+
+  Future<void> _copyHashtagLink() async {
+    final link = 'https://testagram.site/tags/${Uri.encodeComponent(_tag)}';
+    await Clipboard.setData(ClipboardData(text: link));
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Hashtag link copied.')),
+      );
+    }
+  }
+
   Future<void> _toggleFollow() async {
     if (_followBusy) return;
     setState(() => _followBusy = true);
@@ -162,7 +207,12 @@ class _HashtagScreenState extends State<HashtagScreen> {
                   if (username.isNotEmpty)
                     Text('@$username', style: Theme.of(context).textTheme.bodySmall),
                   const SizedBox(height: 8),
-                  Text(content, style: const TextStyle(height: 1.4)),
+                  SocialPostText(
+                    text: content,
+                    style: const TextStyle(height: 1.4),
+                    onHashtagTap: _openHashtag,
+                    onMentionTap: _openMention,
+                  ),
                   if (mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 10),
                     if (mediaUrls.length == 1)
@@ -213,6 +263,11 @@ class _HashtagScreenState extends State<HashtagScreen> {
     appBar: AppBar(
       title: Text('#$_tag'),
       actions: [
+        IconButton(
+          tooltip: 'Copy hashtag link',
+          onPressed: _copyHashtagLink,
+          icon: const Icon(Icons.link_rounded),
+        ),
         Padding(
           padding: const EdgeInsets.only(right: 8),
           child: TextButton.icon(
