@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:testagram/core/auth/native_auth_client.dart';
+import 'package:testagram/features/auth/auth_legal_documents.dart';
 import 'package:testagram/features/auth/auth_screen.dart';
 import 'package:testagram/features/auth/identity_application_store.dart';
 
@@ -172,6 +173,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Welcome back'), findsOneWidget);
+    expect(find.text('Create your account'), findsOneWidget);
+    await tapVisible(tester, find.text('Create your account'));
+    await tester.pumpAndSettle();
     expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
     expect(find.text('saved-applicant@example.test'), findsNothing);
@@ -283,19 +287,21 @@ void main() {
     expect(find.textContaining('no administrator approval is required'), findsOneWidget);
   });
 
-  testWidgets('legal documents can be read before consent', (tester) async {
+  testWidgets('legal copy is retained for later but hidden from current signup', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: authClient, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    // Identity review mode opens the gated application page directly.
-    await tapVisible(tester, find.text('Read terms'));
-    expect(find.text('Terms and Conditions'), findsOneWidget);
-    expect(find.textContaining('TESTAGRAM TERMS AND CONDITIONS'),
-        findsOneWidget);
-    await tapVisible(tester, find.text('Close'));
+    await tapVisible(tester, find.text('Create your account'));
+    await tester.pumpAndSettle();
 
-    await tapVisible(tester, find.text('Read privacy notice'));
-    expect(find.textContaining('TESTAGRAM PRIVACY NOTICE'), findsOneWidget);
+    expect(find.byType(CheckboxListTile), findsNothing);
+    expect(find.text('Read terms'), findsNothing);
+    expect(find.text('Read privacy notice'), findsNothing);
+    expect(find.textContaining('18 years old'), findsNothing);
+    expect(find.textContaining('Terms and Conditions'), findsNothing);
+    expect(find.textContaining('Privacy Notice'), findsNothing);
+    expect(AuthLegalDocuments.termsText, contains('TESTAGRAM TERMS AND CONDITIONS'));
+    expect(AuthLegalDocuments.privacyText, contains('TESTAGRAM PRIVACY NOTICE'));
   });
 
   testWidgets('forgot-password page is reachable from sign in',
