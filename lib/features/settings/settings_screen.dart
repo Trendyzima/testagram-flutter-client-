@@ -5,6 +5,7 @@ import '../../core/widgets/testagram_app_bar.dart';
 import '../../core/widgets/testagram_brand_mark.dart';
 import '../profile/profile_screen.dart';
 import '../federation/federation_settings_screen.dart';
+import 'email_notification_settings_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({
@@ -104,6 +105,20 @@ class SettingsScreen extends StatelessWidget {
               onTap: () => Navigator.of(context).push(
                 MaterialPageRoute<void>(
                   builder: (_) => FederationSettingsScreen(api: api),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.mark_email_unread_outlined),
+              title: const Text('Email notifications'),
+              subtitle: const Text('Choose whether Testagram can email you about follows and new posts.'),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute<void>(
+                  builder: (_) => EmailNotificationSettingsScreen(api: api),
                 ),
               ),
             ),
