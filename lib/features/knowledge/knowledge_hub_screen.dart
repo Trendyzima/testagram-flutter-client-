@@ -102,7 +102,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const tabs = ['For you', 'Unanswered', 'Your questions'];
+    const tabs = ['For you', 'Following', 'Unanswered', 'Your questions'];
     return DefaultTabController(
       length: tabs.length,
       child: Scaffold(
@@ -131,6 +131,7 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
         body: TabBarView(
           children: [
             _KnowledgeQuestionList(api: widget.api, status: 'all'),
+            _KnowledgeQuestionList(api: widget.api, status: 'all', following: true),
             _KnowledgeQuestionList(api: widget.api, status: 'open'),
             _KnowledgeQuestionList(api: widget.api, status: 'all', mine: true),
           ],
@@ -146,10 +147,11 @@ class _KnowledgeHubScreenState extends State<KnowledgeHubScreen> {
 }
 
 class _KnowledgeQuestionList extends StatefulWidget {
-  const _KnowledgeQuestionList({required this.api, required this.status, this.mine = false});
+  const _KnowledgeQuestionList({required this.api, required this.status, this.mine = false, this.following = false});
   final BackendApi api;
   final String status;
   final bool mine;
+  final bool following;
 
   @override
   State<_KnowledgeQuestionList> createState() => _KnowledgeQuestionListState();
@@ -167,6 +169,7 @@ class _KnowledgeQuestionListState extends State<_KnowledgeQuestionList> {
   Future<Map<String, dynamic>> _load() => widget.api.getKnowledgeQuestions(
         status: widget.status,
         mine: widget.mine,
+        following: widget.following,
       );
 
   Future<void> _refresh() async {
