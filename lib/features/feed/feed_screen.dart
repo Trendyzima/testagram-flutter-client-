@@ -1437,7 +1437,15 @@ class _PostCard extends StatelessWidget {
                   ],
                   if (body.isNotEmpty) ...[
                     const SizedBox(height: 7),
-                    SocialPostText(text: body, style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42), onHashtagTap: onHashtagTap, onMentionTap: onMentionTap),
+                    InkWell(
+                      onTap: onOpen,
+                      child: SocialPostText(
+                        text: body,
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(height: 1.42),
+                        onHashtagTap: onHashtagTap,
+                        onMentionTap: onMentionTap,
+                      ),
+                    ),
                   ],
                   if (isVideoPost && mediaUrls.isNotEmpty) ...[
                     const SizedBox(height: 11),
