@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 import 'conversation_screen.dart';
 
 class DirectMessagesScreen extends StatefulWidget {
@@ -107,8 +108,8 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Text('Direct messages'),
+    appBar: TestagramAppBar(
+      title: 'Messages',
       actions: [
         IconButton(tooltip: 'New message', onPressed: _creating ? null : _startDirectMessage, icon: const Icon(Icons.edit_outlined)),
         IconButton(tooltip: 'Refresh', onPressed: _load, icon: const Icon(Icons.refresh)),
