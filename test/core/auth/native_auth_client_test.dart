@@ -123,6 +123,51 @@ void main() {
     client.close();
   });
 
+  test('preserves login intent after the edge confirms application readiness without replaying credentials', () async {
+    final storage = _MemoryNativeAuthStorage();
+    var loginRequests = 0;
+    final seenBodies = <String>[];
+    final client = NativeAuthClient(
+      baseUri: Uri.parse(origin),
+      storage: storage,
+      httpClient: MockClient((request) async {
+        loginRequests++;
+        expect(request.url.path, '/api/auth/login');
+        seenBodies.add(request.body);
+        if (loginRequests == 1) {
+          return http.Response(
+            jsonEncode({'ok': false, 'error': 'machine_awake_retry_required'}),
+            503,
+            headers: {
+              'x-testagram-recovery': 'ready',
+              'retry-after': '1',
+            },
+          );
+        }
+        return http.Response(jsonEncode(session(accessOne, refreshOne)), 200);
+      }),
+    );
+
+    await expectLater(
+      client.signIn(email: 'User@example.test', password: 'correct-password-123'),
+      throwsA(
+        isA<NativeAuthException>()
+            .having((error) => error.code, 'code', 'API_ORIGIN_RETRY_READY')
+            .having((error) => error.message, 'message', contains('database is ready')),
+      ),
+    );
+    expect(loginRequests, 1);
+    expect(storage.values, isEmpty);
+
+    // This second call represents the user's explicit retry on the still-open
+    // login form. No password was persisted or automatically replayed.
+    await client.signIn(email: 'User@example.test', password: 'correct-password-123');
+    expect(loginRequests, 2);
+    expect(seenBodies[0], seenBodies[1]);
+    expect(storage.values, {'testagram.auth.refresh.v1': refreshOne});
+    client.close();
+  });
+
   test('force refresh rotates the refresh token and replaces the in-memory access token', () async {
     final storage = _MemoryNativeAuthStorage();
     var refreshCalls = 0;

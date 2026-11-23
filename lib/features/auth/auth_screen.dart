@@ -165,6 +165,9 @@ class _AuthScreenState extends State<AuthScreen> {
       return e.message;
     }
     if (e is NativeAuthException) {
+      if (e.code == 'API_ORIGIN_RETRY_READY') {
+        return 'Testagram is awake and the application database is ready. Your sign-in details are still here; tap Sign in again to continue.';
+      }
       if (e.code == 'API_ORIGIN_WAKING' || e.code == 'API_ORIGIN_TIMEOUT') {
         return 'Testagram is starting up. Wait a moment and retry. The request was not automatically repeated.';
       }
