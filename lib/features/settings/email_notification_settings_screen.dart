@@ -4,9 +4,14 @@ import '../../core/backend_api.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 
 class EmailNotificationSettingsScreen extends StatefulWidget {
-  const EmailNotificationSettingsScreen({super.key, required this.api});
+  const EmailNotificationSettingsScreen({
+    super.key,
+    required this.api,
+    this.skipInitialPrompt = false,
+  });
 
   final BackendApi api;
+  final bool skipInitialPrompt;
 
   @override
   State<EmailNotificationSettingsScreen> createState() =>
@@ -43,7 +48,7 @@ class _EmailNotificationSettingsScreenState
         _loading = false;
         _error = null;
       });
-      if (data['consent_prompt_required'] == true) {
+      if (data['consent_prompt_required'] == true && !widget.skipInitialPrompt) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _showConsentPrompt();
         });
