@@ -7,6 +7,51 @@ import 'package:http/testing.dart';
 import 'package:testagram/core/backend_api.dart';
 
 void main() {
+  test('search sends advanced filters through the native authenticated API', () async {
+    late http.Request captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-search-token',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({
+          'ok': true,
+          'data': {'posts': [], 'users': [], 'next_cursor': null},
+        }), 200);
+      }),
+    );
+
+    await api.search(
+      query: 'solar energy',
+      kind: 'posts',
+      limit: 35,
+      from: '@KenyaEnergy',
+      since: '2026-11-01',
+      until: '2026-11-23',
+      language: 'EN-KE',
+      sort: 'popular',
+      mediaOnly: true,
+      videoOnly: true,
+    );
+
+    expect(captured.method, 'GET');
+    expect(captured.url.path, '/api/search');
+    expect(captured.url.queryParameters, {
+      'q': 'solar energy',
+      'kind': 'posts',
+      'limit': '35',
+      'from': 'KenyaEnergy',
+      'since': '2026-11-01',
+      'until': '2026-11-23',
+      'language': 'en-ke',
+      'sort': 'popular',
+      'media_only': 'true',
+      'video_only': 'true',
+    });
+    expect(captured.headers['authorization'], 'Bearer native-search-token');
+    api.close();
+  });
+
   group('BackendApi', () {
     test('loads a List-backed custom feed with an authenticated, scoped cursor', () async {
       late http.Request captured;

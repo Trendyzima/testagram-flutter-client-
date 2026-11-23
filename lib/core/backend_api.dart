@@ -496,11 +496,31 @@ class BackendApi {
     return normalized;
   }
 
-  Future<Map<String, dynamic>> search({required String query, String kind = 'all', int limit = 20}) =>
+  Future<Map<String, dynamic>> search({
+    required String query,
+    String kind = 'all',
+    int limit = 20,
+    String? from,
+    String? since,
+    String? until,
+    String? language,
+    String sort = 'latest',
+    bool mediaOnly = false,
+    bool videoOnly = false,
+  }) =>
       _request('GET', baseUri.resolve('/api/search').replace(queryParameters: {
         'q': query,
         'kind': kind,
         'limit': '$limit',
+        'sort': sort,
+        if (from != null && from.trim().isNotEmpty)
+          'from': from.trim().replaceFirst(RegExp(r'^@'), ''),
+        if (since != null && since.trim().isNotEmpty) 'since': since.trim(),
+        if (until != null && until.trim().isNotEmpty) 'until': until.trim(),
+        if (language != null && language.trim().isNotEmpty)
+          'language': language.trim().toLowerCase(),
+        if (mediaOnly) 'media_only': 'true',
+        if (videoOnly) 'video_only': 'true',
       }));
 
   Future<Map<String, dynamic>> listPolls({int limit = 20, int offset = 0}) =>
