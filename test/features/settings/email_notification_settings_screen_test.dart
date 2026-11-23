@@ -44,7 +44,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Choose your email updates'), findsOneWidget);
-    expect(find.text('Nothing is emailed until you choose the categories and save your consent.'), findsNothing);
+    expect(find.textContaining('Nothing is emailed until you choose the categories and save your consent.'), findsOneWidget);
     expect(find.text('Not now'), findsOneWidget);
     expect(find.text('Choose settings'), findsOneWidget);
 
