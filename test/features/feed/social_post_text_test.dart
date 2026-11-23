@@ -19,10 +19,11 @@ void main() {
       ),
     ));
 
-    final richText = tester.widget<RichText>(find.byWidgetPredicate(
-      (widget) => widget is RichText && widget.text.toPlainText().contains('#KenyaTech'),
+    final richText = tester.widget<Text>(find.byWidgetPredicate(
+      (widget) => widget is Text &&
+          widget.textSpan?.toPlainText().contains('#KenyaTech') == true,
     ).first);
-    final spans = (richText.text as TextSpan).children!.whereType<TextSpan>();
+    final spans = (richText.textSpan as TextSpan).children!.whereType<TextSpan>();
     final hashtagSpan = spans.firstWhere((span) => span.text == '#KenyaTech');
     final mentionSpan = spans.firstWhere((span) => span.text == '@alice_01');
 
@@ -45,10 +46,11 @@ void main() {
       ),
     ));
 
-    final richText = tester.widget<RichText>(find.byWidgetPredicate(
-      (widget) => widget is RichText && widget.text.toPlainText().contains('person@example.com'),
+    final richText = tester.widget<Text>(find.byWidgetPredicate(
+      (widget) => widget is Text &&
+          widget.textSpan?.toPlainText().contains('person@example.com') == true,
     ).first);
-    final spans = (richText.text as TextSpan).children!.whereType<TextSpan>();
+    final spans = (richText.textSpan as TextSpan).children!.whereType<TextSpan>();
     expect(spans.where((span) => span.recognizer != null), isEmpty);
   });
 }
