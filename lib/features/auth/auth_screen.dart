@@ -287,6 +287,16 @@ class _AuthScreenState extends State<AuthScreen> {
 
   Future<void> _signUp() async {
     if (!_form.currentState!.validate()) return;
+    if (!_ageConfirmed || !_termsAccepted || !_privacyAccepted) {
+      setState(() {
+        _error = !_ageConfirmed
+            ? 'Confirm that you are at least 18 years old to create an account.'
+            : (!_termsAccepted
+                ? 'Accept the Terms and Conditions to create an account.'
+                : 'Accept the Privacy Notice to create an account.');
+      });
+      return;
+    }
     await _run(() async {
       await widget.authClient.signUp(
         email: _email.text.trim().toLowerCase(),
