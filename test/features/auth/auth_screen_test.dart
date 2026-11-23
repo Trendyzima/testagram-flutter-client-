@@ -46,7 +46,10 @@ class _RecoveryReadyNativeAuthSession extends _FakeNativeAuthSession {
         code: 'API_ORIGIN_RETRY_READY',
       );
     }
-    return <String, dynamic>{};
+    throw const NativeAuthException(
+      'The explicit retry reached the authentication client.',
+      code: 'TEST_EXPLICIT_RETRY_REACHED',
+    );
   }
 }
 
@@ -79,8 +82,10 @@ void main() {
       ),
     ));
 
-    final email = find.widgetWithText(TextFormField, 'Email address');
-    final password = find.widgetWithText(TextFormField, 'Password');
+    final email = find.byWidgetPredicate((widget) =>
+        widget is TextFormField && widget.decoration?.labelText == 'Email address');
+    final password = find.byWidgetPredicate((widget) =>
+        widget is TextFormField && widget.decoration?.labelText == 'Password');
     expect(email, findsOneWidget);
     expect(password, findsOneWidget);
 
