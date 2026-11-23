@@ -266,15 +266,15 @@ void main() {
 
     expect(find.text('Verify your email'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
-    expect(find.text('Resend verification email'), findsOneWidget);
+    expect(find.text('Resend code and link'), findsOneWidget);
 
-    await tapVisible(tester, find.text('Resend verification email'));
+    await tapVisible(tester, find.text('Resend code and link'));
     await tester.pumpAndSettle();
     expect(nativeAuth.resendCalls, 0);
     expect(find.text('Enter your email address.'), findsOneWidget);
 
     await tester.enterText(find.byType(TextFormField).first, 'person@example.test');
-    await tapVisible(tester, find.text('Resend verification email'));
+    await tapVisible(tester, find.text('Resend code and link'));
     await tester.pumpAndSettle();
 
     expect(nativeAuth.resendCalls, 1);
