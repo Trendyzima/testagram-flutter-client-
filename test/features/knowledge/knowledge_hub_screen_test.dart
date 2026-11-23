@@ -117,4 +117,64 @@ void main() {
     expect(find.text('13 followers · 4 questions'), findsOneWidget);
     api.close();
   });
+
+  testWidgets('Knowledge question feeds load the next cursor page', (tester) async {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async {
+        if (request.url.path == '/api/knowledge/questions' &&
+            request.url.queryParameters['before'] == 'opaque-page-two') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'items': [{
+                'id': 'question-2',
+                'title': 'Second page question title',
+                'body': '',
+                'status': 'open',
+                'answers_count': 0,
+                'author': {'username': 'member-two'},
+                'topics': [],
+              }],
+              'has_more': false,
+              'next_cursor': '',
+            },
+          }), 200);
+        }
+        if (request.url.path == '/api/knowledge/questions') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'items': [{
+                'id': 'question-1',
+                'title': 'First page question title',
+                'body': '',
+                'status': 'open',
+                'answers_count': 0,
+                'author': {'username': 'member-one'},
+                'topics': [],
+              }],
+              'has_more': true,
+              'next_cursor': 'opaque-page-two',
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(home: KnowledgeHubScreen(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First page question title'), findsOneWidget);
+    expect(find.text('Load more questions'), findsOneWidget);
+    await tester.tap(find.text('Load more questions'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('First page question title'), findsOneWidget);
+    expect(find.text('Second page question title'), findsOneWidget);
+    expect(find.text('Load more questions'), findsNothing);
+    api.close();
+  });
 }
