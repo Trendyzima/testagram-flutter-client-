@@ -26,6 +26,9 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   int signUpCalls = 0;
   int resendCalls = 0;
   String? resentEmail;
+  int verifyCalls = 0;
+  String? verifiedToken;
+  String? verifiedEmail;
   String? signedUpEmail;
   String? signedUpUsername;
   String? signedUpPassword;
@@ -45,7 +48,11 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   }
 
   @override
-  Future<void> verifyEmail(String token) async {}
+  Future<void> verifyEmail(String token, {String? email}) async {
+    verifyCalls++;
+    verifiedToken = token;
+    verifiedEmail = email;
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
@@ -273,6 +280,27 @@ void main() {
     expect(nativeAuth.resendCalls, 1);
     expect(nativeAuth.resentEmail, 'person@example.test');
     expect(find.textContaining('fresh verification link has been sent'), findsOneWidget);
+  });
+
+  testWidgets('verification page accepts the emailed six-digit OTP', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        requireVerification: true,
+        initialEmail: 'person@example.test',
+      ),
+    ));
+
+    expect(find.text('Six-digit email code'), findsOneWidget);
+    await tester.enterText(find.byType(TextFormField).last, '012345');
+    await tapVisible(tester, find.text('Verify email'));
+
+    expect(nativeAuth.verifyCalls, 1);
+    expect(nativeAuth.verifiedToken, '012345');
+    expect(nativeAuth.verifiedEmail, 'person@example.test');
+    expect(find.text('Welcome back'), findsOneWidget);
   });
 
   testWidgets('verification page has a clear route back to sign in without unrelated tabs', (tester) async {
