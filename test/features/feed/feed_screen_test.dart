@@ -36,6 +36,31 @@ void main() {
             },
           }), 200);
         }
+        if (request.url.path == '/api/hashtags/trending') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'items': [
+                {'tag': 'KenyaTech', 'posts_count': 8, 'reasons': ['accelerating']},
+                {'tag': 'BuildInPublic', 'posts_count': 5, 'reasons': []},
+              ],
+              'ranking': 'algorithm_topic_ranker_v1',
+              'window': '7d',
+            },
+          }), 200);
+        }
+        if (request.url.path == '/api/trends/words') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'items': [
+                {'word': 'innovation', 'posts_count': 6, 'reasons': ['accelerating']},
+              ],
+              'ranking': 'algorithm_word_ranker_v1',
+              'window': '7d',
+            },
+          }), 200);
+        }
         if (request.url.path.endsWith('/interaction-summary')) {
           return http.Response(jsonEncode({
             'ok': true,
@@ -58,8 +83,11 @@ void main() {
     expect(find.text('Discover'), findsOneWidget);
     expect(find.text("What's happening?"), findsOneWidget);
     expect(find.text("What's happening"), findsOneWidget);
-    expect(find.text('#kenyatech'), findsOneWidget);
-    expect(find.text('#buildinpublic'), findsOneWidget);
+    expect(find.text('#KenyaTech'), findsOneWidget);
+    expect(find.text('#BuildInPublic'), findsOneWidget);
+    expect(find.text('innovation'), findsOneWidget);
+    expect(find.text('TRENDING HASHTAGS'), findsOneWidget);
+    expect(find.text('TRENDING WORDS'), findsOneWidget);
     expect(tester.takeException(), isNull);
 
     await tester.tap(find.text('Following'));
