@@ -98,6 +98,19 @@ class NativeAuthClient implements NativeAuthSession {
       );
     }
 
+    // This distinct marker is emitted only after the edge has separately
+    // confirmed the provider machine and authenticated PostgreSQL readiness.
+    // Do not replay login here: keep the user's form intent in the UI and let
+    // the user retry the same action once the ready signal is visible.
+    if (response.statusCode == 503 &&
+        response.headers['x-testagram-recovery'] == 'ready') {
+      throw const NativeAuthException(
+        'Testagram is awake and its application database is ready. Retry sign-in to continue.',
+        statusCode: 503,
+        code: 'API_ORIGIN_RETRY_READY',
+      );
+    }
+
     // A recovery marker means the edge tried to reach the origin but it was
     // unavailable while waking. Login creates a new session, so never replay
     // this POST automatically; let the user retry after the machine is ready.
