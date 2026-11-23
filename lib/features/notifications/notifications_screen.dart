@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../posts/post_detail_screen.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 import '../../core/widgets/testagram_state_view.dart';
 
@@ -101,6 +102,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Icons.notifications_none_rounded;
   }
 
+  Future<void> _openNotification(Map<String, dynamic> item) async {
+    await _markRead(item);
+    if (!mounted) return;
+    final kind = (item['kind'] ?? '').toString().toLowerCase();
+    final postId = (item['post_id'] ?? '').toString();
+    if (kind == 'mention' && postId.isNotEmpty) {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PostDetailScreen(api: widget.api, postId: postId),
+      ));
+    }
+  }
+
   Future<void> _markRead(Map<String, dynamic> item) async {
     final id = (item['id'] ?? '').toString();
     if (id.isEmpty || item['read_at'] != null || _marking.contains(id)) return;
@@ -180,14 +193,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   final item = _items[index];
                   final actor = item['actor'];
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
-                  final kind = (item['kind'] ?? 'activity').toString().replaceAll('_', ' ');
+                  final rawKind = (item['kind'] ?? 'activity').toString().toLowerCase();
+                  final kind = rawKind.replaceAll('_', ' ');
+                  final title = rawKind == 'mention'
+                      ? '$actorName mentioned you in a post'
+                      : '$actorName $kind';
                   final unread = item['read_at'] == null;
                   return ListTile(
                     leading: CircleAvatar(
                       backgroundColor: unread ? Theme.of(context).colorScheme.primaryContainer : null,
                       child: Icon(_notificationIcon((item['kind'] ?? '').toString())),
                     ),
-                    title: Text('$actorName $kind'),
+                    title: Text(title),
                     subtitle: Text((item['created_at'] ?? '').toString()),
                     trailing: unread
                       ? _marking.contains((item['id'] ?? '').toString())
@@ -198,7 +215,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                             icon: const Icon(Icons.done_all_rounded),
                           )
                       : null,
-                    onTap: () => _markRead(item),
+                    onTap: () => _openNotification(item),
                   );
                 },
               ),
