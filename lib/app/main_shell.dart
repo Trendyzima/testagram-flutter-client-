@@ -22,6 +22,7 @@ import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/messaging/direct_messages_screen.dart';
 import '../features/calls/calls_screen.dart';
+import '../features/lists/social_lists_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
@@ -64,6 +65,7 @@ class _MainShellState extends State<MainShell> {
     (11, Icons.monetization_on_outlined, Icons.monetization_on_rounded, 'Creator'),
     (12, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Messages'),
     (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
+    (14, Icons.list_alt_outlined, Icons.list_alt_rounded, 'Lists'),
   ];
 
   @override
@@ -282,6 +284,7 @@ class _MainShellState extends State<MainShell> {
         MonetizationHubScreen(api: widget.api),
         DirectMessagesScreen(api: widget.api),
         CallsScreen(api: widget.api),
+        SocialListsScreen(api: widget.api, onSignOut: widget.onSignOut),
       ];
 
   @override
