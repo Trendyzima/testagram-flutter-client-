@@ -23,6 +23,7 @@ void main() {
 
     expect(find.text('Knowledge'), findsOneWidget);
     expect(find.text('For you'), findsOneWidget);
+    expect(find.text('Following'), findsOneWidget);
     expect(find.text('Unanswered'), findsOneWidget);
     expect(find.text('Your questions'), findsOneWidget);
     expect(find.text('Ask a question'), findsOneWidget);
