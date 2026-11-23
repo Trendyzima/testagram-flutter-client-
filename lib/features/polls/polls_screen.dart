@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/widgets/testagram_app_bar.dart';
 
 class PollsScreen extends StatefulWidget {
   const PollsScreen({super.key, required this.api});
@@ -281,8 +282,8 @@ class _PollsScreenState extends State<PollsScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Polls'),
+        appBar: TestagramAppBar(
+          title: 'Polls',
           actions: [
             IconButton(
               tooltip: 'Create poll',
