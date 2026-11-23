@@ -8,6 +8,7 @@ import '../core/testagram_background.dart';
 import '../core/testagram_theme.dart';
 import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
+import '../features/discovery/hashtag_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/knowledge/knowledge_hub_screen.dart';
 import '../features/monetization/monetization_hub_screen.dart';
@@ -82,6 +83,11 @@ class _MainShellState extends State<MainShell> {
         break;
       case TestagramDeepLinkKind.profileId:
         _openProfile(link.userId!);
+        break;
+      case TestagramDeepLinkKind.hashtag:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => HashtagScreen(api: widget.api, tag: link.tag!),
+        ));
         break;
       case TestagramDeepLinkKind.profileUsername:
         try {
