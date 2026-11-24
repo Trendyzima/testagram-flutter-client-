@@ -133,8 +133,12 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
-      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'This account is subject to an identity approval requirement. Contact Testagram support for next steps.';
+      if (e.code == 'IDENTITY_APPROVAL_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED') {
+        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
@@ -161,18 +165,14 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
       if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
-          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE') {
-        return 'New account creation is blocked until identity evidence review and two-person approval are complete. Your account has not been created.';
-      }
-      if (e.code == 'REGISTRATION_DISABLED' ||
-          e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
-        return 'New account creation is temporarily unavailable. Your account has not been created; please try again later.';
+          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
+          e.code == 'IDENTITY_APPROVAL_REQUIRED') {
+        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
-      }
-      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'This legacy account still has an approval restriction. Contact Testagram support.';
       }
       if (e.code == 'PASSWORD_RESET_REQUIRED') {
         return 'Set a new Testagram password using the recovery link before signing in.';
