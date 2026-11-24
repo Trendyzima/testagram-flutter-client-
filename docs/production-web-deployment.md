@@ -8,11 +8,15 @@ The live web application is served from the immutable Flutter web container on t
 
 The apex `testagram.site` redirects ordinary web traffic to `https://www.testagram.site/`. The apex remains the separate federation identity/edge origin. Do not assume a successful Cloudflare Pages preview changes the live site.
 
+## Current safety gate
+
+Public signup must remain fail-closed with HTTP `503 IDENTITY_REVIEW_REQUIRED` until identity evidence review and two-person approval are complete. A visible Create account form is not proof that account creation is available. This monitoring work does not authorize merges, production authentication cutover, deployments, DNS/Cloudflare route changes, or production data changes.
+
 ## Release sequence
 
 1. Merge the reviewed Backend migration/authentication change only after all required checks pass. The Backend main-branch deployment must complete its PostgreSQL migration manifest and live `accept-web-authentication` job.
-2. Verify the canonical native signup probe returns exactly `400 INVALID_PASSWORD`. The Flutter web-container release workflow runs this non-mutating probe before publishing an image. A `503 IDENTITY_REVIEW_REQUIRED` or `503 IDENTITY_REVIEW_MFA_UNAVAILABLE` response blocks publication.
-3. After the Backend probe passes, merge the reviewed Flutter change. Its main-branch workflow analyzes and tests Flutter, compiles the web bundle, checks authentication UI markers, publishes the immutable commit-tagged GHCR image and smoke-tests the published digest.
+2. While identity evidence review and two-person approval are incomplete, verify that the canonical native signup probe returns exactly `503 IDENTITY_REVIEW_REQUIRED`. This is the required fail-closed state, not proof that signup is available. A `400 INVALID_PASSWORD` is only a future acceptance condition after the evidence and approval requirements are complete and a separate policy change is explicitly authorized.
+3. Only after that approval gate is independently verified and a separate release is explicitly authorized may the reviewed Flutter change be merged. Its main-branch workflow analyzes and tests Flutter, compiles the web bundle, checks authentication UI markers, publishes the immutable commit-tagged GHCR image and smoke-tests the published digest.
 4. Update the Backend deployment workflow's `TESTAGRAM_WEB_IMAGE` pin to that exact published digest in a separate reviewed Backend change. Merge only after its checks pass.
 5. Verify the InstaBox deployment completed and the final `accept-web-authentication` job passed. This is the step that actually updates the live `www.testagram.site` application.
 6. Complete the controlled real-account acceptance below.
@@ -21,19 +25,19 @@ Do not treat a merged PR, Pages preview, successful build, or published image as
 
 ## Native authentication boundary
 
-Ordinary public signup uses Testagram's existing native email/password API at `https://api.testagram.site/api/auth/signup`. It creates an unverified native account and sends email OTP/verification instructions. Email verification activates the account. Ordinary signup does not require identity-evidence review, staff WebAuthn enrollment, or two-person administrator approval.
+Public signup uses Testagram's existing native email/password API at `https://api.testagram.site/api/auth/signup`, but the Backend must return `503 IDENTITY_REVIEW_REQUIRED` until identity evidence review and two-person approval are complete. Flutter may display the native account-creation form, but it must never treat this response as success, create a local session, show the email-verification success state, or bypass the Backend gate.
 
-The sensitive identity-evidence application and staff-review workflow is separate and retains its own private-storage, independent-review, historical-audit and two-person-approval safeguards. Its readiness flag must not gate ordinary public signup. If the live signup endpoint returns `IDENTITY_REVIEW_REQUIRED`, treat that as a backend release blocker; do not describe it to users as a required step for ordinary account creation.
+The identity-evidence workflow retains private storage, independent reviewer attribution, historical audit evidence and two-person approval. The native authentication path may provision an account and begin email OTP/verification only after the Backend has verified the required evidence and approvals. A `503 IDENTITY_REVIEW_REQUIRED` response is the required secure state while those prerequisites remain incomplete.
 
 ## Production acceptance
 
 Before calling the release ready:
 
 1. Confirm the Backend deployment and PostgreSQL migration manifest completed without skipping or bypassing a required step.
-2. Probe the canonical native signup route with a deliberately short password and require exactly `400 INVALID_PASSWORD`. This is a non-mutating probe; it must not create an account or send email.
+2. While identity evidence review and two-person approval are incomplete, probe the canonical native signup route with a deliberately short password and require exactly `503 IDENTITY_REVIEW_REQUIRED`. This is a non-mutating probe; it must not create an account or send email.
 3. Confirm the live `www.testagram.site/` and `www.testagram.site/?mode=signup` routes serve the Flutter shell and the expected versioned application bundle.
 4. Confirm the live bundle contains the Sign in, Sign up, Create account, and Reset password flows.
-5. Create one controlled real test account using an address the operator can access. Verify that the native API creates it without admin identity review, the OTP/confirmation email is delivered, the code or secure link verifies the account, and the user can sign in.
+5. Do not create a real test account while the fail-closed gate remains active. Only after identity evidence review and two-person approval are independently verified and a separate production release is explicitly authorized may a controlled test account be created and its OTP/confirmation delivery, email verification and sign-in be tested.
 6. Confirm password recovery, resend verification, session restoration and sign-out work from the deployed domain.
 7. Check browser console/network errors and responsive behavior on mobile and desktop.
 
