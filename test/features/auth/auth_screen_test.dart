@@ -237,14 +237,14 @@ void main() {
   testWidgets('native signup success UI follows an authorized Backend response', (tester) async {
     final nativeAuth = _FakeNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: nativeAuth, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
     ));
 
     expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('Public signup remains closed until required identity evidence and two-person approval are complete.'), findsOneWidget);
+    expect(find.textContaining('Verify your email to activate your account.'), findsOneWidget);
 
     final signupFields = find.byType(TextFormField);
     expect(signupFields, findsNWidgets(3));
@@ -252,9 +252,8 @@ void main() {
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // This fake success response represents Backend authorization after
-    // identity evidence review and two-person approval have already passed.
-    // The client never bypasses those server-side requirements.
+    // Ordinary native signup succeeds independently of the separate
+    // identity-evidence application and staff-review workflow.
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('Read terms'), findsNothing);
     expect(find.text('Read privacy notice'), findsNothing);
@@ -270,7 +269,7 @@ void main() {
     expect(find.text('Submit application'), findsNothing);
   });
 
-  testWidgets('identity review keeps ordinary public signup fail-closed', (tester) async {
+  testWidgets('unexpected identity-review response is a temporary signup error', (tester) async {
     final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
@@ -288,7 +287,8 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('identity evidence review and two-person approval are complete'), findsOneWidget);
+    expect(find.textContaining('could not start account creation right now'), findsOneWidget);
+    expect(find.textContaining('Ordinary signup is separate from identity-evidence review'), findsOneWidget);
     expect(find.textContaining('Check your email'), findsNothing);
     expect(find.text('Verify your email'), findsNothing);
     expect(find.text('Submit application'), findsNothing);
