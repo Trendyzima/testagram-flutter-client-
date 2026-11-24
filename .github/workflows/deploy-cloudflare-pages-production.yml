@@ -139,26 +139,42 @@ jobs:
       - name: Deploy the existing Pages project to its production branch
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$PAGES_PRODUCTION_BRANCH" --commit-dirty=true
 
-      - name: Verify signup, sign-in and recovery on both production hostnames
+      - name: Wait for production Pages propagation and verify auth on both hostnames
         shell: bash
         run: |
           set -euo pipefail
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          paths=('/' '/?mode=signin' '/?mode=signup' '/?mode=forgot')
-          for host in testagram.site www.testagram.site; do
-            for path in "${paths[@]}"; do
-              curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
-                -H 'Cache-Control: no-cache' "https://$host$path" -o "$tmp/page.html"
-              grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" "$tmp/page.html" || {
-                echo "::error::https://$host$path is not serving this production release ($GITHUB_SHA)."
-                exit 1
-              }
+
+          wait_for_release() {
+            local host="$1"
+            local path="$2"
+            local url="https://$host$path"
+            for attempt in $(seq 1 24); do
+              if curl --fail --location --silent --show-error --max-time 45 \
+                -H 'Cache-Control: no-cache' "$url" -o "$tmp/page.html"; then
+                if grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" "$tmp/page.html"; then
+                  echo "Verified versioned production HTML on https://$host$path"
+                  return 0
+                fi
+              fi
+              echo "Waiting for Cloudflare Pages propagation on https://$host$path (attempt $attempt/24)"
+              sleep 5
             done
-            curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
+            echo "::error::https://$host$path did not serve this production release ($GITHUB_SHA) after 120 seconds."
+            grep -Eo 'flutter_bootstrap\.js[^" ]*' "$tmp/page.html" | head -n 3 || true
+            return 1
+          }
+
+          paths=("/?release=$GITHUB_SHA" "/?mode=signin&release=$GITHUB_SHA" "/?mode=signup&release=$GITHUB_SHA" "/?mode=forgot&release=$GITHUB_SHA")
+          for host in testagram-flutter-web.pages.dev testagram.site www.testagram.site; do
+            for path in "${paths[@]}"; do
+              wait_for_release "$host" "$path"
+            done
+            curl --fail --location --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 --max-time 45 \
               -H 'Cache-Control: no-cache' "https://$host/flutter_bootstrap.js?v=$GITHUB_SHA" -o "$tmp/flutter_bootstrap.js"
             grep -Fq "main.dart.js?v=$GITHUB_SHA" "$tmp/flutter_bootstrap.js"
-            curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 60 \
+            curl --fail --location --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 --max-time 60 \
               -H 'Cache-Control: no-cache' "https://$host/main.dart.js?v=$GITHUB_SHA" -o "$tmp/main.dart.js"
             for marker in 'Sign in' 'Sign up' 'Create account' 'Forgot password?' 'Reset password'; do
               grep -aFq "$marker" "$tmp/main.dart.js" || {
@@ -166,7 +182,7 @@ jobs:
                 exit 1
               }
             done
-            echo "Verified production authentication pages on https://$host"
+            echo "Verified production sign-in, signup and recovery bundle on https://$host"
           done
 
           federation_status="$(curl --silent --show-error --max-time 20 -o "$tmp/webfinger.json" -w '%{http_code}' \
@@ -179,7 +195,7 @@ jobs:
 
           {
             echo "## Testagram production authentication release"
-            echo "- Both testagram.site and www.testagram.site serve this release: $GITHUB_SHA"
+            echo "- Pages production alias, testagram.site and www.testagram.site serve this release: $GITHUB_SHA"
             echo "- Sign in, sign up, forgot-password and reset-password bundle markers verified"
             echo "- Canonical native signup readiness probe passed"
             echo "- Existing custom domains and DNS were not changed"
