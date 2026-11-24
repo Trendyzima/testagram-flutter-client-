@@ -139,6 +139,43 @@ jobs:
       - name: Deploy the existing Pages project to its production branch
         run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$PAGES_PRODUCTION_BRANCH" --commit-dirty=true
 
+      - name: Purge only the production authentication page cache entries
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          zone_response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -G -H "$auth" \
+            --data-urlencode "name=testagram.site" --data-urlencode "status=active" \
+            "https://api.cloudflare.com/client/v4/zones")"
+          zone_id="$(jq -r '[.result[]? | select(.name == "testagram.site" and .status == "active")][0].id // empty' <<<"$zone_response")"
+          if [[ "$(jq -r '.success // false' <<<"$zone_response")" != "true" || -z "$zone_id" ]]; then
+            echo "::error::Could not safely identify the active testagram.site zone for targeted cache invalidation."
+            jq -c '{success,errors,messages}' <<<"$zone_response" || true
+            exit 1
+          fi
+
+          files='[
+            "https://testagram.site/",
+            "https://testagram.site/?mode=signin",
+            "https://testagram.site/?mode=signup",
+            "https://testagram.site/?mode=forgot",
+            "https://www.testagram.site/",
+            "https://www.testagram.site/?mode=signin",
+            "https://www.testagram.site/?mode=signup",
+            "https://www.testagram.site/?mode=forgot"
+          ]'
+          payload="$(jq -cn --argjson files "$files" '{files:$files}')"
+          purge_response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -X POST \
+            -H "$auth" -H 'Content-Type: application/json' \
+            --data "$payload" \
+            "https://api.cloudflare.com/client/v4/zones/$zone_id/purge_cache")"
+          if [[ "$(jq -r '.success // false' <<<"$purge_response")" != "true" ]]; then
+            echo "::error::Cloudflare did not confirm targeted purge of the eight authentication page URLs."
+            jq -c '{success,errors,messages}' <<<"$purge_response" || true
+            exit 1
+          fi
+          echo "Cloudflare confirmed targeted invalidation of the root and sign-in, signup and recovery URL variants on both production hostnames. No unrelated cache entries were purged."
+
       - name: Verify signup, sign-in and recovery on both production hostnames
         shell: bash
         run: |
@@ -146,20 +183,37 @@ jobs:
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
           paths=('/' '/?mode=signin' '/?mode=signup' '/?mode=forgot')
+
+          fetch_release_html() {
+            local url="$1"
+            local output="$2"
+            for attempt in $(seq 1 12); do
+              curl --location --silent --show-error --max-time 45 \
+                -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
+                "$url" -o "$output" || true
+              if grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" "$output" 2>/dev/null; then
+                return 0
+              fi
+              echo "Waiting for the production edge to serve $GITHUB_SHA at $url (attempt $attempt/12)."
+              sleep 5
+            done
+            echo "::error::$url did not serve the expected production release $GITHUB_SHA after targeted cache invalidation."
+            echo "Observed HTML response:"
+            sed -n '1,30p' "$output" 2>/dev/null || true
+            return 1
+          }
+
           for host in testagram.site www.testagram.site; do
             for path in "${paths[@]}"; do
-              curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
-                -H 'Cache-Control: no-cache' "https://$host$path" -o "$tmp/page.html"
-              grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" "$tmp/page.html" || {
-                echo "::error::https://$host$path is not serving this production release ($GITHUB_SHA)."
-                exit 1
-              }
+              fetch_release_html "https://$host$path" "$tmp/page.html"
             done
             curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
-              -H 'Cache-Control: no-cache' "https://$host/flutter_bootstrap.js?v=$GITHUB_SHA" -o "$tmp/flutter_bootstrap.js"
+              -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
+              "https://$host/flutter_bootstrap.js?v=$GITHUB_SHA" -o "$tmp/flutter_bootstrap.js"
             grep -Fq "main.dart.js?v=$GITHUB_SHA" "$tmp/flutter_bootstrap.js"
             curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 60 \
-              -H 'Cache-Control: no-cache' "https://$host/main.dart.js?v=$GITHUB_SHA" -o "$tmp/main.dart.js"
+              -H 'Cache-Control: no-cache, no-store, max-age=0' -H 'Pragma: no-cache' \
+              "https://$host/main.dart.js?v=$GITHUB_SHA" -o "$tmp/main.dart.js"
             for marker in 'Sign in' 'Sign up' 'Create account' 'Forgot password?' 'Reset password'; do
               grep -aFq "$marker" "$tmp/main.dart.js" || {
                 echo "::error::https://$host is missing production authentication UI marker: $marker"
