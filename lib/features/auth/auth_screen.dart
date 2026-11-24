@@ -308,7 +308,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() {
         _page = _Page.verify;
-        _notice = 'Your account has been created after the required authorization. Check your email for a six-digit code or use the secure verification link.';
+        _notice = 'Your account has been created. Check your email for a six-digit verification code or use the secure verification link to activate it.';
         _password.clear();
         _confirm.clear();
       });
