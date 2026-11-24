@@ -6,7 +6,7 @@ accepted_response() {
   # reaches password validation. Identity-review responses are release blockers.
   case "${1:-}:${2:-}" in
     400:INVALID_PASSWORD)
-      printf '%s\\n' "Native signup reached password validation; no account or email was created."
+      printf '%s\n' "Native signup reached password validation; no account or email was created."
       ;;
     *)
       return 1
@@ -31,7 +31,7 @@ if [[ "${1:-}" == "--test" ]]; then
   assert_rejects 503 INTERNAL_ERROR
   assert_rejects 200 OK
   assert_rejects 400 IDENTITY_REVIEW_REQUIRED
-  printf '%s\\n' "Signup readiness policy regression tests passed."
+  printf '%s\n' "Signup readiness policy regression tests passed."
   exit 0
 fi
 
