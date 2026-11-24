@@ -2,11 +2,12 @@
 set -euo pipefail
 
 accepted_response() {
-  # Public signup must remain fail-closed until identity evidence review and
-  # two-person approval are complete. Accept only the explicit review gate.
+  # The probe deliberately uses a short password. Reaching INVALID_PASSWORD
+  # proves the public native signup route is live and validation is active.
+  # Identity review is a separate workflow and must never gate ordinary signup.
   case "${1:-}:${2:-}" in
-    503:IDENTITY_REVIEW_REQUIRED)
-      printf '%s\n' "Public signup remains fail-closed pending identity evidence review and two-person approval; no account or email was created."
+    400:INVALID_PASSWORD)
+      printf '%s\n' "Native signup route is live and reached password validation; no account or email was created."
       ;;
     *)
       return 1
@@ -25,8 +26,8 @@ assert_rejects() {
 }
 
 if [[ "${1:-}" == "--test" ]]; then
-  assert_accepts 503 IDENTITY_REVIEW_REQUIRED
-  assert_rejects 400 INVALID_PASSWORD
+  assert_accepts 400 INVALID_PASSWORD
+  assert_rejects 503 IDENTITY_REVIEW_REQUIRED
   assert_rejects 503 IDENTITY_REVIEW_MFA_UNAVAILABLE
   assert_rejects 503 REGISTRATION_DISABLED
   assert_rejects 503 INTERNAL_ERROR
