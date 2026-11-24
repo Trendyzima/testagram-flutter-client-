@@ -11,6 +11,8 @@ on:
       - 'analysis_options.yaml'
       - '.github/workflows/client-validation.yml'
       - '.github/workflows/domain-smoke.yml'
+      - '.github/workflows/deploy-cloudflare-pages.yml'
+      - '.github/workflows/deploy-cloudflare-pages-production.yml'
       - '.github/workflows/tv-health-monitor.yml'
   push:
     branches: [main]
@@ -21,6 +23,9 @@ on:
       - 'pubspec.yaml'
       - 'analysis_options.yaml'
       - '.github/workflows/client-validation.yml'
+      - '.github/workflows/deploy-cloudflare-pages.yml'
+      - '.github/workflows/deploy-cloudflare-pages-production.yml'
+      - '.github/workflows/domain-smoke.yml'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +48,25 @@ jobs:
         with:
           channel: stable
           cache: true
+
+      - name: Validate production Pages workflow syntax and release boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path, aliases: true); puts "Validated #{path}" }' \
+            .github/workflows/deploy-cloudflare-pages.yml \
+            .github/workflows/deploy-cloudflare-pages-production.yml \
+            .github/workflows/domain-smoke.yml
+          python - <<'PY'
+          from pathlib import Path
+          workflow = Path(".github/workflows/deploy-cloudflare-pages-production.yml").read_text()
+          assert "400" in workflow and "INVALID_PASSWORD" in workflow, "Production Pages must require the live native signup readiness response"
+          assert "503 IDENTITY_REVIEW_REQUIRED" not in workflow, "Identity review must not be accepted as a signup prerequisite"
+          assert "--branch main" in workflow, "Production Pages must deploy only to the main production branch"
+          assert "testagram.site" in workflow and "www.testagram.site" in workflow, "Both production hostnames must be verified"
+          assert "/.well-known/webfinger" in workflow, "The apex federation Worker route must be checked after deployment"
+          assert "Sign up" in workflow and "Forgot password?" in workflow and "Reset password" in workflow, "All required authentication pages must be verified"
+          PY
 
       - name: Validate production TV health monitor contract
         run: |
