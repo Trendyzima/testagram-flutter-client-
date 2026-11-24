@@ -58,6 +58,21 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _IdentityReviewRequiredNativeAuthSession extends _FakeNativeAuthSession {
+  @override
+  Future<void> signUp({
+    required String email,
+    required String username,
+    required String password,
+  }) async {
+    throw const NativeAuthException(
+      'Identity review is required before public signup can proceed.',
+      statusCode: 503,
+      code: 'IDENTITY_REVIEW_REQUIRED',
+    );
+  }
+}
+
 class _RecoveryReadyNativeAuthSession extends _FakeNativeAuthSession {
   int attempts = 0;
   String? lastEmail;
@@ -219,12 +234,13 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('ordinary signup calls native auth and needs no admin review', (tester) async {
+  testWidgets('native signup success UI follows ordinary signup and email verification', (tester) async {
     final nativeAuth = _FakeNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: nativeAuth, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
     ));
 
+    await tapVisible(tester, find.text('Sign up'));
     expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
@@ -237,8 +253,8 @@ void main() {
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // Future age/legal-consent controls are intentionally hidden for this
-    // release; ordinary email signup must not require those acknowledgements.
+    // Native account creation is independent of identity review; the user
+    // activates the account by verifying the email address.
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('Read terms'), findsNothing);
     expect(find.text('Read privacy notice'), findsNothing);
@@ -251,6 +267,31 @@ void main() {
     expect(nativeAuth.signedUpUsername, 'native_user');
     expect(nativeAuth.signedUpPassword, 'native-password-123');
     expect(find.textContaining('Check your email'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
+  });
+
+  testWidgets('unexpected legacy identity-review response is temporary, not a signup requirement', (tester) async {
+    final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        enableIdentityRegistration: false,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+
+    await tapVisible(tester, find.text('Sign up'));
+    await tester.enterText(find.byType(TextFormField).at(0), 'native_user');
+    await tester.enterText(find.byType(TextFormField).at(1), 'native@example.test');
+    await tester.enterText(find.byType(TextFormField).at(2), 'native-password-123');
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('temporarily unavailable'), findsOneWidget);
+    expect(find.textContaining('identity evidence review'), findsNothing);
+    expect(find.textContaining('Check your email'), findsNothing);
+    expect(find.text('Verify your email'), findsNothing);
     expect(find.text('Submit application'), findsNothing);
   });
 

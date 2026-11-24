@@ -24,20 +24,19 @@ jobs:
           trap 'rm -rf "$tmp"' EXIT
           failed=0
 
-          content_type() {
-            awk 'BEGIN{IGNORECASE=1} /^content-type:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$1" | tail -n1
-          }
-
-          apex_headers="$tmp/apex.headers"
-          apex_status="$(curl --silent --show-error --max-time 25 -D "$apex_headers" -o "$tmp/apex.body" -w '%{http_code}' https://testagram.site/ || true)"
-          location="$(awk 'BEGIN{IGNORECASE=1} /^location:/{sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); print}' "$apex_headers" | tail -n1)"
-          echo "Apex root: HTTP $apex_status; Location: ${location:-none}"
-          if [[ "$apex_status" != "308" || "$location" != "https://www.testagram.site/" ]]; then
-            echo "::error::Apex ordinary web traffic must return HTTP 308 to https://www.testagram.site/."
-            failed=1
-          fi
-
-          for item in "www_root|https://www.testagram.site/" "www_signin|https://www.testagram.site/?mode=signin" "pages_dev|https://testagram-flutter-web.pages.dev/"; do
+          # Both production custom domains are active on the existing Pages
+          # project. Ordinary auth routes must serve the Flutter shell on each;
+          # the federation Worker keeps its own more-specific discovery route.
+          for item in \
+            "apex_root|https://testagram.site/" \
+            "apex_signin|https://testagram.site/?mode=signin" \
+            "apex_signup|https://testagram.site/?mode=signup" \
+            "apex_forgot|https://testagram.site/?mode=forgot" \
+            "www_root|https://www.testagram.site/" \
+            "www_signin|https://www.testagram.site/?mode=signin" \
+            "www_signup|https://www.testagram.site/?mode=signup" \
+            "www_forgot|https://www.testagram.site/?mode=forgot" \
+            "pages_dev|https://testagram-flutter-web.pages.dev/"; do
             label="${item%%|*}"
             url="${item#*|}"
             status="$(curl --silent --show-error --retry 2 --retry-all-errors --retry-delay 2 --connect-timeout 10 --max-time 25 -o "$tmp/$label.body" -w '%{http_code}' "$url" || true)"
@@ -65,8 +64,8 @@ jobs:
 
           {
             echo "## Testagram production domain and ActivityPub acceptance"
-            echo "- Apex ordinary web traffic: HTTP 308 to www"
-            echo "- www and Pages.dev: Flutter application shell"
+            echo "- Apex and www production domains: Flutter application shell for sign-in, signup and recovery routes"
+            echo "- Pages.dev preview: Flutter application shell"
             echo "- Public NodeInfo and WebFinger remain HTTP 503 until locked G3 acceptance"
             echo "- Read-only: no DNS, Worker, Pages, deployment, or account changes"
           } >> "$GITHUB_STEP_SUMMARY"

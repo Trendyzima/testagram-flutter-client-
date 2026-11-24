@@ -1,0 +1,187 @@
+name: Deploy Testagram Flutter Web to Production Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "lib/**"
+      - "assets/**"
+      - "pubspec.yaml"
+      - "pubspec.lock"
+      - "tool/**"
+      - "cloudflare-pages/build.sh"
+      - "cloudflare-pages/_headers"
+      - "deploy/web/**"
+      - ".github/workflows/deploy-cloudflare-pages-production.yml"
+  workflow_dispatch:
+    inputs:
+      confirm_production_pages_deploy:
+        description: Confirm deployment to the existing production Pages branch and its already-active testagram.site/www.testagram.site domains.
+        required: true
+        type: boolean
+        default: false
+
+concurrency:
+  group: testagram-cloudflare-pages-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: github.repository == 'Trendyzima/testagram-flutter-client-' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirm_production_pages_deploy == true)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    environment: production
+    env:
+      TESTAGRAM_API_URL: https://api.testagram.site
+      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
+      CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
+      CF_PAGES_COMMIT_SHA: ${{ github.sha }}
+    steps:
+      - name: Check out Flutter client
+        uses: actions/checkout@v5
+
+      - name: Validate production deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN; do
+            if [[ -z "${!name:-}" ]]; then
+              echo "::error::Production Pages deployment is missing required GitHub configuration: $name"
+              exit 1
+            fi
+          done
+          [[ "$TESTAGRAM_API_URL" == "https://api.testagram.site" ]]
+          [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]]
+
+      - name: Verify live native signup readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          response="$(mktemp)"
+          headers="$(mktemp)"
+          trap 'rm -f "$response" "$headers"' EXIT
+          status="$(curl --silent --show-error --max-time 20 -D "$headers" -o "$response" -w '%{http_code}' -X POST \
+            "$TESTAGRAM_API_URL/api/auth/signup" \
+            -H 'Content-Type: application/json' \
+            --data-binary '{"email":"signup-probe@example.invalid","username":"signup_probe","password":"short"}')"
+          code="$(jq -r '.error.code // empty' "$response" 2>/dev/null || true)"
+          if [[ "$status" != "400" || "$code" != "INVALID_PASSWORD" ]]; then
+            echo "::error::Production native signup did not reach password validation (HTTP $status, code=$code). Refusing to publish the web frontend."
+            exit 1
+          fi
+          echo "Native signup API is live; the deliberately invalid probe created no account and sent no email."
+
+      - name: Install Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build and test production Flutter web bundle
+        run: bash cloudflare-pages/build.sh
+
+      - name: Require all production authentication pages in the bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          for marker in 'Sign in' 'Sign up' 'Create account' 'Forgot password?' 'Reset password'; do
+            grep -aFq "$marker" build/web/main.dart.js || {
+              echo "::error::Production Flutter bundle is missing authentication page marker: $marker"
+              exit 1
+            }
+          done
+          grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" build/web/index.html
+          grep -Fq "main.dart.js?v=$GITHUB_SHA" build/web/flutter_bootstrap.js
+
+      - name: Install Wrangler
+        run: npm install --global wrangler@4
+
+      - name: Verify existing production Pages project and custom domains
+        shell: bash
+        run: |
+          set -euo pipefail
+          auth="Authorization: Bearer $CLOUDFLARE_API_TOKEN"
+          verify="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/tokens/verify")"
+          if [[ "$(jq -r '.success // false' <<<"$verify")" != "true" || "$(jq -r '.result.status // "unknown"' <<<"$verify")" != "active" ]]; then
+            echo "::error::Cloudflare API token is not active. No Pages deployment was attempted."
+            exit 1
+          fi
+
+          project="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT")"
+          if [[ "$(jq -r '.success // false' <<<"$project")" != "true" ]]; then
+            echo "::error::The existing Testagram Pages project could not be verified."
+            exit 1
+          fi
+          production_branch="$(jq -r '.result.production_branch // empty' <<<"$project")"
+          if [[ -z "$production_branch" || "$production_branch" == "preview" || ! "$production_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::The existing Pages project returned an invalid or preview-only production branch ('${production_branch:-unset}'). Refusing to guess a production target."
+            exit 1
+          fi
+          echo "PAGES_PRODUCTION_BRANCH=$production_branch" >> "$GITHUB_ENV"
+
+          domains="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains")"
+          for domain in testagram.site www.testagram.site; do
+            if ! jq -e --arg domain "$domain" '.success == true and any(.result[]?; .name == $domain and .status == "active")' <<<"$domains" >/dev/null; then
+              echo "::error::Expected existing active Pages domain $domain was not found. No DNS or domain binding will be changed."
+              exit 1
+            fi
+          done
+          echo "Verified existing project $CLOUDFLARE_PAGES_PROJECT, production branch $production_branch, and both active production domains. No domain or DNS mutation is performed."
+
+      - name: Deploy the existing Pages project to its production branch
+        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$PAGES_PRODUCTION_BRANCH" --commit-dirty=true
+
+      - name: Verify signup, sign-in and recovery on both production hostnames
+        shell: bash
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          paths=('/' '/?mode=signin' '/?mode=signup' '/?mode=forgot')
+          for host in testagram.site www.testagram.site; do
+            for path in "${paths[@]}"; do
+              curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
+                -H 'Cache-Control: no-cache' "https://$host$path" -o "$tmp/page.html"
+              grep -Fq "flutter_bootstrap.js?v=$GITHUB_SHA" "$tmp/page.html" || {
+                echo "::error::https://$host$path is not serving this production release ($GITHUB_SHA)."
+                exit 1
+              }
+            done
+            curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 45 \
+              -H 'Cache-Control: no-cache' "https://$host/flutter_bootstrap.js?v=$GITHUB_SHA" -o "$tmp/flutter_bootstrap.js"
+            grep -Fq "main.dart.js?v=$GITHUB_SHA" "$tmp/flutter_bootstrap.js"
+            curl --fail --location --silent --show-error --retry 10 --retry-all-errors --retry-delay 5 --max-time 60 \
+              -H 'Cache-Control: no-cache' "https://$host/main.dart.js?v=$GITHUB_SHA" -o "$tmp/main.dart.js"
+            for marker in 'Sign in' 'Sign up' 'Create account' 'Forgot password?' 'Reset password'; do
+              grep -aFq "$marker" "$tmp/main.dart.js" || {
+                echo "::error::https://$host is missing production authentication UI marker: $marker"
+                exit 1
+              }
+            done
+            echo "Verified production authentication pages on https://$host"
+          done
+
+          federation_status="$(curl --silent --show-error --max-time 20 -o "$tmp/webfinger.json" -w '%{http_code}' \
+            'https://testagram.site/.well-known/webfinger?resource=acct:production-probe@testagram.site' || true)"
+          if [[ "$federation_status" != "503" ]] || ! grep -Fq 'Federation is disabled until locked G3 protocol acceptance passes.' "$tmp/webfinger.json"; then
+            echo "::error::The existing apex federation Worker route changed unexpectedly during the Pages release."
+            cat "$tmp/webfinger.json" 2>/dev/null || true
+            exit 1
+          fi
+
+          {
+            echo "## Testagram production authentication release"
+            echo "- Both testagram.site and www.testagram.site serve this release: $GITHUB_SHA"
+            echo "- Sign in, sign up, forgot-password and reset-password bundle markers verified"
+            echo "- Canonical native signup readiness probe passed"
+            echo "- Existing custom domains and DNS were not changed"
+            echo "- Apex federation Worker route remains independently fail-closed"
+          } >> "$GITHUB_STEP_SUMMARY"

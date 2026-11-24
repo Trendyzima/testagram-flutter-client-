@@ -1,12 +1,12 @@
 name: Deploy Testagram Flutter Web Preview
 
-# Cloudflare Pages deployments target the preview branch only and never manage custom domains. The separate guarded Worker cutover moves production www to the self-hosted Flutter origin; the apex remains the Backend/Federation identity origin.
+# This workflow deploys preview builds only. Production testagram.site and www.testagram.site remain on the existing testagram-flutter-web Pages project and are updated by deploy-cloudflare-pages-production.yml. Preview deployment never changes custom-domain bindings or federation Worker routes.
 
 on:
   workflow_dispatch:
     inputs:
       confirm_pages_preview_deploy:
-        description: Confirm an intentional Pages preview deployment only; production www remains on the self-hosted Caddy origin.
+        description: Confirm an intentional Pages preview deployment only; production custom domains remain unchanged.
         required: true
         type: boolean
         default: false
@@ -190,7 +190,7 @@ jobs:
           fi
           echo "Confirmed existing Pages project: $CLOUDFLARE_PAGES_PROJECT"
 
-      - name: Protect the apex federation hostname from Pages
+      - name: Verify production Pages custom domains remain unchanged
         shell: bash
         run: |
           set -euo pipefail
@@ -198,22 +198,13 @@ jobs:
           for domain in testagram.site www.testagram.site; do
             response_file="$(mktemp)"
             status="$(curl --silent --show-error --max-time 20 -o "$response_file" -w '%{http_code}' -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" "$base/$domain" || true)"
-            if [[ "$status" == "200" ]] && jq -e --arg domain "$domain" '.success == true and .result.name == $domain' "$response_file" >/dev/null; then
-              if [[ "$domain" == "testagram.site" ]]; then
-                echo "::error::testagram.site is still attached to Cloudflare Pages. The apex is reserved for Backend/Federation routing."
-                jq -c '.result | {name,status,validation_data,verification_data}' "$response_file"
-                rm -f "$response_file"
-                exit 1
-              fi
-              echo "::notice::www.testagram.site remains on its legacy Pages association until the separate guarded Worker cutover; this preview workflow will not modify that association."
-            elif [[ "$status" != "404" ]]; then
-              echo "::error::Could not safely verify Pages ownership for $domain (HTTP $status). Refusing to deploy a preview while ownership is ambiguous."
-              jq -c '{success,errors,messages}' "$response_file" || true
+            if [[ "$status" != "200" ]] || ! jq -e --arg domain "$domain" '.success == true and .result.name == $domain and .result.status == "active"' "$response_file" >/dev/null; then
+              echo "::error::Expected existing active Pages domain $domain could not be verified (HTTP $status). Preview deployment will not change or repair domain bindings."
+              jq -c '{success,result:{name:.result.name,status:.result.status},errors,messages}' "$response_file" || true
               rm -f "$response_file"
               exit 1
-            else
-              echo "$domain is not attached to Pages."
             fi
+            echo "Verified existing production Pages domain: $domain (active; unchanged)."
             rm -f "$response_file"
           done
 
@@ -233,7 +224,7 @@ jobs:
             '/?mode=verification&userId=smoke-user&secret=smoke-secret'
             '/?mode=recovery&userId=smoke-user&secret=smoke-secret'
           )
-          # Pages serves only the preview branch. The apex is the Backend federation edge and must redirect, not serve Flutter assets.
+          # Pages serves only the preview branch in this workflow. The production custom domains remain untouched; the federation Worker route is independent of the preview.
           for hostname in preview.testagram-flutter-web.pages.dev; do
             page="$(mktemp)"
             headers="$(mktemp)"

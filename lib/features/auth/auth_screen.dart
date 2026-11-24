@@ -88,8 +88,10 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
-    // Ordinary registration always uses the native email/password flow.
-    // Do not restore or create identity-review applications during signup.
+    // Registration always uses the native email/password API. The Backend
+    // remains authoritative and must keep it fail-closed until identity
+    // evidence review and two-person approval are complete.
+    // Do not create review applications as a side effect of a signup attempt.
     // Preserve explicit email-verification and password-recovery callbacks.
     // The legacy review flag may select the signup entry only for a plain
     // sign-in launch; it must never override a security-sensitive deep link.
@@ -131,8 +133,12 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
-      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'This legacy account still has an approval restriction. Contact Testagram support; ordinary new accounts do not require administrator approval.';
+      if (e.code == 'IDENTITY_APPROVAL_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED') {
+        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
@@ -158,14 +164,15 @@ class _AuthScreenState extends State<AuthScreen> {
       if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
-      if (e.code == 'REGISTRATION_DISABLED' || e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
-        return 'New account registration is temporarily unavailable while secure identity storage is being prepared.';
+      if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
+          e.code == 'IDENTITY_APPROVAL_REQUIRED') {
+        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
-      }
-      if (e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'This legacy account still has an approval restriction. Contact Testagram support.';
       }
       if (e.code == 'PASSWORD_RESET_REQUIRED') {
         return 'Set a new Testagram password using the recovery link before signing in.';
@@ -301,7 +308,7 @@ class _AuthScreenState extends State<AuthScreen> {
       if (!mounted) return;
       setState(() {
         _page = _Page.verify;
-        _notice = 'Your account has been created. Check your email for a six-digit code or use the secure verification link. No administrator approval is required.';
+        _notice = 'Your account has been created. Check your email for a six-digit verification code or use the secure verification link to activate it.';
         _password.clear();
         _confirm.clear();
       });
@@ -607,7 +614,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Create your place in the conversation.',
+      _Page.signUp => 'Create an account with your email, username and password. Verify your email to activate it.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
