@@ -245,7 +245,7 @@ void main() {
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('Verify your email to activate your account.'), findsOneWidget);
+    expect(find.textContaining('identity evidence review and two-person approval'), findsOneWidget);
 
     final signupFields = find.byType(TextFormField);
     expect(signupFields, findsNWidgets(3));
@@ -253,8 +253,8 @@ void main() {
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // Ordinary native signup succeeds independently of the separate
-    // identity-evidence application and staff-review workflow.
+    // The Backend may return success only after identity evidence review
+    // and two-person approval have authorized native account creation.
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('Read terms'), findsNothing);
     expect(find.text('Read privacy notice'), findsNothing);
@@ -270,7 +270,7 @@ void main() {
     expect(find.text('Submit application'), findsNothing);
   });
 
-  testWidgets('unexpected identity-review response is a temporary signup error', (tester) async {
+  testWidgets('public signup stays blocked until identity review and two-person approval', (tester) async {
     final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
@@ -288,8 +288,8 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('could not start account creation right now'), findsOneWidget);
-    expect(find.textContaining('Ordinary signup is separate from identity-evidence review'), findsOneWidget);
+    expect(find.textContaining('New account creation is blocked until identity evidence review and two-person approval are complete'), findsOneWidget);
+    expect(find.textContaining('Your account has not been created'), findsOneWidget);
     expect(find.textContaining('Check your email'), findsNothing);
     expect(find.text('Verify your email'), findsNothing);
     expect(find.text('Submit application'), findsNothing);
@@ -372,7 +372,7 @@ void main() {
     expect(find.text('Submit application'), findsNothing);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
+    expect(find.textContaining('identity evidence review and two-person approval'), findsOneWidget);
   });
 
   testWidgets('legal copy is retained for later but hidden from current signup', (tester) async {
