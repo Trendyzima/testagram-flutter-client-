@@ -28,7 +28,7 @@ A `503 IDENTITY_REVIEW_REQUIRED` response is a failed production readiness check
 
 1. Merge the reviewed Backend native-authentication changes only after required CI and PostgreSQL integration checks pass. Confirm the backend deployment and live signup readiness probe.
 2. Merge the reviewed Flutter authentication changes only after Flutter analysis, widget tests, web build, authentication marker checks and container smoke tests pass.
-3. The main-branch production Pages workflow verifies the existing project, confirms that its production branch is `main`, confirms both existing custom domains are active, and reruns the canonical Backend signup readiness probe.
+3. The main-branch production Pages workflow verifies the existing project, confirms and deploys to its configured production branch, confirms both existing custom domains are active, and reruns the canonical Backend signup readiness probe.
 4. Deploy the built bundle to the existing Pages production branch. The workflow then verifies the same versioned bundle and the sign-in, sign-up, create-account, forgot-password and reset-password markers on both `testagram.site` and `www.testagram.site`.
 5. Verify that the apex federation Worker route remains independently fail-closed until its separate protocol acceptance is complete.
 6. Complete the controlled real-account acceptance below. Do not use the non-mutating readiness probe as a substitute for an actual user journey.
