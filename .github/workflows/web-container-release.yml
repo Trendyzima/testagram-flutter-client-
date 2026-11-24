@@ -49,6 +49,10 @@ jobs:
       - name: Check out Flutter client
         uses: actions/checkout@v4
 
+      - name: Test native signup readiness policy
+        shell: bash
+        run: bash tool/signup-readiness-policy.sh --test
+
       - name: Verify canonical Backend registration gate before exposing sign-up
         if: github.event_name != 'pull_request'
         shell: bash
@@ -63,16 +67,16 @@ jobs:
             -H 'Content-Type: application/json' \
             --data-binary '{"email":"signup-probe@example.invalid","username":"signup_probe","password":"short"}')"
           error_code="$(jq -r '.error.code // empty' "$response_file" 2>/dev/null || true)"
-          if [[ "$status" != "400" || "$error_code" != "INVALID_PASSWORD" ]]; then
+          if ! bash tool/signup-readiness-policy.sh "$status" "$error_code"; then
             location="$(awk 'BEGIN { IGNORECASE=1 } /^Location:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
             content_type="$(awk 'BEGIN { IGNORECASE=1 } /^Content-Type:/ { sub(/^[^:]*:[[:space:]]*/, ""); sub(/\r$/, ""); value=$0 } END { print value }' "$headers_file")"
-            echo "::error::Native signup readiness probe did not reach password validation (HTTP $status, code=$error_code, content-type=$content_type, location=$location). Web image publication is blocked."
+            echo "::error::Native signup readiness probe returned an unexpected response (HTTP $status, code=$error_code, content-type=$content_type, location=$location). Web image publication is blocked."
             if [[ "$status" == "308" ]]; then
               echo "::error::The canonical API hostname is redirecting this POST instead of reaching native authentication. Check Cloudflare API Worker origin routing and its edge-token/X-Forwarded-Host handoff to Caddy."
             fi
             exit 1
           fi
-          echo "Native signup endpoint is reachable and its authentication store accepted the non-mutating probe; no account or email was created."
+          echo "Canonical native signup endpoint returned an accepted readiness state; no account or email was created."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
