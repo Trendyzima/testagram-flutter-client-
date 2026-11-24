@@ -187,7 +187,7 @@ jobs:
 
           federation_status="$(curl --silent --show-error --max-time 20 -o "$tmp/webfinger.json" -w '%{http_code}' \
             'https://testagram.site/.well-known/webfinger?resource=acct:production-probe@testagram.site' || true)"
-          if [[ "$federation_status" != "503" ]] || ! grep -Fq 'Federation is disabled until locked G3 protocol acceptance passes.' "$tmp/webfinger.json"; then
+          if [[ "$federation_status" != "503" ]] || ! jq -e '.error == "Federation temporarily unavailable"' "$tmp/webfinger.json" >/dev/null; then
             echo "::error::The existing apex federation Worker route changed unexpectedly during the Pages release."
             cat "$tmp/webfinger.json" 2>/dev/null || true
             exit 1
