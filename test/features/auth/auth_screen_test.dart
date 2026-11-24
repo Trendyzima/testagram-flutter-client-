@@ -58,6 +58,21 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
+class _RegistrationDisabledNativeAuthSession extends _FakeNativeAuthSession {
+  @override
+  Future<void> signUp({
+    required String email,
+    required String username,
+    required String password,
+  }) async {
+    throw const NativeAuthException(
+      'Registration is disabled.',
+      statusCode: 503,
+      code: 'REGISTRATION_DISABLED',
+    );
+  }
+}
+
 class _RecoveryReadyNativeAuthSession extends _FakeNativeAuthSession {
   int attempts = 0;
   String? lastEmail;
@@ -252,6 +267,28 @@ void main() {
     expect(nativeAuth.signedUpPassword, 'native-password-123');
     expect(find.textContaining('Check your email'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
+  });
+
+  testWidgets('registration errors do not couple ordinary signup to identity review', (tester) async {
+    final nativeAuth = _RegistrationDisabledNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(
+        authClient: nativeAuth,
+        onSignedIn: () {},
+        enableIdentityRegistration: false,
+        identityApplicationStore: identityStore,
+      ),
+    ));
+
+    await tapVisible(tester, find.text('Sign up'));
+    await tester.enterText(find.byType(TextFormField).at(0), 'native_user');
+    await tester.enterText(find.byType(TextFormField).at(1), 'native@example.test');
+    await tester.enterText(find.byType(TextFormField).at(2), 'native-password-123');
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('Ordinary signup does not require identity-evidence review'), findsOneWidget);
+    expect(find.textContaining('secure identity storage is being prepared'), findsNothing);
   });
 
   testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
