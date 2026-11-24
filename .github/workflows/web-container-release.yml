@@ -41,8 +41,8 @@ jobs:
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      # Keep the native signup entry visible while the Backend remains the
-      # authoritative fail-closed gate for identity evidence and two-person approval.
+      # Keep ordinary native signup visible. Sensitive identity-evidence review
+      # remains a separate workflow and is not a prerequisite for account creation.
       TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: bash tool/signup-readiness-policy.sh --test
 
-      - name: Verify canonical Backend public-signup fail-closed gate
+      - name: Verify canonical Backend native signup readiness
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
@@ -76,7 +76,7 @@ jobs:
             fi
             exit 1
           fi
-          echo "Canonical native signup endpoint remains fail-closed with IDENTITY_REVIEW_REQUIRED; no account or email was created."
+          echo "Canonical native signup endpoint reached password validation; ordinary signup is independent of identity review and no account or email was created."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
