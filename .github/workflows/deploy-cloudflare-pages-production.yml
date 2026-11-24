@@ -120,10 +120,11 @@ jobs:
             exit 1
           fi
           production_branch="$(jq -r '.result.production_branch // empty' <<<"$project")"
-          if [[ "$production_branch" != "main" ]]; then
-            echo "::error::Expected the existing Pages production branch to be main; found '${production_branch:-unset}'. Refusing to guess or deploy to a preview branch."
+          if [[ -z "$production_branch" || "$production_branch" == "preview" || ! "$production_branch" =~ ^[A-Za-z0-9._/-]+$ ]]; then
+            echo "::error::The existing Pages project returned an invalid or preview-only production branch ('${production_branch:-unset}'). Refusing to guess a production target."
             exit 1
           fi
+          echo "PAGES_PRODUCTION_BRANCH=$production_branch" >> "$GITHUB_ENV"
 
           domains="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT/domains")"
@@ -133,10 +134,10 @@ jobs:
               exit 1
             fi
           done
-          echo "Verified existing project $CLOUDFLARE_PAGES_PROJECT, production branch main, and both active production domains. No domain or DNS mutation is performed."
+          echo "Verified existing project $CLOUDFLARE_PAGES_PROJECT, production branch $production_branch, and both active production domains. No domain or DNS mutation is performed."
 
       - name: Deploy the existing Pages project to its production branch
-        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch main --commit-dirty=true
+        run: wrangler pages deploy build/web --project-name "$CLOUDFLARE_PAGES_PROJECT" --branch "$PAGES_PRODUCTION_BRANCH" --commit-dirty=true
 
       - name: Verify signup, sign-in and recovery on both production hostnames
         shell: bash
