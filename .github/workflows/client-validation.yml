@@ -66,7 +66,7 @@ jobs:
           assert "testagram.site" in workflow and "www.testagram.site" in workflow, "Both production hostnames must be verified"
           assert "/.well-known/webfinger" in workflow, "The apex federation Worker route must be checked after deployment"
           assert "Sign up" in workflow and "Forgot password?" in workflow and "Reset password" in workflow, "All required authentication pages must be verified"
-          assert "purge_cache" in workflow and '"files:$files"' in workflow, "Production must invalidate only the explicit authentication page URLs before edge verification"
+          assert "purge_cache" in workflow and "'{files:$files}'" in workflow, "Production must invalidate only the explicit authentication page URLs before edge verification"
           assert "purge_everything" not in workflow, "Production must not purge unrelated site/API cache entries"
           PY
 
