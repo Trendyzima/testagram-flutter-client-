@@ -158,8 +158,11 @@ class _AuthScreenState extends State<AuthScreen> {
       if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
-      if (e.code == 'REGISTRATION_DISABLED' || e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
-        return 'New account registration is temporarily unavailable while secure identity storage is being prepared.';
+      if (e.code == 'REGISTRATION_DISABLED') {
+        return 'New account registration is temporarily unavailable. Please try again later. Ordinary signup does not require identity-evidence review or administrator approval.';
+      }
+      if (e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
+        return 'Testagram could not complete account registration. Please retry shortly. Identity-evidence review is separate from ordinary signup.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
@@ -607,7 +610,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Create your place in the conversation.',
+      _Page.signUp => 'Create an account with your email, username and password. Verify your email to activate it—no administrator approval is required.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
