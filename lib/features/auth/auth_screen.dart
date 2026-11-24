@@ -614,7 +614,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'New account creation requires identity evidence review and two-person approval.',
+      _Page.signUp => 'Create an account with your email, username and password. Verify your email to activate it.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
