@@ -8,30 +8,32 @@ The live web application is served from the immutable Flutter web container on t
 
 The apex `testagram.site` redirects ordinary web traffic to `https://www.testagram.site/`. The apex remains the separate federation identity/edge origin. Do not assume a successful Cloudflare Pages preview changes the live site.
 
-## Release controls
+## Release sequence
 
-- Build and test the Flutter web container from the reviewed Flutter commit.
-- Confirm the immutable GHCR image was published and its digest was smoke-tested.
-- Update the Backend deployment workflow's `TESTAGRAM_WEB_IMAGE` pin to that exact digest in a reviewed Backend change.
-- Merge the Backend change only after its migration, API, deployment-safety and CI checks pass.
-- Verify the InstaBox deployment completed and the final `accept-web-authentication` job passed.
-- Do not treat a merged PR, Pages preview, successful container build, or published image as a production deployment.
+1. Merge the reviewed Backend migration/authentication change only after all required checks pass. The Backend main-branch deployment must complete its PostgreSQL migration manifest and live `accept-web-authentication` job.
+2. Verify the canonical native signup probe returns exactly `400 INVALID_PASSWORD`. The Flutter web-container release workflow runs this non-mutating probe before publishing an image. A `503 IDENTITY_REVIEW_REQUIRED` or `503 IDENTITY_REVIEW_MFA_UNAVAILABLE` response blocks publication.
+3. After the Backend probe passes, merge the reviewed Flutter change. Its main-branch workflow analyzes and tests Flutter, compiles the web bundle, checks authentication UI markers, publishes the immutable commit-tagged GHCR image and smoke-tests the published digest.
+4. Update the Backend deployment workflow's `TESTAGRAM_WEB_IMAGE` pin to that exact published digest in a separate reviewed Backend change. Merge only after its checks pass.
+5. Verify the InstaBox deployment completed and the final `accept-web-authentication` job passed. This is the step that actually updates the live `www.testagram.site` application.
+6. Complete the controlled real-account acceptance below.
+
+Do not treat a merged PR, Pages preview, successful build, or published image as a production deployment.
 
 ## Native authentication boundary
 
-Ordinary public signup remains fail-closed. The canonical Backend returns `503 IDENTITY_REVIEW_REQUIRED` until the required identity evidence has been reviewed and two-person staff approval is complete. The Flutter client must not treat `IDENTITY_REVIEW_REQUIRED`, `IDENTITY_REVIEW_MFA_UNAVAILABLE`, `REGISTRATION_DISABLED`, or an unavailable evidence service as successful readiness or account creation. After approval, native email/password signup may proceed and email verification is still required before account activation; email verification does not substitute for identity review.
+Ordinary public signup uses Testagram's existing native email/password API at `https://api.testagram.site/api/auth/signup`. It creates an unverified native account and sends email OTP/verification instructions. Email verification activates the account. Ordinary signup does not require identity-evidence review, staff WebAuthn enrollment, or two-person administrator approval.
 
-The identity-evidence application and staff-review workflow is the gate for public account creation. Preserve its private-storage, independent-review, historical-audit, and two-person-approval safeguards. Do not substitute email verification for that review or weaken these controls to make signup work.
+The sensitive identity-evidence application and staff-review workflow is separate and retains its own private-storage, independent-review, historical-audit and two-person-approval safeguards. Its readiness flag must not gate ordinary public signup. If the live signup endpoint returns `IDENTITY_REVIEW_REQUIRED`, treat that as a backend release blocker; do not describe it to users as a required step for ordinary account creation.
 
 ## Production acceptance
 
 Before calling the release ready:
 
 1. Confirm the Backend deployment and PostgreSQL migration manifest completed without skipping or bypassing a required step.
-2. Probe the canonical native signup route with a deliberately short password and require exactly `400 INVALID_PASSWORD`. This is a non-mutating probe; it must not create an account or send email. A `503 IDENTITY_REVIEW_REQUIRED` or `503 IDENTITY_REVIEW_MFA_UNAVAILABLE` response is a release blocker, not readiness.
+2. Probe the canonical native signup route with a deliberately short password and require exactly `400 INVALID_PASSWORD`. This is a non-mutating probe; it must not create an account or send email.
 3. Confirm the live `www.testagram.site/` and `www.testagram.site/?mode=signup` routes serve the Flutter shell and the expected versioned application bundle.
 4. Confirm the live bundle contains the Sign in, Sign up, Create account, and Reset password flows.
-5. Only after the required identity evidence and two-person approval are complete, create one controlled real test account using an address the operator can access. Verify that the native API accepts it, the OTP/confirmation email is delivered, the code or secure link verifies the account, and the user can sign in.
+5. Create one controlled real test account using an address the operator can access. Verify that the native API creates it without admin identity review, the OTP/confirmation email is delivered, the code or secure link verifies the account, and the user can sign in.
 6. Confirm password recovery, resend verification, session restoration and sign-out work from the deployed domain.
 7. Check browser console/network errors and responsive behavior on mobile and desktop.
 
