@@ -240,6 +240,7 @@ void main() {
       home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
     ));
 
+    await tapVisible(tester, find.text('Sign up'));
     expect(find.text('Join the conversation'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
