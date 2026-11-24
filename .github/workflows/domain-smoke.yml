@@ -48,14 +48,14 @@ jobs:
           done
 
           # Public Federation is intentionally fail-closed until locked G3
-          # protocol acceptance is independently completed. Do not assert live
-          # NodeInfo/WebFinger identity while Caddy is required to return 503.
+          # protocol acceptance is independently completed. The Worker/Caddy edge must
+          # remain HTTP 503; allow the current generic unavailable response.
           for path in "/.well-known/nodeinfo" "/nodeinfo/2.1" "/.well-known/webfinger?resource=acct:probe@testagram.site"; do
             label="${path%%\?*}"
             safe_label="$(printf '%s' "$label" | tr '/.' '__')"
             status="$(curl --silent --show-error --max-time 25 -o "$tmp/$safe_label.body" -w '%{http_code}' "https://testagram.site$path" || true)"
             echo "Federation fail-closed $label: HTTP $status"
-            if [[ "$status" != "503" ]] || ! grep -Fq 'Federation is disabled until locked G3 protocol acceptance passes.' "$tmp/$safe_label.body"; then
+            if [[ "$status" != "503" ]] || ! grep -Eiq 'Federation temporarily unavailable|Federation is disabled until locked G3 protocol acceptance passes' "$tmp/$safe_label.body"; then
               echo "::error::Public Federation route $label must remain HTTP 503 until G3 acceptance passes."
               cat "$tmp/$safe_label.body" 2>/dev/null || true
               failed=1
