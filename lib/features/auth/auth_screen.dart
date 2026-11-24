@@ -158,14 +158,11 @@ class _AuthScreenState extends State<AuthScreen> {
       if (e.code == 'NATIVE_AUTH_NOT_ENABLED' || e.code == 'AUTH_NOT_CONFIGURED') {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
-      if (e.code == 'IDENTITY_REVIEW_REQUIRED' || e.code == 'REGISTRATION_DISABLED') {
-        return 'New account registration remains unavailable until the required identity evidence review and two-person approval are complete.';
-      }
-      if (e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE') {
-        return 'Identity review is temporarily unavailable. Public signup remains closed until the two-person approval checks are available.';
-      }
-      if (e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
-        return 'Testagram could not verify the required identity evidence. Public signup remains unavailable until the review and two-person approval checks can be completed.';
+      if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
+          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
+        return 'Testagram could not start account creation right now. Please try again later. Ordinary signup is separate from identity-evidence review.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
@@ -613,7 +610,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Public signup remains closed until required identity evidence and two-person approval are complete. Email verification follows approval.',
+      _Page.signUp => 'Join with your email, username and password. Verify your email to activate your account.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
