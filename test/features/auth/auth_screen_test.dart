@@ -253,8 +253,8 @@ void main() {
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // The Backend may return success only after identity evidence review
-    // and two-person approval have authorized native account creation.
+    // Native account creation is independent of identity review; the user
+    // activates the account by verifying the email address.
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('Read terms'), findsNothing);
     expect(find.text('Read privacy notice'), findsNothing);
