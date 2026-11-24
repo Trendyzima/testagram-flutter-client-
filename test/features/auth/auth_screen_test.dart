@@ -58,7 +58,7 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _RegistrationDisabledNativeAuthSession extends _FakeNativeAuthSession {
+class _IdentityReviewRequiredNativeAuthSession extends _FakeNativeAuthSession {
   @override
   Future<void> signUp({
     required String email,
@@ -66,9 +66,9 @@ class _RegistrationDisabledNativeAuthSession extends _FakeNativeAuthSession {
     required String password,
   }) async {
     throw const NativeAuthException(
-      'Registration is disabled.',
+      'Identity review is required before public signup can proceed.',
       statusCode: 503,
-      code: 'REGISTRATION_DISABLED',
+      code: 'IDENTITY_REVIEW_REQUIRED',
     );
   }
 }
@@ -234,7 +234,7 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('ordinary signup calls native auth and needs no admin review', (tester) async {
+  testWidgets('native signup success UI follows an authorized Backend response', (tester) async {
     final nativeAuth = _FakeNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: nativeAuth, requireIdentityReview: true, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
@@ -244,7 +244,7 @@ void main() {
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
+    expect(find.textContaining('Public signup remains closed until required identity evidence and two-person approval are complete.'), findsOneWidget);
 
     final signupFields = find.byType(TextFormField);
     expect(signupFields, findsNWidgets(3));
@@ -252,8 +252,9 @@ void main() {
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
 
-    // Future age/legal-consent controls are intentionally hidden for this
-    // release; ordinary email signup must not require those acknowledgements.
+    // This fake success response represents Backend authorization after
+    // identity evidence review and two-person approval have already passed.
+    // The client never bypasses those server-side requirements.
     expect(find.byType(CheckboxListTile), findsNothing);
     expect(find.text('Read terms'), findsNothing);
     expect(find.text('Read privacy notice'), findsNothing);
@@ -269,8 +270,8 @@ void main() {
     expect(find.text('Submit application'), findsNothing);
   });
 
-  testWidgets('registration errors do not couple ordinary signup to identity review', (tester) async {
-    final nativeAuth = _RegistrationDisabledNativeAuthSession();
+  testWidgets('identity review keeps ordinary public signup fail-closed', (tester) async {
+    final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: nativeAuth,
@@ -287,8 +288,10 @@ void main() {
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
-    expect(find.textContaining('Ordinary signup does not require identity-evidence review'), findsOneWidget);
-    expect(find.textContaining('secure identity storage is being prepared'), findsNothing);
+    expect(find.textContaining('identity evidence review and two-person approval are complete'), findsOneWidget);
+    expect(find.textContaining('Check your email'), findsNothing);
+    expect(find.text('Verify your email'), findsNothing);
+    expect(find.text('Submit application'), findsNothing);
   });
 
   testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
