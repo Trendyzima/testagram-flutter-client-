@@ -41,8 +41,8 @@ jobs:
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      # Compile and verify registration on PRs. Production defaults on, but can be explicitly disabled by the operator.
-      # The canonical Backend readiness probe must pass before any production image is published.
+      # Keep the native signup entry visible while the Backend remains the
+      # authoritative fail-closed gate for identity evidence and two-person approval.
       TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: bash tool/signup-readiness-policy.sh --test
 
-      - name: Verify canonical Backend registration gate before exposing sign-up
+      - name: Verify canonical Backend public-signup fail-closed gate
         if: github.event_name != 'pull_request'
         shell: bash
         run: |
@@ -76,7 +76,7 @@ jobs:
             fi
             exit 1
           fi
-          echo "Canonical native signup endpoint returned an accepted readiness state; no account or email was created."
+          echo "Canonical native signup endpoint remains fail-closed with IDENTITY_REVIEW_REQUIRED; no account or email was created."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
