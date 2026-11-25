@@ -645,6 +645,85 @@ class BackendApi {
             if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
           }));
 
+  /// Opens the authenticated Backend notification stream. The Backend
+  /// reads the canonical notification inbox from its own PostgreSQL database;
+  /// the client never calls internal services directly. Reconnect with the returned stream_cursor.
+  Stream<Map<String, dynamic>> streamNotifications({String? lastEventId}) async* {
+    final request = http.Request(
+      'GET',
+      baseUri.resolve('/api/social/notifications/stream'),
+    );
+    request.headers.addAll(await _headers());
+    request.headers['Accept'] = 'text/event-stream';
+    if (lastEventId != null && lastEventId.isNotEmpty) {
+      request.headers['Last-Event-ID'] = lastEventId;
+    }
+    final response = await _client.send(request);
+    if (response.statusCode != 200 ||
+        !(response.headers['content-type'] ?? '').toLowerCase().startsWith('text/event-stream')) {
+      _decodeObject(await http.Response.fromStream(response));
+      throw BackendApiException(
+        'The notification stream returned an invalid response.',
+        statusCode: response.statusCode,
+      );
+    }
+
+    var buffer = '';
+    String? eventId;
+    String? eventType;
+    final dataLines = <String>[];
+
+    Map<String, dynamic>? dispatch() {
+      if (dataLines.isEmpty || eventType != null && eventType != 'notification') {
+        dataLines.clear();
+        eventType = null;
+        return null;
+      }
+      final decoded = jsonDecode(dataLines.join('\n'));
+      dataLines.clear();
+      eventType = null;
+      if (decoded is! Map) {
+        throw const FormatException('Notification stream event must be a JSON object.');
+      }
+      return <String, dynamic>{
+        ...Map<String, dynamic>.from(decoded),
+        if (eventId != null) 'stream_cursor': eventId,
+      };
+    }
+
+    await for (final chunk in response.stream.transform(utf8.decoder)) {
+      buffer += chunk;
+      while (true) {
+        final newline = buffer.indexOf('\n');
+        if (newline < 0) break;
+        var line = buffer.substring(0, newline);
+        buffer = buffer.substring(newline + 1);
+        if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+        if (line.isEmpty) {
+          final item = dispatch();
+          if (item != null) yield item;
+        } else if (line.startsWith(':')) {
+          continue;
+        } else if (line.startsWith('id:')) {
+          eventId = line.substring(3).trimLeft();
+        } else if (line.startsWith('event:')) {
+          eventType = line.substring(6).trimLeft();
+        } else if (line.startsWith('data:')) {
+          dataLines.add(line.substring(5).trimLeft());
+        }
+      }
+    }
+    if (buffer.isNotEmpty) {
+      var line = buffer;
+      if (line.endsWith('\r')) line = line.substring(0, line.length - 1);
+      if (line.startsWith('data:')) dataLines.add(line.substring(5).trimLeft());
+      if (line.startsWith('id:')) eventId = line.substring(3).trimLeft();
+      if (line.startsWith('event:')) eventType = line.substring(6).trimLeft();
+    }
+    final finalItem = dispatch();
+    if (finalItem != null) yield finalItem;
+  }
+
   Future<Map<String, dynamic>> markNotificationRead(String notificationId) =>
       _request('POST', baseUri.resolve('/api/social/notifications/$notificationId/read'));
 
