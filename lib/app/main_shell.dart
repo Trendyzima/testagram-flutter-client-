@@ -510,6 +510,14 @@ class _MainShellState extends State<MainShell> {
                           color: Theme.of(context).dividerColor,
                         ),
                         Expanded(child: content),
+                        if (showRightSidebar) ...[
+                          VerticalDivider(
+                            width: 1,
+                            thickness: 1,
+                            color: Theme.of(context).dividerColor,
+                          ),
+                          _buildRightSidebar(context),
+                        ],
                       ],
                     )
                   : content,
