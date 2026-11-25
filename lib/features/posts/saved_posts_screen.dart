@@ -112,10 +112,19 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
                       ])
                     : ListView.separated(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        itemCount: _posts.length + (_hasMore || _loading ? 1 : 0),
+                        itemCount: _posts.length + (_hasMore || _loading || _error != null ? 1 : 0),
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           if (index >= _posts.length) {
+                            if (_error != null) {
+                              return Padding(
+                                padding: const EdgeInsets.all(16),
+                                child: Center(child: TextButton(
+                                  onPressed: _loading ? null : () => _load(),
+                                  child: const Text('Could not load more saved posts. Retry'),
+                                )),
+                              );
+                            }
                             if (_hasMore && !_loading) {
                               WidgetsBinding.instance.addPostFrameCallback((_) => _load());
                             }
