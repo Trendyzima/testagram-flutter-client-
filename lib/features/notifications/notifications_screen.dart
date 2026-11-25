@@ -26,6 +26,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
   String? _streamCursor;
   bool _reconnectScheduled = false;
+  Duration _reconnectDelay = const Duration(seconds: 5);
 
   @override
   void initState() {
@@ -43,11 +44,18 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         .listen((event) {
           final cursor = event['stream_cursor'];
           if (cursor is String && cursor.isNotEmpty) _streamCursor = cursor;
+          _reconnectDelay = const Duration(seconds: 5);
           if (mounted) _load(reset: true);
-        }, onError: (_) {}, onDone: () {
+        }, onError: (Object error) {
+          if (error is BackendApiException && error.retryAfter != null) {
+            _reconnectDelay = error.retryAfter!;
+          } else {
+            _reconnectDelay = const Duration(seconds: 15);
+          }
+        }, onDone: () {
           if (!mounted || _reconnectScheduled) return;
           _reconnectScheduled = true;
-          Future<void>.delayed(const Duration(seconds: 5), () {
+          Future<void>.delayed(_reconnectDelay, () {
             _reconnectScheduled = false;
             if (mounted) _connectRealtime();
           });
