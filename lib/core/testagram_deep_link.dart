@@ -1,6 +1,6 @@
 /// A strictly allow-listed destination parsed from an incoming Testagram link.
 /// This parser never accepts arbitrary hosts, redirect URLs or payment parameters.
-enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, profileMedia, post, wallet, hashtag }
+enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, profileMedia, socialList, post, wallet, hashtag }
 
 class TestagramDeepLink {
   const TestagramDeepLink._({
@@ -11,6 +11,7 @@ class TestagramDeepLink {
     this.destination,
     this.postId,
     this.connectionKind,
+    this.listId,
   });
 
   final TestagramDeepLinkKind kind;
@@ -20,6 +21,7 @@ class TestagramDeepLink {
   final String? destination;
   final String? postId;
   final String? connectionKind;
+  final String? listId;
 
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
@@ -90,6 +92,15 @@ class TestagramDeepLink {
           destination: destination,
         );
       }
+    }
+    if (segments.length == 3 &&
+        segments.first.toLowerCase() == 'i' &&
+        segments[1].toLowerCase() == 'lists' &&
+        _uuid.hasMatch(segments[2])) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.socialList,
+        listId: segments[2].toLowerCase(),
+      );
     }
     if (segments.length == 2 &&
         segments.first.toLowerCase() == 'i' &&
