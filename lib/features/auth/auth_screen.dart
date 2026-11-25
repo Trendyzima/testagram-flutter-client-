@@ -1,5 +1,6 @@
 
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -44,6 +45,7 @@ class _AuthScreenState extends State<AuthScreen> {
   final _otp = TextEditingController();
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
+  bool _adultConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
   late final IdentityApplicationStore _identityStore;
   IdentityApplicationDraft? _identityDraft;
   IdentityApplication? _identityApplication;
@@ -299,6 +301,52 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
     return null;
+  }
+
+  Future<void> _beginIdentityApplication() async {
+    if (!_form.currentState!.validate()) return;
+    if (!_adultConfirmed || !_termsAccepted || !_privacyAccepted) {
+      setState(() => _error = 'Confirm the age declaration and accept the current Terms and Privacy Notice before submitting.');
+      return;
+    }
+    await _run(() async {
+      final random = Random.secure();
+      final idempotencyKey = base64Url
+          .encode(List<int>.generate(32, (_) => random.nextInt(256)))
+          .replaceAll('=', '');
+      final draft = IdentityApplicationDraft(
+        email: _email.text.trim().toLowerCase(),
+        username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+        displayName: _name.text.trim(),
+        idempotencyKey: idempotencyKey,
+        createdAt: DateTime.now().toUtc(),
+      );
+      // Save only the recoverable application draft before the network call.
+      // It contains no password, raw evidence, access token or refresh token.
+      await _identityStore.save(draft);
+      _identityDraft = draft;
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        final application = await _submitIdentityDraft(api, draft);
+        if (application == null) return;
+        final saved = draft.copyWith(application: application);
+        await _identityStore.save(saved);
+        final status = await api.getStatus(application);
+        if (!mounted) return;
+        setState(() {
+          _identityDraft = saved;
+          _identityApplication = application;
+          _identityStatus = status;
+          _identityProvisioningAuthorization = null;
+          _page = _Page.identity;
+          _notice = 'Your application has been received. Submit the requested evidence and follow its review status. Your account will not be created until two independent approvals are complete.';
+          _password.clear();
+          _confirm.clear();
+        });
+      } finally {
+        api.close();
+      }
+    });
   }
 
   Future<void> _signUp() async {
@@ -610,7 +658,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final title = switch (_page) {
       _Page.signIn => 'Welcome back',
-      _Page.signUp => 'Identity review required',
+      _Page.signUp => 'Apply for Testagram',
       _Page.forgot => 'Reset your password',
       _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
@@ -618,7 +666,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Public account creation is closed until identity evidence review and two-person approval are complete.',
+      _Page.signUp => 'Apply for access. Testagram creates an account only after identity evidence review and two independent approvals.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
@@ -806,6 +854,8 @@ class _AuthScreenState extends State<AuthScreen> {
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
+              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (value) { final name = (value ?? '').trim(); return name.length < 2 || name.length > 80 ? 'Enter your name (2–80 characters).' : null; }),
+              const SizedBox(height: 14),
               field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
               const SizedBox(height: 14),
             ],
@@ -829,7 +879,7 @@ class _AuthScreenState extends State<AuthScreen> {
               ),
               const SizedBox(height: 14),
             ],
-            if ({_Page.signIn, _Page.signUp, _Page.reset}.contains(_page)) ...[
+            if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
                 label: _page == _Page.reset ? 'New password' : (_page == _Page.signUp ? 'Create password' : 'Password'),
@@ -858,13 +908,31 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Icon(Icons.verified_user_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
-                  Expanded(child: Text('Public signup is fail-closed. Testagram accounts are provisioned only after identity evidence review and two independent account approvals. Email verification is still required after provisioning.', style: TextStyle(height: 1.45, fontSize: 13))),
+                  Expanded(child: Text('This is an application, not instant account creation. Testagram reviews identity evidence, requires two independent approvals, then asks you to verify your email before first sign-in.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
               ),
-              const SizedBox(height: 12),
-              // This legacy form cannot provision an account. The Backend
-              // returns IDENTITY_REVIEW_REQUIRED until the evidence-backed
-              // identity application and two-person approval process completes.
+              const SizedBox(height: 10),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _adultConfirmed,
+                onChanged: _busy ? null : (value) => setState(() => _adultConfirmed = value == true),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('I confirm that I am at least 18 years old.'),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _termsAccepted,
+                onChanged: _busy ? null : (value) => setState(() => _termsAccepted = value == true),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('I have read and accept the Testagram Terms of Service.'),
+              ),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                value: _privacyAccepted,
+                onChanged: _busy ? null : (value) => setState(() => _privacyAccepted = value == true),
+                controlAffinity: ListTileControlAffinity.leading,
+                title: const Text('I have read and accept the Testagram Privacy Notice.'),
+              ),
               const SizedBox(height: 8),
             ],
             if (_page == _Page.identity) ...[
@@ -899,7 +967,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
             if (_page == _Page.signUp)
-              primaryAction('Create account', _signUp),
+              primaryAction('Submit application', _beginIdentityApplication),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
             if (_page == _Page.verify) ...[
