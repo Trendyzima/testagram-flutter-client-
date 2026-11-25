@@ -1365,6 +1365,31 @@ void main() {
     api.close();
   });
 
+  test('maps supported message reactions and deletion to authenticated capabilities', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'message-action-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+    await api.reactToMessage(messageId: '123e4567-e89b-42d3-a456-426614174000');
+    await api.deleteMessage('123e4567-e89b-42d3-a456-426614174000');
+    expect(requests, hasLength(2));
+    expect(requests.every((request) => request.method == 'POST' && request.url.path == '/api/capability'), isTrue);
+    expect(requests.map((request) => (jsonDecode(request.body) as Map)['capability']).toList(), [
+      'testagram.messages.react', 'testagram.messages.delete',
+    ]);
+    expect((jsonDecode(requests.first.body) as Map)['input'], {
+      'message_id': '123e4567-e89b-42d3-a456-426614174000', 'reaction': '❤️', 'remove': false,
+    });
+    expect((jsonDecode(requests.last.body) as Map)['input'], {
+      'message_id': '123e4567-e89b-42d3-a456-426614174000',
+    });
+    api.close();
+  });
   test('maps browsing history list, record and clear to the canonical social route', () async {
     final requests = <http.Request>[];
     final api = BackendApi(
