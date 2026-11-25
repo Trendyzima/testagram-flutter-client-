@@ -258,6 +258,20 @@ class _MainShellState extends State<MainShell> {
         break;
       case TestagramDeepLinkKind.destination:
         switch (link.destination) {
+          case 'following':
+          case 'for-you':
+          case 'for_you':
+          case 'latest':
+          case 'media':
+          case 'discover':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FeedScreen(
+                api: widget.api,
+                onSignOut: widget.onSignOut,
+                initialFeedMode: link.destination == 'for-you' ? 'for_you' : link.destination!,
+              ),
+            ));
+            break;
           case 'compose':
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => FeedScreen(
