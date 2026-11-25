@@ -281,13 +281,15 @@ void main() {
         seen = request;
         return http.Response(jsonEncode({
           'ok': true,
+          'email_queued': true,
           'message': 'If the application is awaiting email verification, a new link will be sent.',
         }), 202, headers: {'content-type': 'application/json'});
       }),
     );
 
-    await client.resendVerification(application);
+    final result = await client.resendVerification(application);
 
+    expect(result['email_queued'], isTrue);
     expect(seen.url.path,
         '/api/identity/applications/${application.applicationId}/resend-verification');
     expect(seen.headers['X-Application-Token'], application.applicationToken);
@@ -357,7 +359,7 @@ void main() {
           }), 200, headers: {'content-type': 'application/json'});
         }
         if (request.method == 'POST' && path.endsWith('/resend-verification')) {
-          return http.Response(jsonEncode({'ok': true, 'message': 'If eligible, a new link will be sent.'}), 202,
+          return http.Response(jsonEncode({'ok': true, 'email_queued': true, 'message': 'If eligible, a new link will be sent.'}), 202,
               headers: {'content-type': 'application/json'});
         }
         if (request.method == 'POST' && path.endsWith('/verify-email')) {
