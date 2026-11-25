@@ -105,11 +105,10 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
               children: [
                 Text((details['description'] ?? '').toString()),
                 const SizedBox(height: 8),
-                Text('Host: @' + (host['username'] ?? 'member').toString()),
-                Text('Listeners: ' + (details['listener_count'] ?? space['listener_count'] ?? 0).toString() +
-                    ' / ' + (details['max_audience'] ?? space['max_audience'] ?? 1000).toString()),
-                if (joined) Text('Your role: ' + role),
-                if (requestStatus != 'none') Text('Speaker request: ' + requestStatus),
+                Text('Host: @${(host['username'] ?? 'member').toString()}'),
+                Text('Listeners: ${details['listener_count'] ?? space['listener_count'] ?? 0} / ${details['max_audience'] ?? space['max_audience'] ?? 1000}'),
+                if (joined) Text('Your role: $role'),
+                if (requestStatus != 'none') Text('Speaker request: $requestStatus'),
                 const SizedBox(height: 12),
                 const Text(
                   'Room lifecycle and speaker controls are connected to the Backend. Live multi-party audio transport is not enabled in this client yet.',
@@ -250,7 +249,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
       context: context,
       builder: (dialogContext) => AlertDialog(
         title: const Text('Confirm Super Chat'),
-        content: Text('Send ' + (input['amount'] ?? '') + ' from your wallet with this message?'),
+        content: Text('Send ${input['amount'] ?? ''} from your wallet with this message?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
           FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Send')),
@@ -297,7 +296,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
                     final profile = request['profiles'] is Map ? request['profiles'] as Map : const {};
                     final userId = (request['user_id'] ?? '').toString();
                     return ListTile(
-                      title: Text('@' + (profile['username'] ?? 'member').toString()),
+                      title: Text('@${(profile['username'] ?? 'member').toString()}'),
                       subtitle: Text((profile['display_name'] ?? '').toString()),
                       trailing: Wrap(spacing: 4, children: [
                         IconButton(
@@ -417,8 +416,8 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
                               leading: const CircleAvatar(child: Icon(Icons.graphic_eq_rounded)),
                               title: Text((space['title'] ?? 'Live Audio Space').toString()),
                               subtitle: Text([
-                                '@' + (host['username'] ?? 'Testagram member').toString(),
-                                (space['listener_count'] ?? 0).toString() + ' listening',
+                                '@${(host['username'] ?? 'Testagram member').toString()}',
+                                '${space['listener_count'] ?? 0} listening',
                                 if ((space['description'] ?? '').toString().isNotEmpty)
                                   (space['description'] ?? '').toString(),
                               ].join(' · '), maxLines: 2, overflow: TextOverflow.ellipsis),
