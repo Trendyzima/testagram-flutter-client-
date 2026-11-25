@@ -9,6 +9,12 @@ import '../core/testagram_theme.dart';
 import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/discovery/hashtag_screen.dart';
+import '../features/discovery/hashtags_screen.dart';
+import '../features/posts/post_detail_screen.dart';
+import '../features/posts/saved_posts_screen.dart';
+import '../features/profile/profile_connections_screen.dart';
+import '../features/federation/federation_settings_screen.dart';
+import '../features/messaging/inbox_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/knowledge/knowledge_hub_screen.dart';
 import '../features/monetization/monetization_hub_screen.dart';
@@ -22,6 +28,8 @@ import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/messaging/direct_messages_screen.dart';
 import '../features/calls/calls_screen.dart';
+import '../features/calls/audio_spaces_screen.dart';
+import '../features/profile/follow_requests_screen.dart';
 import '../features/lists/social_lists_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -53,6 +61,8 @@ class _MainShellState extends State<MainShell> {
   List<Map<String, dynamic>> _sidebarTrends = [];
   List<Map<String, dynamic>> _sidebarTrendingWords = [];
   List<Map<String, dynamic>> _sidebarKnowledgeTopics = [];
+  List<Map<String, dynamic>> _sidebarSuggestions = [];
+  final Set<String> _followingSuggestions = {};
   Map<String, dynamic>? _sidebarProfile;
   bool _loadingSidebarContext = false;
 
@@ -105,14 +115,18 @@ class _MainShellState extends State<MainShell> {
         optional(widget.api.getMyProfile()),
         optional(widget.api.getTrendingWords(limit: 6)),
         optional(widget.api.getKnowledgeTopics(limit: 6)),
+        optional(widget.api.getSocialSuggestions(limit: 8)),
       ]);
       final profileRaw = responses[0]['data'];
       final wordsRaw = responses[1]['data'];
       final wordsData = wordsRaw is Map ? wordsRaw : responses[1];
       final topicsRaw = responses[2]['data'];
       final topicsData = topicsRaw is Map ? topicsRaw : responses[2];
+      final suggestionsRaw = responses[3]['data'];
+      final suggestionsData = suggestionsRaw is Map ? suggestionsRaw : responses[3];
       final rawWords = wordsData['items'];
       final rawTopics = topicsData['items'];
+      final rawSuggestions = suggestionsData['items'];
       if (!mounted) return;
       setState(() {
         if (profileRaw is Map) {
@@ -126,11 +140,45 @@ class _MainShellState extends State<MainShell> {
             ? rawTopics.whereType<Map>()
                 .map((item) => Map<String, dynamic>.from(item)).toList()
             : [];
+        _sidebarSuggestions = rawSuggestions is List
+            ? rawSuggestions.whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)).toList()
+            : [];
       });
     } catch (_) {
       // Sidebar data is optional; core navigation remains available.
     } finally {
       _loadingSidebarContext = false;
+    }
+  }
+
+  Future<void> _followSuggestedAccount(Map<String, dynamic> account) async {
+    final id = (account['id'] ?? '').toString();
+    if (id.isEmpty || _followingSuggestions.contains(id)) return;
+    setState(() => _followingSuggestions.add(id));
+    try {
+      final response = await widget.api.followUser(id);
+      final raw = response['data'];
+      final data = raw is Map ? Map<String, dynamic>.from(raw) : response;
+      final status = (data['status'] ?? 'accepted').toString();
+      if (!mounted) return;
+      setState(() {
+        account['is_following'] = status == 'accepted';
+        account['follow_status'] = status;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(status == 'pending'
+            ? 'Follow request sent.'
+            : 'You are now following @${account['username'] ?? 'this account'}.'),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not follow this account: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _followingSuggestions.remove(id));
     }
   }
 
@@ -150,6 +198,8 @@ class _MainShellState extends State<MainShell> {
     (12, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Messages'),
     (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
     (14, Icons.list_alt_outlined, Icons.list_alt_rounded, 'Lists'),
+    (15, Icons.bookmark_border_rounded, Icons.bookmark_rounded, 'Bookmarks'),
+    (16, Icons.history_rounded, Icons.history_rounded, 'History'),
   ];
 
   Future<void> _openInitialDeepLink() async {
@@ -157,7 +207,7 @@ class _MainShellState extends State<MainShell> {
     if (link == null || !mounted) return;
     switch (link.kind) {
       case TestagramDeepLinkKind.wallet:
-        setState(() => _index = 9);
+        _selectDestination(9);
         break;
       case TestagramDeepLinkKind.profileId:
         _openProfile(link.userId!);
@@ -167,27 +217,157 @@ class _MainShellState extends State<MainShell> {
           builder: (_) => HashtagScreen(api: widget.api, tag: link.tag!),
         ));
         break;
+      case TestagramDeepLinkKind.post:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PostDetailScreen(api: widget.api, postId: link.postId!),
+        ));
+        break;
+      case TestagramDeepLinkKind.thread:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => ThreadDetailScreen(api: widget.api, threadId: link.threadId!),
+        ));
+        break;
       case TestagramDeepLinkKind.profileUsername:
-        try {
-          final response = await widget.api.resolveProfileUsername(link.username!);
-          final raw = response['data'];
-          final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
-          if (!mounted) return;
-          if (userId.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('This profile is unavailable.')),
-            );
-            return;
-          }
-          _openProfile(userId);
-        } catch (error) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not open profile: $error')),
-            );
-          }
+        final userId = await _resolveProfileId(link.username!);
+        if (userId != null) _openProfile(userId);
+        break;
+      case TestagramDeepLinkKind.socialList:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => SocialListRouteScreen(
+            api: widget.api,
+            onSignOut: widget.onSignOut,
+            listId: link.listId!,
+          ),
+        ));
+        break;
+      case TestagramDeepLinkKind.profileMedia:
+        final mediaUserId = await _resolveProfileId(link.username!);
+        if (mediaUserId != null && mounted) {
+          Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ProfileScreen(
+              api: widget.api,
+              userId: mediaUserId,
+              initialTab: 1,
+            ),
+          ));
         }
         break;
+      case TestagramDeepLinkKind.profileConnections:
+        final userId = await _resolveProfileId(link.username!);
+        if (userId != null && mounted) {
+          Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ProfileConnectionsScreen(
+              api: widget.api,
+              userId: userId,
+              kind: link.connectionKind!,
+            ),
+          ));
+        }
+        break;
+      case TestagramDeepLinkKind.destination:
+        switch (link.destination) {
+          case 'following':
+          case 'for-you':
+          case 'for_you':
+          case 'latest':
+          case 'media':
+          case 'discover':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FeedScreen(
+                api: widget.api,
+                onSignOut: widget.onSignOut,
+                initialFeedMode: link.destination == 'for-you' ? 'for_you' : link.destination!,
+              ),
+            ));
+            break;
+          case 'history': _selectDestination(16); break;
+          case 'follow-requests':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FollowRequestsScreen(api: widget.api),
+            ));
+            break;
+          case 'compose':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FeedScreen(
+                api: widget.api,
+                onSignOut: widget.onSignOut,
+                composeOnOpen: true,
+              ),
+            ));
+            break;
+          case 'home': _selectDestination(0); break;
+          case 'explore':
+          case 'search':
+          case 'federated': _selectDestination(1); break;
+          case 'knowledge':
+          case 'ask':
+          case 'communities':
+          case 'topics':
+          case 'questions': _selectDestination(2); break;
+          case 'notifications': _selectDestination(3); break;
+          case 'profile': _selectDestination(4); break;
+          case 'video':
+          case 'videos':
+          case 'watch': _selectDestination(5); break;
+          case 'shorts': _selectDestination(6); break;
+          case 'threads': _selectDestination(7); break;
+          case 'polls': _selectDestination(8); break;
+          case 'wallet': _selectDestination(9); break;
+          case 'settings': _selectDestination(10); break;
+          case 'creator': _selectDestination(11); break;
+          case 'messages': _selectDestination(12); break;
+          case 'calls': _selectDestination(13); break;
+          case 'live':
+          case 'spaces':
+          case 'audio-spaces':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => AudioSpacesScreen(api: widget.api),
+            ));
+            break;
+          case 'lists': _selectDestination(14); break;
+          case 'bookmarks': _selectDestination(15); break;
+          case 'hashtags':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => HashtagsScreen(api: widget.api),
+            ));
+            break;
+          case 'inbox':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => InboxScreen(api: widget.api),
+            ));
+            break;
+          case 'federation':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FederationSettingsScreen(api: widget.api),
+            ));
+            break;
+        }
+        break;
+    }
+  }
+
+  Future<String?> _resolveProfileId(String username) async {
+    try {
+      final response = await widget.api.resolveProfileUsername(username);
+      final raw = response['data'];
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return null;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This profile is unavailable.')),
+        );
+        return null;
+      }
+      return userId;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open profile: $error')),
+        );
+      }
+      return null;
     }
   }
 
@@ -308,7 +488,7 @@ class _MainShellState extends State<MainShell> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4]),
+                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4, 15, 16]),
                         const SizedBox(height: 12),
                         _sidebarSection('CONNECT', const [12, 13, 14, 7]),
                         const SizedBox(height: 12),
@@ -463,6 +643,86 @@ class _MainShellState extends State<MainShell> {
                         subtitle: Text('${item['posts_count'] ?? 0} posts'),
                         onTap: () => _selectDestination(1),
                       ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (_sidebarSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.person_add_alt_1_rounded,
+                          color: theme.colorScheme.primary, size: 19),
+                      const SizedBox(width: 8),
+                      Text('Who to follow', style: theme.textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 8),
+                    for (final account in _sidebarSuggestions.take(5))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        child: Row(children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundImage: (account['avatar_url'] ?? '').toString().startsWith('http')
+                                ? NetworkImage(account['avatar_url'].toString())
+                                : null,
+                            child: (account['avatar_url'] ?? '').toString().startsWith('http')
+                                ? null : const Icon(Icons.person_outline_rounded),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text((account['display_name'] ?? account['username'] ?? 'Testagram member').toString(),
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge),
+                              Text('@${account['username'] ?? ''}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall),
+                              if (((account['mutual_followers_count'] as num?)?.toInt() ?? 0) > 0)
+                                Text('${account['mutual_followers_count']} people you follow also follow them',
+                                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall)
+                              else
+                                Text(
+                                  account['reason'] == 'active_in_testagram'
+                                      ? 'Active on Testagram'
+                                      : 'Suggested for you',
+                                  style: theme.textTheme.bodySmall,
+                                ),
+                            ],
+                          )),
+                          const SizedBox(width: 6),
+                          FilledButton.tonal(
+                            onPressed: _followingSuggestions.contains((account['id'] ?? '').toString()) ||
+                                    account['is_following'] == true
+                                ? null
+                                : () => _followSuggestedAccount(account),
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            child: _followingSuggestions.contains((account['id'] ?? '').toString())
+                                ? const SizedBox(width: 14, height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text(account['follow_status'] == 'pending' ? 'Requested' :
+                                    account['is_following'] == true ? 'Following' : 'Follow'),
+                          ),
+                        ]),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => _selectDestination(1),
+                        child: const Text('Discover more'),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -650,6 +910,8 @@ class _MainShellState extends State<MainShell> {
         DirectMessagesScreen(api: widget.api),
         CallsScreen(api: widget.api),
         SocialListsScreen(api: widget.api, onSignOut: widget.onSignOut),
+        SavedPostsScreen(api: widget.api),
+        BrowsingHistoryScreen(api: widget.api),
       ];
 
   @override
