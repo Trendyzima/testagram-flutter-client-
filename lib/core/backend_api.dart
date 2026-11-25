@@ -145,6 +145,11 @@ class BackendApi {
         baseUri.resolve('/api/knowledge/questions/$questionId/answers/$answerId/accept'),
       );
 
+  Future<Map<String, dynamic>> getSocialSuggestions({int limit = 8}) =>
+      _request('GET', baseUri.resolve('/api/social/suggestions').replace(
+        queryParameters: {'limit': '$limit'},
+      ));
+
   Future<Map<String, dynamic>> getSocialLists() =>
       _request('GET', baseUri.resolve('/api/social/lists'));
 
