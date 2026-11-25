@@ -610,6 +610,24 @@ class BackendApi {
       _request('POST', baseUri.resolve('/api/social/polls/$pollId/vote'),
           body: {'option_id': optionId});
 
+  Future<Map<String, dynamic>> getMyNotificationPreferences() =>
+      _request('GET', baseUri.resolve('/api/me/notification-preferences'));
+
+  Future<Map<String, dynamic>> updateMyNotificationPreferences({
+    bool? pushSocialEnabled,
+    bool? pushWalletEnabled,
+    bool? pushMessagesEnabled,
+  }) =>
+      _request(
+        'PUT',
+        baseUri.resolve('/api/me/notification-preferences'),
+        body: {
+          if (pushSocialEnabled != null) 'push_social_enabled': pushSocialEnabled,
+          if (pushWalletEnabled != null) 'push_wallet_enabled': pushWalletEnabled,
+          if (pushMessagesEnabled != null) 'push_messages_enabled': pushMessagesEnabled,
+        },
+      );
+
   Future<Map<String, dynamic>> listNotifications({int limit = 30, String? cursor}) =>
       _request('GET', baseUri.resolve('/api/social/notifications')
           .replace(queryParameters: {
