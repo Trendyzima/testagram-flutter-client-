@@ -1387,4 +1387,84 @@ void main() {
     api.close();
   });
 
+
+  test('maps public feed, thread detail/state, history and media routes', () async {
+    const threadId = '11111111-1111-4111-8111-111111111111';
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'route-map-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await api.getPublicFeed(limit: 15, before: 'opaque-cursor');
+    await api.getThread(threadId);
+    await api.deleteThread(threadId);
+    await api.listThreadLikes(threadId, limit: 25);
+    await api.getThreadLikeState(threadId);
+    await api.listThreadReposts(threadId, limit: 30);
+    await api.getThreadRepostState(threadId);
+    await api.getThreadLikeStates([threadId]);
+    await api.getThreadRepostStates([threadId]);
+    await api.getThreadBookmarkStates([threadId]);
+    await api.getBrowsingHistory();
+    await api.recordBrowsingHistory(
+      entityType: 'thread',
+      entityId: threadId,
+      metadata: {'source': 'threads'},
+    );
+    await api.clearBrowsingHistory();
+    await api.listOwnedMedia();
+    await api.getPrivateMediaDownloadUrl('private/object/key');
+
+    expect(requests.map((request) => request.method).toList(), [
+      'GET', 'GET', 'DELETE', 'GET', 'GET', 'GET', 'GET',
+      'POST', 'POST', 'POST', 'GET', 'POST', 'DELETE', 'POST', 'POST',
+    ]);
+    expect(requests.map((request) => request.url.path).toList(), [
+      '/api/feed/public',
+      '/api/threads/$threadId',
+      '/api/threads/$threadId',
+      '/api/threads/$threadId/likes',
+      '/api/threads/$threadId/likes/state',
+      '/api/threads/$threadId/reposts',
+      '/api/threads/$threadId/reposts/state',
+      '/api/threads/likes/states',
+      '/api/threads/reposts/states',
+      '/api/threads/bookmarks/states',
+      '/api/social/history',
+      '/api/social/history',
+      '/api/social/history',
+      '/api/media/list',
+      '/api/media/private-download-url',
+    ]);
+    expect(requests.first.url.queryParameters, {'limit': '15', 'before': 'opaque-cursor'});
+    expect(jsonDecode(requests[11].body), {
+      'entity_type': 'thread',
+      'entity_id': threadId,
+      'metadata': {'source': 'threads'},
+    });
+    expect(jsonDecode(requests[14].body), {'key': 'private/object/key'});
+    expect(requests.every((request) =>
+        request.headers['authorization'] == 'Bearer route-map-token'), isTrue);
+    api.close();
+  });
+
+  test('rejects invalid thread IDs and history entities before requests', () {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+    expect(() => api.getThread('not-a-uuid'), throwsArgumentError);
+    expect(() => api.getThreadLikeStates(['not-a-uuid']), throwsArgumentError);
+    expect(() => api.recordBrowsingHistory(entityType: 'account', entityId: 'not-a-uuid'),
+        throwsArgumentError);
+    expect(() => api.getPublicFeed(limit: 51), throwsArgumentError);
+    api.close();
+  });
+
 }
