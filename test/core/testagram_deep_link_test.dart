@@ -99,6 +99,7 @@ void main() {
         '/live': 'live',
         '/spaces': 'spaces',
         '/audio-spaces': 'audio-spaces',
+        '/follow-requests': 'follow-requests',
         '/federated': 'federated',
         '/search': 'search',
         '/notifications': 'notifications',
