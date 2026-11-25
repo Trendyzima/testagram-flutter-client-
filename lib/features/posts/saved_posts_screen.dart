@@ -1,8 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
-import '../../core/app_config.dart';
-import '../video/video_feed_screen.dart';
 import '../threads/threads_screen.dart';
 import '../posts/post_detail_screen.dart';
 
