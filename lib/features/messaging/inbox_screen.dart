@@ -84,7 +84,7 @@ class _InboxScreenState extends State<InboxScreen> {
         ? _state(_error!, action: 'Retry', onPressed: _load)
         : _items.isEmpty
           ? _state(
-              'Your private conversations will appear here. Message previews stay hidden until Testagram's secure messaging verification is ready.',
+              "Your private conversations will appear here. Message previews stay hidden until Testagram's secure messaging verification is ready.",
               action: 'Refresh',
               onPressed: _load,
             )
