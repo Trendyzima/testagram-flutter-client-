@@ -222,6 +222,11 @@ class _MainShellState extends State<MainShell> {
           builder: (_) => PostDetailScreen(api: widget.api, postId: link.postId!),
         ));
         break;
+      case TestagramDeepLinkKind.thread:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => ThreadDetailScreen(api: widget.api, threadId: link.threadId!),
+        ));
+        break;
       case TestagramDeepLinkKind.profileUsername:
         final userId = await _resolveProfileId(link.username!);
         if (userId != null) _openProfile(userId);
