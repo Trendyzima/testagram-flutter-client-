@@ -1298,8 +1298,10 @@ class BackendApi {
 
   String _requiredThreadId(String value) {
     final id = value.trim();
-    if (id.isEmpty || id.length > 64) throw ArgumentError.value(value, 'threadId');
-    return id;
+    if (!_isCanonicalAccountId(id.toLowerCase())) {
+      throw ArgumentError.value(value, 'threadId', 'Invalid Testagram thread UUID');
+    }
+    return id.toLowerCase();
   }
 
   Future<Map<String, dynamic>> getThread(String threadId) =>
@@ -1327,24 +1329,27 @@ class BackendApi {
       _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts/state'));
 
   Future<Map<String, dynamic>> getThreadLikeStates(List<String> threadIds) {
-    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
       throw ArgumentError('Provide up to 100 valid thread IDs');
     }
-    return _request('POST', baseUri.resolve('/api/threads/likes/states'), body: {'thread_ids': threadIds});
+    return _request('POST', baseUri.resolve('/api/threads/likes/states'), body: {'thread_ids': ids});
   }
 
   Future<Map<String, dynamic>> getThreadRepostStates(List<String> threadIds) {
-    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
       throw ArgumentError('Provide up to 100 valid thread IDs');
     }
-    return _request('POST', baseUri.resolve('/api/threads/reposts/states'), body: {'thread_ids': threadIds});
+    return _request('POST', baseUri.resolve('/api/threads/reposts/states'), body: {'thread_ids': ids});
   }
 
   Future<Map<String, dynamic>> getThreadBookmarkStates(List<String> threadIds) {
-    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
       throw ArgumentError('Provide up to 100 valid thread IDs');
     }
-    return _request('POST', baseUri.resolve('/api/threads/bookmarks/states'), body: {'thread_ids': threadIds});
+    return _request('POST', baseUri.resolve('/api/threads/bookmarks/states'), body: {'thread_ids': ids});
   }
 
   Future<Map<String, dynamic>> getBrowsingHistory() =>
