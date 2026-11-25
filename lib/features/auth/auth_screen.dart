@@ -386,13 +386,13 @@ class _AuthScreenState extends State<AuthScreen> {
         var currentDraft = draft;
         var application = currentDraft.application;
         if (application == null) {
-          application = await _submitIdentityDraft(api, currentDraft);
-          if (application == null) return;
-          currentDraft = currentDraft.copyWith(application: application);
+          final createdApplication = await _submitIdentityDraft(api, currentDraft);
+          if (createdApplication == null) return;
+          application = createdApplication;
+          currentDraft = currentDraft.copyWith(application: createdApplication);
           await _identityStore.save(currentDraft);
         }
-        final readyApplication = application;
-        if (readyApplication == null) return;
+        final readyApplication = application!;
         final status = await api.getStatus(readyApplication);
         if (!mounted) return;
         setState(() {
