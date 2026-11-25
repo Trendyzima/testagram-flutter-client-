@@ -30,6 +30,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _loadingPosts = false;
   String? _postsError;
   String? _resolvedUserId;
+  int _profileTabIndex = 0;
 
   String get _targetUserId => widget.userId ?? _resolvedUserId ?? '';
 
@@ -67,6 +68,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  bool _postHasMedia(Map<String, dynamic> post) {
+    final urls = post['media_urls'];
+    return (post['image_url'] ?? '').toString().isNotEmpty ||
+        (urls is List && urls.isNotEmpty) || post['is_video'] == true;
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
@@ -418,14 +425,32 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                           const SizedBox(height: 20),
+                          if (profile['protected_account'] != true || profile['can_view_posts'] == true) ...[
+                            Row(
+                              children: [
+                                ChoiceChip(
+                                  label: const Text('Posts'),
+                                  selected: _profileTabIndex == 0,
+                                  onSelected: (_) => setState(() => _profileTabIndex = 0),
+                                ),
+                                const SizedBox(width: 8),
+                                ChoiceChip(
+                                  label: const Text('Media'),
+                                  selected: _profileTabIndex == 1,
+                                  onSelected: (_) => setState(() => _profileTabIndex = 1),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 12),
+                          ],
                           if (profile['protected_account'] == true && profile['can_view_posts'] != true)
                             const Center(child: Text('This account is private. Follow to see their posts.'))
                           else ...[
                             const SizedBox(height: 12),
-                            Text('Posts', style: Theme.of(context).textTheme.titleLarge),
+                            Text(_profileTabIndex == 0 ? 'Posts' : 'Media', style: Theme.of(context).textTheme.titleLarge),
                             if (_postsError != null)
                               TextButton(onPressed: _loadPosts, child: const Text('Could not load posts. Retry')),
-                            for (final post in _posts)
+                            for (final post in (_profileTabIndex == 0 ? _posts : _posts.where(_postHasMedia).toList()))
                               Card(
                                 child: ListTile(
                                   title: Text((post['content'] ?? '').toString(), maxLines: 5, overflow: TextOverflow.ellipsis),
@@ -444,8 +469,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
                             if (_postsHasMore && !_loadingPosts)
                               Center(child: TextButton(onPressed: _loadPosts, child: const Text('Load more posts'))),
-                            if (_posts.isEmpty && !_loadingPosts && _postsError == null)
-                              const Center(child: Text('No posts yet.')),
+                            if ((_profileTabIndex == 0 ? _posts.isEmpty : !_posts.any(_postHasMedia)) && !_loadingPosts && _postsError == null)
+                              Center(child: Text(_profileTabIndex == 0 ? 'No posts yet.' : 'No media posts yet.')),
                           ],
                         ],
                       ),
