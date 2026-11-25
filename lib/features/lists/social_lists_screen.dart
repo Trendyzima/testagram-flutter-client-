@@ -39,7 +39,7 @@ class _SocialListsScreenState extends State<SocialListsScreen> {
     } catch (error) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not ' + (nextPinned ? 'pin' : 'unpin') + ' list: $error')),
+          SnackBar(content: Text('Could not ${nextPinned ? 'pin' : 'unpin'} list: $error')),
         );
       }
     } finally {
