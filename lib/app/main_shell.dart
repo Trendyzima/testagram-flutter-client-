@@ -199,6 +199,7 @@ class _MainShellState extends State<MainShell> {
     (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
     (14, Icons.list_alt_outlined, Icons.list_alt_rounded, 'Lists'),
     (15, Icons.bookmark_border_rounded, Icons.bookmark_rounded, 'Bookmarks'),
+    (16, Icons.history_rounded, Icons.history_rounded, 'History'),
   ];
 
   Future<void> _openInitialDeepLink() async {
@@ -279,11 +280,7 @@ class _MainShellState extends State<MainShell> {
               ),
             ));
             break;
-          case 'history':
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => BrowsingHistoryScreen(api: widget.api),
-            ));
-            break;
+          case 'history': _selectDestination(16); break;
           case 'follow-requests':
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => FollowRequestsScreen(api: widget.api),
@@ -491,7 +488,7 @@ class _MainShellState extends State<MainShell> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4, 15]),
+                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4, 15, 16]),
                         const SizedBox(height: 12),
                         _sidebarSection('CONNECT', const [12, 13, 14, 7]),
                         const SizedBox(height: 12),
@@ -914,6 +911,7 @@ class _MainShellState extends State<MainShell> {
         CallsScreen(api: widget.api),
         SocialListsScreen(api: widget.api, onSignOut: widget.onSignOut),
         SavedPostsScreen(api: widget.api),
+        BrowsingHistoryScreen(api: widget.api),
       ];
 
   @override
