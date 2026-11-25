@@ -787,6 +787,7 @@ class BackendApi {
     String userId, {
     int limit = 20,
     String? cursor,
+    bool mediaOnly = false,
   }) {
     if (limit < 1 || limit > 50) {
       throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
@@ -796,6 +797,7 @@ class BackendApi {
       baseUri.resolve('/api/social/profiles/$userId/posts').replace(
         queryParameters: {
           'limit': '$limit',
+          'media_only': '$mediaOnly',
           if (cursor != null && cursor.isNotEmpty) 'before': cursor,
         },
       ),
