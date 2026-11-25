@@ -24,7 +24,7 @@ class TestagramDeepLink {
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'messages', 'inbox',
     'lists', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
-    'polls', 'calls', 'creator', 'wallet', 'hashtags', 'federation', 'profile',
+    'polls', 'calls', 'creator', 'hashtags', 'federation', 'profile',
   };
 
   static final RegExp _username = RegExp(r'^[A-Za-z0-9_.]{2,30}$');
