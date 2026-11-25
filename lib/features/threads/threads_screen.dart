@@ -469,13 +469,15 @@ class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
         final ids = state['thread_ids'];
         bookmarked = ids is List && ids.map((value) => value.toString()).contains(widget.threadId);
       } catch (_) {}
-      if (mounted) setState(() {
-        _thread = thread;
-        _liked = liked;
-        _reposted = reposted;
-        _bookmarked = bookmarked;
-        _loading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _thread = thread;
+          _liked = liked;
+          _reposted = reposted;
+          _bookmarked = bookmarked;
+          _loading = false;
+        });
+      }
     } catch (error) {
       if (mounted) setState(() { _error = error.toString(); _loading = false; });
     }
@@ -587,7 +589,7 @@ class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
                         ),
                         OutlinedButton.icon(
                           onPressed: _busy ? null : () => _toggle('repost'),
-                          icon: Icon(Icons.repeat),
+                          icon: const Icon(Icons.repeat),
                           label: Text(_reposted ? 'Reposted' : 'Repost'),
                         ),
                         OutlinedButton.icon(
