@@ -391,6 +391,13 @@ class _ThreadsScreenState extends State<ThreadsScreen> {
                       ..._mediaWidgets(item),
                       const SizedBox(height: 10),
                       Wrap(spacing: 8, children: [
+                        TextButton.icon(
+                          onPressed: id.isEmpty ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => ThreadDetailScreen(api: widget.api, threadId: id),
+                          )),
+                          icon: const Icon(Icons.open_in_new_rounded),
+                          label: const Text('Open thread'),
+                        ),
                         TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'like'), icon: const Icon(Icons.favorite_border), label: Text((item['likes_count'] ?? 0).toString())),
                         TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'repost'), icon: const Icon(Icons.repeat), label: Text((item['reposts_count'] ?? 0).toString())),
                         TextButton.icon(onPressed: actionBusy ? null : () => _toggle(id, 'bookmark'), icon: const Icon(Icons.bookmark_border), label: const Text('Save')),
@@ -416,4 +423,193 @@ class _ThreadDraft {
   final Uint8List? imageBytes;
   final String? imageName;
   final String? imageContentType;
+}
+
+
+class ThreadDetailScreen extends StatefulWidget {
+  const ThreadDetailScreen({super.key, required this.api, required this.threadId});
+  final BackendApi api;
+  final String threadId;
+
+  @override
+  State<ThreadDetailScreen> createState() => _ThreadDetailScreenState();
+}
+
+class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
+  Map<String, dynamic>? _thread;
+  bool _liked = false;
+  bool _reposted = false;
+  bool _bookmarked = false;
+  bool _loading = true;
+  bool _busy = false;
+  String? _error;
+
+  Map<String, dynamic> _data(Map<String, dynamic> response) {
+    final value = response['data'];
+    return value is Map ? Map<String, dynamic>.from(value) : response;
+  }
+
+  Future<void> _load({bool silent = false}) async {
+    if (mounted) setState(() { if (!silent) _loading = true; _error = null; });
+    try {
+      final thread = _data(await widget.api.getThread(widget.threadId));
+      var liked = false;
+      var reposted = false;
+      var bookmarked = false;
+      try {
+        final state = _data(await widget.api.getThreadLikeState(widget.threadId));
+        liked = state['liked'] == true;
+      } catch (_) {}
+      try {
+        final state = _data(await widget.api.getThreadRepostState(widget.threadId));
+        reposted = state['reposted'] == true;
+      } catch (_) {}
+      try {
+        final state = _data(await widget.api.getThreadBookmarkStates([widget.threadId]));
+        final ids = state['thread_ids'];
+        bookmarked = ids is List && ids.map((value) => value.toString()).contains(widget.threadId);
+      } catch (_) {}
+      if (mounted) {
+        setState(() {
+          _thread = thread;
+          _liked = liked;
+          _reposted = reposted;
+          _bookmarked = bookmarked;
+          _loading = false;
+        });
+      }
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _toggle(String action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      if (action == 'like') {
+        await widget.api.toggleThreadLike(widget.threadId);
+      } else if (action == 'repost') {
+        await widget.api.toggleThreadRepost(widget.threadId);
+      } else {
+        await widget.api.toggleThreadBookmark(widget.threadId);
+      }
+      await _load(silent: true);
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+    _recordBrowsingHistory();
+  }
+
+  Future<void> _recordBrowsingHistory() async {
+    try {
+      await widget.api.recordBrowsingHistory(
+        entityType: 'thread',
+        entityId: widget.threadId,
+        metadata: const {'source': 'thread_detail'},
+      );
+    } catch (_) {}
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final thread = _thread;
+    final profileValue = thread?['profiles'];
+    final profile = profileValue is Map ? profileValue : const {};
+    final mediaValue = thread?['media_urls'];
+    final media = mediaValue is List ? mediaValue : const [];
+    final avatar = (profile['avatar_url'] ?? '').toString();
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Thread'),
+        actions: [
+          IconButton(onPressed: _loading ? null : () => _load(), icon: const Icon(Icons.refresh_rounded)),
+        ],
+      ),
+      body: _loading && thread == null
+          ? const Center(child: CircularProgressIndicator())
+          : _error != null && thread == null
+              ? Center(child: Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    Text(_error!, textAlign: TextAlign.center),
+                    const SizedBox(height: 12),
+                    OutlinedButton(onPressed: () => _load(), child: const Text('Retry')),
+                  ]),
+                ))
+              : thread == null
+                  ? const Center(child: Text('Thread unavailable.'))
+                  : ListView(padding: const EdgeInsets.all(16), children: [
+                      Row(children: [
+                        CircleAvatar(
+                          backgroundImage: avatar.isEmpty ? null : NetworkImage(avatar),
+                          child: avatar.isEmpty ? const Icon(Icons.person_outline_rounded) : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text((profile['display_name'] ?? profile['username'] ?? 'Testagram member').toString(),
+                              style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('@${(profile['username'] ?? '').toString()}',
+                              style: Theme.of(context).textTheme.bodySmall),
+                        ])),
+                        Text((thread['created_at'] ?? '').toString().split('T').first,
+                            style: Theme.of(context).textTheme.bodySmall),
+                      ]),
+                      const SizedBox(height: 18),
+                      SelectableText((thread['body'] ?? '').toString(),
+                          style: Theme.of(context).textTheme.titleMedium),
+                      if (media.isNotEmpty) ...[
+                        const SizedBox(height: 16),
+                        ...media.whereType<Map>().map((item) {
+                          final url = (item['url'] ?? '').toString();
+                          if (url.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.network(url, fit: BoxFit.cover,
+                                errorBuilder: (_, __, ___) => const SizedBox.shrink()),
+                            ),
+                          );
+                        }),
+                      ],
+                      const SizedBox(height: 18),
+                      Row(children: [
+                        Text('${thread['likes_count'] ?? 0} likes'),
+                        const SizedBox(width: 16),
+                        Text('${thread['reposts_count'] ?? 0} reposts'),
+                        const SizedBox(width: 16),
+                        Text('${thread['replies_count'] ?? 0} replies'),
+                      ]),
+                      const Divider(height: 28),
+                      Wrap(spacing: 8, runSpacing: 8, children: [
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _toggle('like'),
+                          icon: Icon(_liked ? Icons.favorite : Icons.favorite_border),
+                          label: Text(_liked ? 'Liked' : 'Like'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _toggle('repost'),
+                          icon: const Icon(Icons.repeat),
+                          label: Text(_reposted ? 'Reposted' : 'Repost'),
+                        ),
+                        OutlinedButton.icon(
+                          onPressed: _busy ? null : () => _toggle('bookmark'),
+                          icon: Icon(_bookmarked ? Icons.bookmark : Icons.bookmark_border),
+                          label: Text(_bookmarked ? 'Saved' : 'Save'),
+                        ),
+                      ]),
+                    ]),
+    );
+  }
 }

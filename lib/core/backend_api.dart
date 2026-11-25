@@ -25,6 +25,22 @@ class BackendApi {
   final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
+  Future<Map<String, dynamic>> getBookmarkedPosts({
+    int limit = 20,
+    String? cursor,
+  }) {
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/bookmarks').replace(queryParameters: {
+        'limit': '$limit',
+        if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+      }),
+    );
+  }
+
   Future<Map<String, dynamic>> getHomeFeed({
     int limit = 20,
     String? cursor,
@@ -144,6 +160,11 @@ class BackendApi {
         'POST',
         baseUri.resolve('/api/knowledge/questions/$questionId/answers/$answerId/accept'),
       );
+
+  Future<Map<String, dynamic>> getSocialSuggestions({int limit = 8}) =>
+      _request('GET', baseUri.resolve('/api/social/suggestions').replace(
+        queryParameters: {'limit': '$limit'},
+      ));
 
   Future<Map<String, dynamic>> getSocialLists() =>
       _request('GET', baseUri.resolve('/api/social/lists'));
@@ -782,6 +803,7 @@ class BackendApi {
     String userId, {
     int limit = 20,
     String? cursor,
+    bool mediaOnly = false,
   }) {
     if (limit < 1 || limit > 50) {
       throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
@@ -791,6 +813,7 @@ class BackendApi {
       baseUri.resolve('/api/social/profiles/$userId/posts').replace(
         queryParameters: {
           'limit': '$limit',
+          'media_only': '$mediaOnly',
           if (cursor != null && cursor.isNotEmpty) 'before': cursor,
         },
       ),
@@ -1090,6 +1113,25 @@ class BackendApi {
     });
   }
 
+  Future<Map<String, dynamic>> deleteMessage(String messageId) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.delete', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> reactToMessage({
+    required String messageId,
+    String reaction = '❤️',
+    bool remove = false,
+  }) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    final emoji = reaction.trim();
+    if (emoji.isEmpty || emoji.length > 32) throw ArgumentError.value(reaction, 'reaction');
+    return callCapability('testagram.messages.react', input: {
+      'message_id': messageId.trim(),
+      'reaction': emoji,
+      'remove': remove,
+    });
+  }
   Future<Map<String, dynamic>> markMessageRead(String messageId) {
     if (messageId.trim().isEmpty) throw ArgumentError.value(messageId, 'messageId');
     return callCapability('testagram.messages.mark_read', input: {'message_id': messageId.trim()});
@@ -1125,6 +1167,239 @@ class BackendApi {
   Future<Map<String, dynamic>> endCallSession(String callId) {
     if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
     return callCapability('testagram.calls.end', input: {'call_id': callId.trim()});
+  }
+
+  /// Lists live Audio Spaces using the canonical Backend authorization boundary.
+  Future<Map<String, dynamic>> listLiveAudioSpaces() =>
+      callCapability('testagram.audio_spaces.list_live');
+
+  Future<Map<String, dynamic>> getAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.get', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> getMyAudioSpaceStatus(String spaceId) =>
+      callCapability('testagram.audio_spaces.my_status', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> createAudioSpace({
+    required String title,
+    String description = '',
+    int maxAudience = 1000,
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000 ||
+        maxAudience < 2 || maxAudience > 10000) {
+      throw ArgumentError('Audio Space title, description or audience limit is invalid');
+    }
+    return callCapability('testagram.audio_spaces.create', input: {
+      'title': name,
+      'description': description.trim(),
+      'max_audience': maxAudience,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.join', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> leaveAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.leave', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> requestAudioSpaceSpeaker(String spaceId) =>
+      callCapability('testagram.audio_spaces.request_speaker', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> listAudioSpaceSpeakerRequests(String spaceId) =>
+      callCapability('testagram.audio_spaces.pending_speaker_requests', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> decideAudioSpaceSpeaker({
+    required String spaceId,
+    required String userId,
+    required bool approve,
+  }) {
+    if (userId.trim().isEmpty || userId.length > 64) {
+      throw ArgumentError.value(userId, 'userId');
+    }
+    return callCapability('testagram.audio_spaces.decide_speaker', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'user_id': userId.trim(),
+      'decision': approve ? 'approved' : 'denied',
+    });
+  }
+
+  Future<Map<String, dynamic>> updateAudioSpace({
+    required String spaceId,
+    required String title,
+    String description = '',
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000) {
+      throw ArgumentError('Audio Space update is invalid');
+    }
+    return callCapability('testagram.audio_spaces.update', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'title': name,
+      'description': description.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> endAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.end', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> sendAudioSpaceSuperchat({
+    required String spaceId,
+    required String message,
+    required String amount,
+    required String idempotencyKey,
+  }) {
+    if (message.trim().isEmpty || message.trim().length > 280 ||
+        amount.trim().isEmpty || idempotencyKey.trim().length < 8 ||
+        idempotencyKey.trim().length > 128) {
+      throw ArgumentError('Audio Space Super Chat details are invalid');
+    }
+    return callCapability('testagram.audio_spaces.superchat', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'message': message.trim(),
+      'amount': amount.trim(),
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  String _requiredSpaceId(String value) {
+    final id = value.trim();
+    if (id.isEmpty || id.length > 64) throw ArgumentError.value(value, 'spaceId');
+    return id;
+  }
+
+  /// Follow-request moderation uses the same Backend handlers as native social routes.
+  Future<Map<String, dynamic>> listFollowRequests() =>
+      callCapability('testagram.follow_requests.list');
+
+  Future<Map<String, dynamic>> acceptFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.accept',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> rejectFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.reject',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getPostPoll(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/poll'));
+  }
+
+  Future<Map<String, dynamic>> getPostReactionState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reaction'));
+  }
+
+  Future<Map<String, dynamic>> getPostRepostState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reposts'));
+  }
+
+  Future<Map<String, dynamic>> getPublicFeed({int limit = 20, String? before}) {
+    if (limit < 1 || limit > 50) throw ArgumentError.value(limit, 'limit');
+    final query = <String, String>{'limit': '$limit'};
+    if (before != null && before.trim().isNotEmpty) query['before'] = before.trim();
+    return _request('GET', baseUri.resolve('/api/feed/public').replace(queryParameters: query));
+  }
+
+  String _requiredThreadId(String value) {
+    final id = value.trim();
+    if (!_isCanonicalAccountId(id.toLowerCase())) {
+      throw ArgumentError.value(value, 'threadId', 'Invalid Testagram thread UUID');
+    }
+    return id.toLowerCase();
+  }
+
+  Future<Map<String, dynamic>> getThread(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> deleteThread(String threadId) =>
+      _request('DELETE', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> listThreadLikes(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadLikeState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes/state'));
+
+  Future<Map<String, dynamic>> listThreadReposts(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts/state'));
+
+  Future<Map<String, dynamic>> getThreadLikeStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/likes/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/reposts/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getThreadBookmarkStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/bookmarks/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getBrowsingHistory() =>
+      _request('GET', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> recordBrowsingHistory({
+    required String entityType,
+    required String entityId,
+    Map<String, dynamic> metadata = const {},
+  }) {
+    if (!const {'post', 'thread', 'video'}.contains(entityType.trim().toLowerCase()) ||
+        entityId.trim().isEmpty || entityId.length > 64) {
+      throw ArgumentError('Browsing history item is invalid');
+    }
+    return _request('POST', baseUri.resolve('/api/social/history'), body: {
+      'entity_type': entityType.trim().toLowerCase(),
+      'entity_id': entityId.trim(),
+      'metadata': metadata,
+    });
+  }
+
+  Future<Map<String, dynamic>> clearBrowsingHistory() =>
+      _request('DELETE', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> listOwnedMedia() =>
+      _request('POST', baseUri.resolve('/api/media/list'), body: const {});
+
+  Future<Map<String, dynamic>> getPrivateMediaDownloadUrl(String key) {
+    if (key.trim().isEmpty || key.length > 1024) throw ArgumentError.value(key, 'key');
+    return _request('POST', baseUri.resolve('/api/media/private-download-url'),
+        body: {'key': key.trim()});
   }
 
   /// Calls a first-party Backend capability. Product data never bypasses

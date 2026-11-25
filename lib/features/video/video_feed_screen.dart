@@ -142,6 +142,13 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     try {
       // Count only after the active controller has actually started playback.
       await _videoApi!.recordView(id, _session);
+      try {
+        await widget.api.recordBrowsingHistory(
+          entityType: 'video',
+          entityId: id,
+          metadata: const {'source': 'video_feed'},
+        );
+      } catch (_) {}
     } catch (_) {
       _viewedThisSession.remove(id);
     }

@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import 'call_room_screen.dart';
+import 'audio_spaces_screen.dart';
 
 class CallsScreen extends StatefulWidget {
   const CallsScreen({super.key, required this.api});
@@ -65,6 +66,13 @@ class _CallsScreenState extends State<CallsScreen> {
     appBar: AppBar(
       title: const Text('Audio & video calls'),
       actions: [
+        IconButton(
+          tooltip: 'Explore live Audio Spaces',
+          onPressed: () => Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => AudioSpacesScreen(api: widget.api),
+          )),
+          icon: const Icon(Icons.graphic_eq_rounded),
+        ),
         IconButton(
           tooltip: 'Refresh call history',
           onPressed: _loading ? null : _load,

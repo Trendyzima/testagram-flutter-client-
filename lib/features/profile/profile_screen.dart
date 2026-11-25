@@ -3,17 +3,20 @@ import 'package:material_ui/material_ui.dart';
 import '../posts/post_detail_screen.dart';
 
 import '../../core/backend_api.dart';
+import 'follow_requests_screen.dart';
+import '../posts/saved_posts_screen.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 import 'profile_connections_screen.dart';
 import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.api, required this.userId});
+  const ProfileScreen({super.key, required this.api, required this.userId, this.initialTab = 0});
 
-  const ProfileScreen.currentUser({super.key, required this.api}) : userId = null;
+  const ProfileScreen.currentUser({super.key, required this.api, this.initialTab = 0}) : userId = null;
 
   final BackendApi api;
   final String? userId;
+  final int initialTab;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,6 +40,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _profileTabIndex = widget.initialTab.clamp(0, 1).toInt();
     _load();
   }
 
@@ -105,12 +109,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (reset) {
         _posts.clear();
         _postsCursor = null;
+        _postsHasMore = true;
       }
     });
     try {
       final response = await widget.api.getProfilePosts(
         _targetUserId,
         cursor: _postsCursor,
+        mediaOnly: _profileTabIndex == 1,
       );
       final data = response['data'];
       if (data is! Map || data['posts'] is! List) {
@@ -303,12 +309,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               ],
             ),
-          if (_profile?['is_self'] == true)
+          if (_profile?['is_self'] == true) ...[
+            IconButton(
+              tooltip: 'Follow requests',
+              onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => FollowRequestsScreen(api: widget.api),
+              )),
+              icon: const Icon(Icons.person_add_alt_1_outlined),
+            ),
+            IconButton(
+              tooltip: 'Browsing history',
+              onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => BrowsingHistoryScreen(api: widget.api),
+              )),
+              icon: const Icon(Icons.history_rounded),
+            ),
             IconButton(
               tooltip: 'Edit profile',
               onPressed: _busy ? null : _editProfile,
               icon: const Icon(Icons.edit_outlined),
             ),
+          ],
         ],
       ),
       body: _loading && profile == null
@@ -498,13 +519,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ChoiceChip(
                                   label: const Text('Posts'),
                                   selected: _profileTabIndex == 0,
-                                  onSelected: (_) => setState(() => _profileTabIndex = 0),
+                                  onSelected: _loadingPosts ? null : (_) {
+                                    setState(() => _profileTabIndex = 0);
+                                    _loadPosts(reset: true);
+                                  },
                                 ),
                                 const SizedBox(width: 8),
                                 ChoiceChip(
                                   label: const Text('Media'),
                                   selected: _profileTabIndex == 1,
-                                  onSelected: (_) => setState(() => _profileTabIndex = 1),
+                                  onSelected: _loadingPosts ? null : (_) {
+                                    setState(() => _profileTabIndex = 1);
+                                    _loadPosts(reset: true);
+                                  },
                                 ),
                               ],
                             ),

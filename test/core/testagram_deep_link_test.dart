@@ -81,6 +81,93 @@ void main() {
       }
     });
 
+    test('resolves first-class X-style Testagram destinations', () {
+      const routes = {
+        '/home': 'home',
+        '/following': 'following',
+        '/for-you': 'for-you',
+        '/latest': 'latest',
+        '/media': 'media',
+        '/discover': 'discover',
+        '/compose/post': 'compose',
+        '/explore': 'explore',
+        '/communities': 'communities',
+        '/topics': 'topics',
+        '/questions': 'questions',
+        '/videos': 'videos',
+        '/watch': 'watch',
+        '/live': 'live',
+        '/spaces': 'spaces',
+        '/audio-spaces': 'audio-spaces',
+        '/follow-requests': 'follow-requests',
+        '/history': 'history',
+        '/federated': 'federated',
+        '/search': 'search',
+        '/notifications': 'notifications',
+        '/messages': 'messages',
+        '/inbox': 'inbox',
+        '/i/bookmarks': 'bookmarks',
+        '/i/lists': 'lists',
+        '/lists': 'lists',
+        '/settings': 'settings',
+        '/settings/federation': 'federation',
+        '/knowledge': 'knowledge',
+        '/ask': 'ask',
+        '/video': 'video',
+        '/shorts': 'shorts',
+        '/threads': 'threads',
+        '/polls': 'polls',
+        '/calls': 'calls',
+        '/creator': 'creator',
+        '/hashtags': 'hashtags',
+      };
+      for (final entry in routes.entries) {
+        final link = TestagramDeepLink.parse(entry.key);
+        expect(link?.kind, TestagramDeepLinkKind.destination, reason: entry.key);
+        expect(link?.destination, entry.value, reason: entry.key);
+      }
+      expect(TestagramDeepLink.parse('testagram://messages')?.destination, 'messages');
+      expect(TestagramDeepLink.parse('testagram://compose/post')?.destination, 'compose');
+      expect(TestagramDeepLink.parse('/i/communities')?.destination, 'communities');
+      expect(TestagramDeepLink.parse('testagram://spaces')?.destination, 'spaces');
+      expect(TestagramDeepLink.parse('/i/spaces')?.destination, 'spaces');
+      expect(TestagramDeepLink.parse('https://evil.example/messages'), isNull);
+      expect(TestagramDeepLink.parse('/messages?redirect=https://evil.example'), isNull);
+    });
+
+    test('resolves post and profile connection routes with validated identifiers', () {
+      const postId = '123e4567-e89b-42d3-a456-426614174000';
+      final post = TestagramDeepLink.parse('/post/$postId');
+      expect(post?.kind, TestagramDeepLinkKind.post);
+      expect(post?.postId, postId);
+      final status = TestagramDeepLink.parse('/@Trendz_01/status/$postId');
+      expect(status?.kind, TestagramDeepLinkKind.post);
+      expect(status?.postId, postId);
+      final media = TestagramDeepLink.parse('/@Trendz_01/media');
+      expect(media?.kind, TestagramDeepLinkKind.profileMedia);
+      expect(media?.username, 'Trendz_01');
+      final followers = TestagramDeepLink.parse('/@Trendz_01/followers');
+      expect(followers?.kind, TestagramDeepLinkKind.profileConnections);
+      expect(followers?.username, 'Trendz_01');
+      expect(followers?.connectionKind, 'followers');
+      final following = TestagramDeepLink.parse('/@Trendz_01/following');
+      expect(following?.connectionKind, 'following');
+      final list = TestagramDeepLink.parse('/i/lists/$postId');
+      expect(list?.kind, TestagramDeepLinkKind.socialList);
+      expect(list?.listId, postId);
+      expect(TestagramDeepLink.parse('/i/lists/not-a-uuid'), isNull);
+      expect(TestagramDeepLink.parse('/post/not-a-uuid'), isNull);
+      expect(TestagramDeepLink.parse('/@Trendz_01/blocked'), isNull);
+    });
+
+    test('resolves individual thread detail routes with validated identifiers', () {
+      const id = '123e4567-e89b-42d3-a456-426614174000';
+      final link = TestagramDeepLink.parse('https://testagram.site/threads/$id');
+      expect(link?.kind, TestagramDeepLinkKind.thread);
+      expect(link?.threadId, id);
+      expect(TestagramDeepLink.parse('/threads/not-a-uuid'), isNull);
+    });
+
     test('rejects oversized input', () {
       expect(TestagramDeepLink.parse('/${List.filled(2049, 'a').join()}'), isNull);
     });

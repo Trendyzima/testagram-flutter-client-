@@ -39,19 +39,30 @@ class AppConfig {
       .where((host) => host.isNotEmpty)
       .toSet();
 
-  // The video service is routed by Caddy under the same HTTPS API origin.
-  // A separate origin remains overridable for staging or dedicated deployments.
+  // Video is a separate Data Centre service. Never send its /v1 routes to
+  // the product API unless an explicit public ingress routes them to video.
   static const videoApiUrl = String.fromEnvironment(
     'TESTAGRAM_VIDEO_API_URL',
-    defaultValue: backendApiUrl,
+    defaultValue: '',
   );
 
-  static Uri? get videoApiOrigin {
-    final value = videoApiUrl.trim();
-    if (value.isEmpty || !_isHttpsUrl(value)) return null;
-    return Uri.parse(value);
-  }
+  static Uri? get videoApiOrigin => parseVideoApiOrigin(videoApiUrl);
 
+  static Uri? parseVideoApiOrigin(String raw) {
+    final value = raw.trim();
+    if (value.isEmpty || !_isHttpsUrl(value)) return null;
+    final uri = Uri.parse(value);
+    // VideoApi uses absolute /v1 paths. Reject path-prefixed values and the
+    // product API/site origins so a missing video ingress cannot silently
+    // send video traffic to the Backend or marketing site.
+    if (uri.path.isNotEmpty && uri.path != '/') return null;
+    final api = backendOrigin;
+    final site = Uri.parse(siteUrl);
+    bool sameOrigin(Uri other) => uri.scheme == other.scheme &&
+        uri.host == other.host && uri.port == other.port;
+    if (sameOrigin(api) || sameOrigin(site)) return null;
+    return uri;
+  }
   static bool get isConfigured =>
       _isHttpsUrl(backendApiUrl) && _isHttpsUrl(siteUrl);
 

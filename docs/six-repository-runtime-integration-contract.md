@@ -76,3 +76,31 @@ This is the shared communication contract for the six runtime organs plus the AP
 4. Exercise authorization failures, malformed/oversized payloads, duplicate requests, upstream outage, retry and recovery.
 5. Verify media upload -> completion -> CDN retrieval, including private-media denial and byte-range behavior.
 6. Keep all changes in reviewable PRs. Merge and deploy only after the release owner explicitly approves the verified set.
+
+
+## Flutter feature route mapping and current ingress verification (2026-11-26)
+
+The Flutter client uses the public Backend as its product API. Backend capability operations are sent to POST /api/capability with the native access token; a capability name is not a public microservice hostname.
+
+- Authentication is owned by NativeAuthClient at /api/auth/*.
+- Authentication is owned by NativeAuthClient at /api/auth/*. Separate identity application and verification evidence routes are owned by IdentityVerificationClient: /api/identity/applications, application status/provisioning/verification, session status, and evidence reservation/upload/submit. Evidence bytes are sent only to the same HTTPS Backend origin after validating the returned upload path; identity application/session capabilities are stored in platform secure storage without passwords or raw evidence.
+- Public discovery feed, feed lanes, profiles, posts, replies, post interaction summaries/lists, bookmarks, lists, hashtags, search, notifications, knowledge, polls, federation preferences/subscriptions, wallet actions, browsing history and owned/private media routes use BackendApi against TESTAGRAM_API_URL.
+- Direct-message and call-session metadata uses Backend capabilities. Message plaintext/send remains disabled until the client has verified device-key registration, recipient-key verification and decryption. A call session or signaling ticket does not prove media is connected.
+- Threads list/detail, create, media attachment, delete, like/repost/bookmark toggles, individual state reads, batch state reads and interaction lists use BackendApi against the registered /api/threads routes. Browsing history and private-media list/download routes are also represented by BackendApi methods.
+- Audio Spaces lifecycle operations (discover/create/join/leave/speaker request/host decision/update/end/Super Chat) use Backend capabilities. The current Data Centre realtime contract explicitly requires a dedicated multi-party media transport/SFU for group Spaces; the one-to-one signaling room is not a substitute.
+- Algorithm and Federation remain private Backend-to-service calls. Flutter must not call either service directly.
+- Data Centre media lifecycle remains Backend-mediated. Flutter must not receive provider credentials or call the private media service directly.
+- The Data Centre video service is a distinct service (listener defaults to :8790). The current public Caddyfile routes api.testagram.site to api:8080 and does not route /v1/videos or /v1/feed to the video service. Consequently TESTAGRAM_VIDEO_API_URL has no default and must remain unset until a reviewed public HTTPS ingress targets that service. Pointing it at TESTAGRAM_API_URL would route video calls to the wrong handler.
+- The realtime Worker documentation states that it is not publicly deployed/routed. Do not enable call or group-audio media UX merely because Backend lifecycle routes exist.
+
+Normal Flutter navigation deliberately excludes staff-only identity review routes, provider callbacks, OPTIONS handlers, /internal/*, health/metrics endpoints, replication ingress and private service APIs. These exclusions are security boundaries, not missing product screens.
+
+## Client coverage additions from the 2026-11-26 parity audit
+
+- Browsing history is now a first-class client screen: GET/POST/DELETE `/api/social/history` are represented by `getBrowsingHistory`, `recordBrowsingHistory` and `clearBrowsingHistory`; `/history` resolves to the screen. Post and thread history entries reopen their exact detail screens. Video entries reopen the Video feed; direct video deep links remain dependent on the separate Data Centre ingress.
+- Individual threads have a validated `/threads/{uuid}` deep link and open `ThreadDetailScreen`, backed by GET `/api/threads/{thread_id}`. Thread likes, reposts, bookmarks, state batches and interaction lists stay on the canonical `/api/threads/*` routes.
+- Conversation messages now expose the Backend-supported `testagram.messages.react` and `testagram.messages.delete` capabilities. The UI permits reaction and sender-only deletion; deletion is committed by the Backend with its durable communication outbox event.
+- The Backend's `testagram.messages.send_encrypted`, `testagram.messages.edit_encrypted` and `testagram.messages.attach` capabilities intentionally return `E2EE_NOT_READY`. They are not presented as working send/edit/attachment controls in Flutter. Message plaintext remains hidden until the reviewed device-key, recipient-verification and decryption lifecycle is implemented.
+- `testagram.realtime.ticket` and `testagram.media.token` are Backend-issued, short-lived signaling/media credentials. Flutter does not request them until a verified public realtime endpoint, WebRTC transport, permissions and media-encryption lifecycle are deployed. A call history/session record is not evidence of a live call.
+- `testagram.posts.like*`, `testagram.posts.repost*`, `testagram.replies.create`, `testagram.bookmarks.*`, and `testagram.notifications.*` are implemented through the matching first-class `/api/social/*` routes where available; capability aliases are not additional microservice endpoints. Follow-request capabilities dispatch to the same canonical `/api/social/follow-requests/*` handlers.
+- The parity boundary excludes staff/admin identity review, provider callbacks, infrastructure health/metrics, replication ingress and private microservice endpoints. TV health and IPTV social routes are a separate optional TV surface and are not silently mapped into the core social navigation.
