@@ -1150,6 +1150,148 @@ class BackendApi {
     return callCapability('testagram.calls.end', input: {'call_id': callId.trim()});
   }
 
+  /// Lists live Audio Spaces using the canonical Backend authorization boundary.
+  Future<Map<String, dynamic>> listLiveAudioSpaces() =>
+      callCapability('testagram.audio_spaces.list_live');
+
+  Future<Map<String, dynamic>> getAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.get', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> getMyAudioSpaceStatus(String spaceId) =>
+      callCapability('testagram.audio_spaces.my_status', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> createAudioSpace({
+    required String title,
+    String description = '',
+    int maxAudience = 1000,
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000 ||
+        maxAudience < 2 || maxAudience > 10000) {
+      throw ArgumentError('Audio Space title, description or audience limit is invalid');
+    }
+    return callCapability('testagram.audio_spaces.create', input: {
+      'title': name,
+      'description': description.trim(),
+      'max_audience': maxAudience,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.join', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> leaveAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.leave', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> requestAudioSpaceSpeaker(String spaceId) =>
+      callCapability('testagram.audio_spaces.request_speaker', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> listAudioSpaceSpeakerRequests(String spaceId) =>
+      callCapability('testagram.audio_spaces.pending_speaker_requests', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> decideAudioSpaceSpeaker({
+    required String spaceId,
+    required String userId,
+    required bool approve,
+  }) {
+    if (userId.trim().isEmpty || userId.length > 64) {
+      throw ArgumentError.value(userId, 'userId');
+    }
+    return callCapability('testagram.audio_spaces.decide_speaker', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'user_id': userId.trim(),
+      'decision': approve ? 'approved' : 'denied',
+    });
+  }
+
+  Future<Map<String, dynamic>> updateAudioSpace({
+    required String spaceId,
+    required String title,
+    String description = '',
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000) {
+      throw ArgumentError('Audio Space update is invalid');
+    }
+    return callCapability('testagram.audio_spaces.update', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'title': name,
+      'description': description.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> endAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.end', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> sendAudioSpaceSuperchat({
+    required String spaceId,
+    required String message,
+    required String amount,
+    required String idempotencyKey,
+  }) {
+    if (message.trim().isEmpty || message.trim().length > 280 ||
+        amount.trim().isEmpty || idempotencyKey.trim().length < 8 ||
+        idempotencyKey.trim().length > 128) {
+      throw ArgumentError('Audio Space Super Chat details are invalid');
+    }
+    return callCapability('testagram.audio_spaces.superchat', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'message': message.trim(),
+      'amount': amount.trim(),
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  String _requiredSpaceId(String value) {
+    final id = value.trim();
+    if (id.isEmpty || id.length > 64) throw ArgumentError.value(value, 'spaceId');
+    return id;
+  }
+
+  /// Follow-request moderation uses the same Backend handlers as native social routes.
+  Future<Map<String, dynamic>> listFollowRequests() =>
+      callCapability('testagram.follow_requests.list');
+
+  Future<Map<String, dynamic>> acceptFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.accept',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> rejectFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.reject',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getPostPoll(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/' +
+        Uri.encodeComponent(postId.trim()) + '/poll'));
+  }
+
+  Future<Map<String, dynamic>> getPostReactionState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/' +
+        Uri.encodeComponent(postId.trim()) + '/reaction'));
+  }
+
+  Future<Map<String, dynamic>> getPostRepostState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/' +
+        Uri.encodeComponent(postId.trim()) + '/reposts'));
+  }
+
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
