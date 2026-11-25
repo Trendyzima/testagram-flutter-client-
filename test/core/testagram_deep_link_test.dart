@@ -85,6 +85,7 @@ void main() {
       const routes = {
         '/home': 'home',
         '/explore': 'explore',
+        '/communities': 'communities',
         '/search': 'search',
         '/notifications': 'notifications',
         '/messages': 'messages',
@@ -122,6 +123,9 @@ void main() {
       final status = TestagramDeepLink.parse('/@Trendz_01/status/$postId');
       expect(status?.kind, TestagramDeepLinkKind.post);
       expect(status?.postId, postId);
+      final media = TestagramDeepLink.parse('/@Trendz_01/media');
+      expect(media?.kind, TestagramDeepLinkKind.profileMedia);
+      expect(media?.username, 'Trendz_01');
       final followers = TestagramDeepLink.parse('/@Trendz_01/followers');
       expect(followers?.kind, TestagramDeepLinkKind.profileConnections);
       expect(followers?.username, 'Trendz_01');
