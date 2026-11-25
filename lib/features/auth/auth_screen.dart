@@ -965,27 +965,27 @@ class _AuthScreenState extends State<AuthScreen> {
                 ]),
               ),
               const SizedBox(height: 10),
-              CheckboxListTile(
+              Material(color: Colors.transparent, child: CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _adultConfirmed,
                 onChanged: _busy ? null : (value) => setState(() => _adultConfirmed = value == true),
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('I confirm that I am at least 18 years old.'),
-              ),
-              CheckboxListTile(
+              )),
+              Material(color: Colors.transparent, child: CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _termsAccepted,
                 onChanged: _busy ? null : (value) => setState(() => _termsAccepted = value == true),
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('I have read and accept the Testagram Terms of Service.'),
-              ),
-              CheckboxListTile(
+              )),
+              Material(color: Colors.transparent, child: CheckboxListTile(
                 contentPadding: EdgeInsets.zero,
                 value: _privacyAccepted,
                 onChanged: _busy ? null : (value) => setState(() => _privacyAccepted = value == true),
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('I have read and accept the Testagram Privacy Notice.'),
-              ),
+              )),
               Wrap(
                 spacing: 8,
                 children: [
