@@ -14,6 +14,7 @@ class SocialListsScreen extends StatefulWidget {
 
 class _SocialListsScreenState extends State<SocialListsScreen> {
   late Future<Map<String, dynamic>> _future;
+  final Set<String> _pinning = {};
 
   @override
   void initState() {
@@ -27,6 +28,25 @@ class _SocialListsScreenState extends State<SocialListsScreen> {
     await next;
   }
 
+  Future<void> _togglePin(Map<String, dynamic> item) async {
+    final id = (item['id'] ?? '').toString();
+    if (id.isEmpty || !_pinning.add(id)) return;
+    final nextPinned = item['pinned'] != true;
+    setState(() {});
+    try {
+      await widget.api.updateSocialListPin(id, pinned: nextPinned);
+      if (mounted) await _reload();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not ' + (nextPinned ? 'pin' : 'unpin') + ' list: $error')),
+        );
+      }
+    } finally {
+      _pinning.remove(id);
+      if (mounted) setState(() {});
+    }
+  }
   Future<void> _createList() async {
     final name = TextEditingController();
     final description = TextEditingController();
@@ -152,7 +172,23 @@ class _SocialListsScreenState extends State<SocialListsScreen> {
                   leading: CircleAvatar(child: Icon(visibility == 'private' ? Icons.lock_outline : Icons.list_alt_rounded)),
                   title: Text((item['name'] ?? '').toString(), style: const TextStyle(fontWeight: FontWeight.w700)),
                   subtitle: Text('${item['members_count'] ?? 0} members · $visibility'),
-                  trailing: const Icon(Icons.chevron_right_rounded),
+                  trailing: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: item['pinned'] == true ? 'Unpin list' : 'Pin list to Home',
+                        onPressed: _pinning.contains((item['id'] ?? '').toString())
+                            ? null
+                            : () => _togglePin(item),
+                        icon: Icon(
+                          item['pinned'] == true
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                        ),
+                      ),
+                      const Icon(Icons.chevron_right_rounded),
+                    ],
+                  ),
                   onTap: () async {
                     await Navigator.of(context).push(MaterialPageRoute<void>(
                       builder: (_) => _SocialListDetailScreen(api: widget.api, onSignOut: widget.onSignOut, list: item),
