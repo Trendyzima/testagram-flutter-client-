@@ -58,6 +58,18 @@ class _PostDetailScreenState extends State<PostDetailScreen> {
     super.initState();
     _loadPost();
     _loadReplies();
+    _recordBrowsingHistory();
+  }
+
+
+  Future<void> _recordBrowsingHistory() async {
+    try {
+      await widget.api.recordBrowsingHistory(
+        entityType: 'post',
+        entityId: widget.postId,
+        metadata: const {'source': 'post_detail'},
+      );
+    } catch (_) {}
   }
 
   @override
