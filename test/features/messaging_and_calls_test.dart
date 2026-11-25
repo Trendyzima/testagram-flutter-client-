@@ -38,13 +38,14 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Member One'), findsOneWidget);
-    expect(find.textContaining('Encrypted message'), findsOneWidget);
+    expect(find.textContaining('Open conversation'), findsOneWidget);
+    expect(find.textContaining('Encrypted message'), findsNothing);
     expect(find.text('never-render-this-ciphertext'), findsNothing);
     expect(find.text('2'), findsOneWidget);
     api.close();
   });
 
-  testWidgets('conversation displays encrypted placeholders and keeps sending locked', (tester) async {
+  testWidgets('conversation hides unverified envelopes and keeps sending locked', (tester) async {
     final requested = <String>[];
     final api = _api(MockClient((request) async {
       final body = jsonDecode(request.body) as Map<String, dynamic>;
@@ -79,7 +80,8 @@ void main() {
     )));
     await tester.pumpAndSettle();
 
-    expect(find.text('Encrypted payload — decryption unavailable'), findsOneWidget);
+    expect(find.text('Message unavailable'), findsOneWidget);
+    expect(find.textContaining('Encrypted payload'), findsNothing);
     expect(find.text('opaque-ciphertext'), findsNothing);
     expect(find.text('legacy plaintext must never render'), findsNothing);
     expect(find.textContaining('Secure sending is locked'), findsOneWidget);

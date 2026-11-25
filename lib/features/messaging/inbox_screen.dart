@@ -96,7 +96,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     ),
                     title: Text(_conversationName(item), maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
-                      '🔒 Encrypted message · $kind',
+                      'Open conversation · $kind',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
