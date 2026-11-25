@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../posts/post_detail_screen.dart';
+import '../wallet/wallet_transaction_detail_screen.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 import '../../core/widgets/testagram_state_view.dart';
 
@@ -97,6 +98,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (normalized.contains('reply') || normalized.contains('comment')) return Icons.mode_comment_outlined;
     if (normalized.contains('like') || normalized.contains('reaction')) return Icons.favorite_border_rounded;
     if (normalized.contains('repost') || normalized.contains('share')) return Icons.repeat_rounded;
+    if (normalized.contains('wallet') || normalized.contains('deposit') || normalized.contains('transfer') || normalized.contains('topup')) return Icons.account_balance_wallet_outlined;
     if (normalized.contains('answer')) return Icons.lightbulb_outline_rounded;
     if (normalized.contains('moderation') || normalized.contains('security')) return Icons.shield_outlined;
     return Icons.notifications_none_rounded;
@@ -107,6 +109,32 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
     final kind = (item['kind'] ?? '').toString().toLowerCase();
     final postId = (item['post_id'] ?? '').toString();
+    if (kind.startsWith('wallet.')) {
+      final rawPayload = item['payload'];
+      final payload = rawPayload is Map
+          ? Map<String, dynamic>.from(rawPayload)
+          : <String, dynamic>{};
+      final reference = (payload['transfer_id'] ??
+              payload['topup_id'] ??
+              payload['withdrawal_id'] ??
+              payload['transaction_id'] ??
+              item['entity_id'] ??
+              '')
+          .toString();
+      if (reference.isNotEmpty) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => WalletTransactionDetailScreen(
+            api: widget.api,
+            transactionReference: reference,
+          ),
+        ));
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This wallet notification has no transaction reference.')),
+        );
+      }
+      return;
+    }
     if (kind == 'mention' && postId.isNotEmpty) {
       Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PostDetailScreen(api: widget.api, postId: postId),
