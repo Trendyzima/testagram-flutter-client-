@@ -25,6 +25,22 @@ class BackendApi {
   final Future<String?> Function({bool forceRefresh}) getAccessToken;
   final http.Client _client;
 
+  Future<Map<String, dynamic>> getBookmarkedPosts({
+    int limit = 20,
+    String? cursor,
+  }) {
+    if (limit < 1 || limit > 50) {
+      throw ArgumentError.value(limit, 'limit', 'Limit must be between 1 and 50');
+    }
+    return _request(
+      'GET',
+      baseUri.resolve('/api/social/bookmarks').replace(queryParameters: {
+        'limit': '$limit',
+        if (cursor != null && cursor.isNotEmpty) 'before': cursor,
+      }),
+    );
+  }
+
   Future<Map<String, dynamic>> getHomeFeed({
     int limit = 20,
     String? cursor,
