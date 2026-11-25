@@ -6,16 +6,19 @@ class AuthEntry {
     required this.isExplicit,
     this.applicationId,
     this.token,
+    this.isNativeVerification = false,
   });
 
   final AuthEntryMode mode;
   final bool isExplicit;
   final String? applicationId;
   final String? token;
+  final bool isNativeVerification;
 
   bool get hasCompleteCallback {
     if (mode == AuthEntryMode.verifyEmail) {
-      return token != null && token!.isNotEmpty;
+      return token != null && token!.isNotEmpty &&
+          (!isNativeVerification || (applicationId != null && applicationId!.isNotEmpty));
     }
     if (mode == AuthEntryMode.resetPassword) {
       return token != null && token!.isNotEmpty;
@@ -59,6 +62,7 @@ class AuthEntry {
           }.contains(rawMode),
       applicationId: applicationId,
       token: token,
+      isNativeVerification: isNativeVerification,
     );
   }
 }
