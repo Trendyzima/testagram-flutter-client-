@@ -105,6 +105,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (reset) {
         _posts.clear();
         _postsCursor = null;
+        _postsHasMore = true;
       }
     });
     try {
