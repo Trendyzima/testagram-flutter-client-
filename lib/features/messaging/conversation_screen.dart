@@ -165,20 +165,21 @@ class _ConversationScreenState extends State<ConversationScreen> {
                             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                               Text(senderName, style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: 6),
-                              const Row(mainAxisSize: MainAxisSize.min, children: [
-                                Icon(Icons.visibility_off_outlined, size: 16),
-                                SizedBox(width: 7),
-                                Text('Message unavailable'),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                Icon(message['deleted_at'] != null ? Icons.delete_outline_rounded : Icons.visibility_off_outlined, size: 16),
+                                const SizedBox(width: 7),
+                                Text(message['deleted_at'] != null ? 'Message deleted' : 'Message unavailable'),
                               ]),
                               const SizedBox(height: 4),
                               Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
                               Row(mainAxisSize: MainAxisSize.min, children: [
-                                TextButton.icon(
-                                  onPressed: _busyMessageActions.contains((message['id'] ?? '').toString()) ? null : () => _messageAction(message, 'react'),
-                                  icon: const Icon(Icons.favorite_border_rounded, size: 16),
-                                  label: const Text('React'),
-                                ),
-                                if (_myUserId.isNotEmpty && (message['sender_id'] ?? '').toString() == _myUserId)
+                                if (message['deleted_at'] == null)
+                                  TextButton.icon(
+                                    onPressed: _busyMessageActions.contains((message['id'] ?? '').toString()) ? null : () => _messageAction(message, 'react'),
+                                    icon: const Icon(Icons.favorite_border_rounded, size: 16),
+                                    label: const Text('React'),
+                                  ),
+                                if (message['deleted_at'] == null && _myUserId.isNotEmpty && (message['sender_id'] ?? '').toString() == _myUserId)
                                   PopupMenuButton<String>(
                                     enabled: !_busyMessageActions.contains((message['id'] ?? '').toString()),
                                     onSelected: (action) => _messageAction(message, action),
