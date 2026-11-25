@@ -484,7 +484,8 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 760;
-        final extended = constraints.maxWidth >= 1120;\n        final showRightSidebar = constraints.maxWidth >= 1200;
+        final extended = constraints.maxWidth >= 1120;
+        final showRightSidebar = constraints.maxWidth >= 1200;
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
