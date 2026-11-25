@@ -166,6 +166,16 @@ class BackendApi {
   Future<Map<String, dynamic>> getSocialList(String listId) =>
       _request('GET', baseUri.resolve('/api/social/lists/$listId'));
 
+  Future<Map<String, dynamic>> updateSocialListPin(
+    String listId, {
+    required bool pinned,
+  }) =>
+      _request(
+        'PUT',
+        baseUri.resolve('/api/social/lists/$listId/pin'),
+        body: {'pinned': pinned},
+      );
+
   Future<Map<String, dynamic>> getSocialListMembers(String listId) =>
       _request('GET', baseUri.resolve('/api/social/lists/$listId/members'));
 
