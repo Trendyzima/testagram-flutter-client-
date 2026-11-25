@@ -162,7 +162,13 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
                   final item = _items[index];
                   final unread = int.tryParse((item['unread_count'] ?? 0).toString()) ?? 0;
                   final latest = item['latest_message'];
-                  final encrypted = latest is Map && latest['ciphertext'] != null;
+                  final encrypted = latest is Map &&
+                      latest['e2ee_enabled'] == true &&
+                      latest['ciphertext'] is String &&
+                      (latest['ciphertext'] as String).isNotEmpty &&
+                      latest['e2ee_version'] == 'v1' &&
+                      latest['e2ee_epoch'] is num &&
+                      (latest['e2ee_epoch'] as num) > 0;
                   return ListTile(
                     leading: CircleAvatar(child: Icon(item['kind'] == 'group' ? Icons.groups_outlined : Icons.person_outline)),
                     title: Text(_conversationTitle(item), maxLines: 1, overflow: TextOverflow.ellipsis),

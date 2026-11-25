@@ -28,7 +28,12 @@ class _CommunicationApi extends BackendApi {
         'title': 'A private conversation',
         'members': [],
         'unread_count': 2,
-        'latest_message': {'ciphertext': 'opaque-ciphertext'},
+        'latest_message': {
+          'ciphertext': 'opaque-ciphertext',
+          'e2ee_enabled': true,
+          'e2ee_version': 'v1',
+          'e2ee_epoch': 1,
+        },
       }
     ]};
   }
@@ -84,6 +89,22 @@ class _CommunicationApi extends BackendApi {
   }
 }
 
+class _UnverifiedEnvelopeCommunicationApi extends _CommunicationApi {
+  @override
+  Future<Map<String, dynamic>> listConversations({int limit = 50}) async {
+    return {'items': [
+      {
+        'id': 'conversation-unverified',
+        'kind': 'direct',
+        'title': 'Unverified envelope',
+        'members': [],
+        'unread_count': 0,
+        'latest_message': {'ciphertext': 'unverified-client-bytes'},
+      }
+    ]};
+  }
+}
+
 class _PlaintextCommunicationApi extends _CommunicationApi {
   @override
   Future<Map<String, dynamic>> listMessages(String conversationId, {int limit = 50, String? cursor}) async {
@@ -113,6 +134,15 @@ void main() {
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('A private conversation'), findsOneWidget);
     expect(find.text('Encrypted message'), findsOneWidget);
+  });
+
+  testWidgets('inbox never labels ciphertext as E2EE without verified metadata', (tester) async {
+    final api = _UnverifiedEnvelopeCommunicationApi();
+    await tester.pumpWidget(MaterialApp(home: DirectMessagesScreen(api: api)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Unverified envelope'), findsOneWidget);
+    expect(find.text('Encrypted message'), findsNothing);
   });
 
   testWidgets('new direct message resolves a Testagram handle before creating a conversation', (tester) async {
