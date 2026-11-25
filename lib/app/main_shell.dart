@@ -11,6 +11,7 @@ import '../features/discovery/explore_screen.dart';
 import '../features/discovery/hashtag_screen.dart';
 import '../features/discovery/hashtags_screen.dart';
 import '../features/posts/post_detail_screen.dart';
+import '../features/posts/saved_posts_screen.dart';
 import '../features/profile/profile_connections_screen.dart';
 import '../features/federation/federation_settings_screen.dart';
 import '../features/messaging/inbox_screen.dart';
@@ -252,6 +253,11 @@ class _MainShellState extends State<MainShell> {
           case 'messages': _selectDestination(12); break;
           case 'calls': _selectDestination(13); break;
           case 'lists': _selectDestination(14); break;
+          case 'bookmarks':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => SavedPostsScreen(api: widget.api),
+            ));
+            break;
           case 'hashtags':
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => HashtagsScreen(api: widget.api),
