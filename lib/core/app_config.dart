@@ -39,11 +39,11 @@ class AppConfig {
       .where((host) => host.isNotEmpty)
       .toSet();
 
-  // The video service is routed by Caddy under the same HTTPS API origin.
-  // A separate origin remains overridable for staging or dedicated deployments.
+  // Video is a separate Data Centre service. Never send its /v1 routes to
+  // the product API unless an explicit public ingress routes them to video.
   static const videoApiUrl = String.fromEnvironment(
     'TESTAGRAM_VIDEO_API_URL',
-    defaultValue: backendApiUrl,
+    defaultValue: '',
   );
 
   static Uri? get videoApiOrigin {
