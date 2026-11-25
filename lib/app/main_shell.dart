@@ -49,6 +49,36 @@ class _MainShellState extends State<MainShell> {
   // and desktop sidebar. Keep these indexes aligned with _pages().
   int _index = 0;
   bool _bottomBarVisible = true;
+  bool _loadingSidebarTrends = false;
+  List<Map<String, dynamic>> _sidebarTrends = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSidebarTrends();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _openInitialDeepLink();
+    });
+  }
+
+  Future<void> _loadSidebarTrends() async {
+    if (_loadingSidebarTrends) return;
+    _loadingSidebarTrends = true;
+    try {
+      final response = await widget.api.getTrendingHashtags(limit: 8);
+      final raw = response['data'];
+      final data = raw is Map ? Map<String, dynamic>.from(raw) : response;
+      final rows = data['items'] ?? data['hashtags'] ?? data['trends'];
+      final values = rows is List
+          ? rows.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      if (mounted) setState(() => _sidebarTrends = values);
+    } catch (_) {
+      // The navigation shell remains useful if trend discovery is unavailable.
+    } finally {
+      _loadingSidebarTrends = false;
+    }
+  }
 
   static const _destinations = <(int, IconData, IconData, String)>[
     (0, Icons.home_outlined, Icons.home_rounded, 'Home'),
@@ -67,14 +97,6 @@ class _MainShellState extends State<MainShell> {
     (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
     (14, Icons.list_alt_outlined, Icons.list_alt_rounded, 'Lists'),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _openInitialDeepLink();
-    });
-  }
 
   Future<void> _openInitialDeepLink() async {
     final link = TestagramDeepLink.parse(widget.initialDeepLink);
@@ -191,6 +213,102 @@ class _MainShellState extends State<MainShell> {
     );
   }
 
+
+  Widget _buildRightSidebar(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: 292,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 22, 16, 24),
+        children: [
+          Text('Explore Testagram', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(children: [
+                    Icon(Icons.trending_up_rounded, color: theme.colorScheme.primary),
+                    const SizedBox(width: 8),
+                    Text('Trending hashtags', style: theme.textTheme.titleSmall),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: 'Refresh trends',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: _loadingSidebarTrends ? null : _loadSidebarTrends,
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                    ),
+                  ]),
+                  if (_loadingSidebarTrends && _sidebarTrends.isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.all(12),
+                      child: Center(child: CircularProgressIndicator()),
+                    )
+                  else if (_sidebarTrends.isEmpty)
+                    Text('Trending topics will appear here.',
+                      style: theme.textTheme.bodySmall)
+                  else
+                    for (final trend in _sidebarTrends.take(8))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.tag_rounded, size: 18),
+                        title: Text(
+                          '#${(trend['tag'] ?? trend['hashtag'] ?? trend['name'] ?? '').toString().replaceFirst(RegExp(r'^#'), '')}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text('${trend['posts_count'] ?? trend['post_count'] ?? trend['count'] ?? ''} posts'),
+                        onTap: () {
+                          final tag = (trend['tag'] ?? trend['hashtag'] ?? trend['name'] ?? '').toString().replaceFirst(RegExp(r'^#'), '');
+                          if (tag.isNotEmpty) {
+                            Navigator.of(context).push(MaterialPageRoute<void>(
+                              builder: (_) => HashtagScreen(api: widget.api, tag: tag),
+                            ));
+                          }
+                        },
+                      ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Quick access', style: theme.textTheme.titleSmall),
+                  const SizedBox(height: 8),
+                  for (final item in const [
+                    (1, Icons.travel_explore_rounded, 'Discover people'),
+                    (7, Icons.forum_rounded, 'Join conversations'),
+                    (8, Icons.poll_rounded, 'Community polls'),
+                    (14, Icons.list_alt_rounded, 'Your lists'),
+                  ])
+                    ListTile(
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(item.$2, size: 19),
+                      title: Text(item.$3),
+                      trailing: const Icon(Icons.chevron_right_rounded, size: 18),
+                      onTap: () => _selectDestination(item.$1),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text('A space for your ideas, communities and conversations.',
+            style: theme.textTheme.bodySmall),
+        ],
+      ),
+    );
+  }
+
   Widget _buildBottomNavigation(BuildContext context) {
     final theme = Theme.of(context);
     return AnimatedContainer(
@@ -293,11 +411,11 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 760;
-        final extended = constraints.maxWidth >= 1120;
+        final extended = constraints.maxWidth >= 1120;\n        final showRightSidebar = constraints.maxWidth >= 1420;
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: TestagramTheme.contentMaxWidth),
+              constraints: BoxConstraints(maxWidth: showRightSidebar ? 900 : TestagramTheme.contentMaxWidth),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),
