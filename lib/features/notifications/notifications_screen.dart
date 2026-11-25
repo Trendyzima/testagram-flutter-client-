@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
@@ -21,16 +23,40 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _activeLoads = 0;
   String? _cursor, _error;
   final Set<String> _marking = {};
+  StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
+  String? _streamCursor;
+  bool _reconnectScheduled = false;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
     _load(reset: true);
+    _connectRealtime();
+  }
+
+  void _connectRealtime() {
+    if (!mounted) return;
+    _realtimeSubscription?.cancel();
+    _realtimeSubscription = widget.api
+        .streamNotifications(lastEventId: _streamCursor)
+        .listen((event) {
+          final cursor = event['stream_cursor'];
+          if (cursor is String && cursor.isNotEmpty) _streamCursor = cursor;
+          if (mounted) _load(reset: true);
+        }, onError: (_) {}, onDone: () {
+          if (!mounted || _reconnectScheduled) return;
+          _reconnectScheduled = true;
+          Future<void>.delayed(const Duration(seconds: 5), () {
+            _reconnectScheduled = false;
+            if (mounted) _connectRealtime();
+          });
+        });
   }
 
   @override
   void dispose() {
+    _realtimeSubscription?.cancel();
     _scroll.dispose();
     super.dispose();
   }
