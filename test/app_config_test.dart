@@ -12,6 +12,8 @@ void main() {
       expect(AppConfig.parseVideoApiOrigin('http://video.testagram.site'), isNull);
       expect(AppConfig.parseVideoApiOrigin('https://video.testagram.site/prefix'), isNull);
       expect(AppConfig.parseVideoApiOrigin('https://video.testagram.site?token=secret'), isNull);
+      expect(AppConfig.parseVideoApiOrigin('https://user:pass@video.testagram.site'), isNull);
+      expect(AppConfig.parseVideoApiOrigin('https://video.testagram.site#fragment'), isNull);
     });
 
     test('accepts a dedicated HTTPS video origin only', () {
