@@ -427,12 +427,23 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     await _run(() async {
-      await widget.authClient.resendVerification(
-        _email.text.trim().toLowerCase(),
-      );
+      final application = _identityApplication;
+      if (application != null) {
+        final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+        try {
+          await api.resendVerification(application);
+        } finally {
+          api.close();
+        }
+      } else {
+        await widget.authClient.resendVerification(
+          _email.text.trim().toLowerCase(),
+        );
+      }
       if (mounted) {
-        setState(() => _notice =
-            'If an unverified account exists for this email, a fresh verification code and link have been sent.');
+        setState(() => _notice = application != null
+            ? 'If this approved application is still awaiting verification, a fresh Testagram verification link will be sent.'
+            : 'If an unverified account exists for this email, a fresh verification code and link have been sent.');
       }
     });
   }
@@ -1047,9 +1058,14 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
             if (_page == _Page.verify) ...[
-              primaryAction('Verify email', _verifyCode),
+              if (_identityApplication == null)
+                primaryAction('Verify email', _verifyCode),
               const SizedBox(height: 10),
-              SizedBox(height: 52, child: OutlinedButton.icon(onPressed: _busy ? null : _resend, icon: const Icon(Icons.mark_email_read_outlined), label: const Text('Resend code and link'))),
+              SizedBox(height: 52, child: OutlinedButton.icon(
+                onPressed: _busy ? null : _resend,
+                icon: const Icon(Icons.mark_email_read_outlined),
+                label: Text(_identityApplication == null ? 'Resend code and link' : 'Resend verification link'),
+              )),
             ],
             const SizedBox(height: 12),
             if (_page == _Page.signIn) ...[
