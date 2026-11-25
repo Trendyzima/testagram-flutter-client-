@@ -160,6 +160,14 @@ void main() {
       expect(TestagramDeepLink.parse('/@Trendz_01/blocked'), isNull);
     });
 
+    test('resolves individual thread detail routes with validated identifiers', () {
+      const id = '123e4567-e89b-42d3-a456-426614174000';
+      final link = TestagramDeepLink.parse('https://testagram.site/threads/$id');
+      expect(link?.kind, TestagramDeepLinkKind.thread);
+      expect(link?.threadId, id);
+      expect(TestagramDeepLink.parse('/threads/not-a-uuid'), isNull);
+    });
+
     test('rejects oversized input', () {
       expect(TestagramDeepLink.parse('/${List.filled(2049, 'a').join()}'), isNull);
     });
