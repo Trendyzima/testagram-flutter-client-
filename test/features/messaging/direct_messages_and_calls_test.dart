@@ -25,10 +25,20 @@ class _CommunicationApi extends BackendApi {
       {
         'id': 'conversation-1',
         'kind': 'direct',
-        'title': 'A private conversation',
-        'members': [],
+        'title': '',
+        'members': [
+          {'display_name': 'My Own Name', 'username': 'my_name'},
+          {'display_name': 'Peer Name', 'username': 'peer_name'},
+        ],
+        'other_members': [
+          {'display_name': 'Peer Name', 'username': 'peer_name'},
+        ],
         'unread_count': 2,
+        'updated_at': '2026-11-25T10:30:00Z',
         'latest_message': {
+          'id': 'message-preview-1',
+          'sender_id': 'user-2',
+          'created_at': '2026-11-25T10:30:00Z',
           'ciphertext': 'opaque-ciphertext',
           'e2ee_enabled': true,
           'e2ee_version': 'v1',
@@ -132,9 +142,11 @@ void main() {
 
     expect(api.conversationListCalls, 1);
     expect(find.text('Messages'), findsOneWidget);
-    expect(find.text('A private conversation'), findsOneWidget);
+    expect(find.text('Peer Name'), findsOneWidget);
+    expect(find.text('My Own Name'), findsNothing);
     expect(find.text('Encrypted message'), findsNothing);
-    expect(find.text('Open conversation'), findsOneWidget);
+    expect(find.textContaining('Open conversation'), findsOneWidget);
+    expect(find.textContaining('Updated '), findsOneWidget);
   });
 
   testWidgets('inbox never infers E2EE from caller-supplied envelope fields', (tester) async {
