@@ -1287,48 +1287,56 @@ void main() {
     );
 
     await api.listLiveAudioSpaces();
+    await api.getAudioSpace('space-uuid');
+    await api.getMyAudioSpaceStatus('space-uuid');
     await api.createAudioSpace(title: 'Kenya builders', description: 'Live discussion', maxAudience: 250);
     await api.joinAudioSpace('space-uuid');
     await api.requestAudioSpaceSpeaker('space-uuid');
     await api.listAudioSpaceSpeakerRequests('space-uuid');
     await api.decideAudioSpaceSpeaker(spaceId: 'space-uuid', userId: 'speaker-uuid', approve: true);
     await api.leaveAudioSpace('space-uuid');
+    await api.updateAudioSpace(spaceId: 'space-uuid', title: 'Updated title', description: 'Updated description');
+    await api.sendAudioSpaceSuperchat(spaceId: 'space-uuid', message: 'Great session', amount: '100', idempotencyKey: 'stable-superchat-key');
     await api.endAudioSpace('space-uuid');
     await api.listFollowRequests();
     await api.acceptFollowRequest('follower-uuid');
     await api.rejectFollowRequest('follower-uuid');
 
     final payloads = requests.map((request) => jsonDecode(request.body) as Map<String, dynamic>).toList();
-    expect(requests, hasLength(11));
+    expect(requests, hasLength(15));
     expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
     expect(requests.every((request) => request.method == 'POST'), isTrue);
     expect(requests.every((request) =>
         request.headers['authorization'] == 'Bearer native-route-contract-token'), isTrue);
     expect(payloads.map((item) => item['capability']).toList(), [
       'testagram.audio_spaces.list_live',
+      'testagram.audio_spaces.get',
+      'testagram.audio_spaces.my_status',
       'testagram.audio_spaces.create',
       'testagram.audio_spaces.join',
       'testagram.audio_spaces.request_speaker',
       'testagram.audio_spaces.pending_speaker_requests',
       'testagram.audio_spaces.decide_speaker',
       'testagram.audio_spaces.leave',
+      'testagram.audio_spaces.update',
+      'testagram.audio_spaces.superchat',
       'testagram.audio_spaces.end',
       'testagram.follow_requests.list',
       'testagram.follow_requests.accept',
       'testagram.follow_requests.reject',
     ]);
-    expect(payloads[1]['input'], {
+    expect(payloads[3]['input'], {
       'title': 'Kenya builders',
       'description': 'Live discussion',
       'max_audience': 250,
     });
-    expect(payloads[5]['input'], {
+    expect(payloads[8]['input'], {
       'space_id': 'space-uuid',
       'user_id': 'speaker-uuid',
       'decision': 'approved',
     });
-    expect(payloads[9]['input'], {'target_user_id': 'follower-uuid'});
     expect(payloads[10]['input'], {'target_user_id': 'follower-uuid'});
+    expect(payloads[11]['input'], {'target_user_id': 'follower-uuid'});
     api.close();
   });
 
