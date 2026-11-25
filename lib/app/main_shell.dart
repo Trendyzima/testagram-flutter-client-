@@ -166,6 +166,67 @@ class _MainShellState extends State<MainShell> {
     return false;
   }
 
+
+  Widget _sidebarSection(String title, List<int> indexes) {
+    final theme = Theme.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 4, 12, 7),
+          child: Text(title, style: theme.textTheme.labelSmall?.copyWith(
+            color: theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+            letterSpacing: 1.05,
+          )),
+        ),
+        for (final index in indexes)
+          Builder(builder: (context) {
+            final item = _destinations[index];
+            final selected = _index == index;
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 3),
+              child: Material(
+                color: selected
+                    ? theme.colorScheme.primary.withValues(alpha: 0.11)
+                    : Colors.transparent,
+                borderRadius: BorderRadius.circular(14),
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: () => _selectDestination(index),
+                  child: SizedBox(
+                    height: 44,
+                    child: Row(children: [
+                      const SizedBox(width: 12),
+                      Icon(selected ? item.$3 : item.$2,
+                        size: 21,
+                        color: selected ? theme.colorScheme.primary : theme.colorScheme.onSurfaceVariant),
+                      const SizedBox(width: 13),
+                      Expanded(child: Text(item.$4,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: selected ? theme.colorScheme.primary : null,
+                          fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+                        ))),
+                      if (selected)
+                        Container(
+                          width: 3,
+                          height: 22,
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                      const SizedBox(width: 10),
+                    ]),
+                  ),
+                ),
+              ),
+            );
+          }),
+      ],
+    );
+  }
+
   Widget _buildSidebar(BuildContext context, bool extended) {
     return SizedBox(
       width: extended ? 224 : 88,
@@ -187,26 +248,38 @@ class _MainShellState extends State<MainShell> {
             ),
           ),
           Expanded(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 16),
-              child: NavigationRail(
-                selectedIndex: _index,
-                onDestinationSelected: _selectDestination,
-                extended: extended,
-                labelType: extended ? null : NavigationRailLabelType.all,
-                groupAlignment: -1,
-                minWidth: 76,
-                minExtendedWidth: 224,
-                destinations: [
-                  for (final item in _destinations)
-                    NavigationRailDestination(
-                      icon: Icon(item.$2),
-                      selectedIcon: Icon(item.$3),
-                      label: Text(item.$4),
+            child: extended
+                ? SingleChildScrollView(
+                    padding: const EdgeInsets.fromLTRB(12, 0, 12, 16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4]),
+                        const SizedBox(height: 12),
+                        _sidebarSection('CONNECT', const [12, 13, 14, 7]),
+                        const SizedBox(height: 12),
+                        _sidebarSection('WATCH & CREATE', const [5, 6, 11, 8]),
+                        const SizedBox(height: 12),
+                        _sidebarSection('TOOLS', const [9, 10]),
+                      ],
                     ),
-                ],
-              ),
-            ),
+                  )
+                : NavigationRail(
+                    selectedIndex: _index,
+                    onDestinationSelected: _selectDestination,
+                    extended: false,
+                    labelType: NavigationRailLabelType.all,
+                    groupAlignment: -1,
+                    minWidth: 76,
+                    destinations: [
+                      for (final item in _destinations)
+                        NavigationRailDestination(
+                          icon: Icon(item.$2),
+                          selectedIcon: Icon(item.$3),
+                          label: Text(item.$4),
+                        ),
+                    ],
+                  ),
           ),
         ],
       ),
