@@ -251,7 +251,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ? const Center(child: Text('Profile unavailable.'))
                   : RefreshIndicator(
                       onRefresh: _load,
-                      child: ListView(
+                      child: Center(
+                        child: ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 860),
+                          child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
                         padding: const EdgeInsets.all(20),
                         children: [
@@ -300,9 +303,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      displayName.isEmpty ? 'Testagram user' : displayName,
-                                      style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                                    Row(
+                                      children: [
+                                        Flexible(
+                                          child: Text(
+                                            displayName.isEmpty ? 'Testagram user' : displayName,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w800),
+                                          ),
+                                        ),
+                                        if (profile['is_verified'] == true || profile['verified'] == true) ...[
+                                          const SizedBox(width: 6),
+                                          Icon(Icons.verified_rounded, size: 20, color: Theme.of(context).colorScheme.primary),
+                                        ],
+                                      ],
                                     ),
                                     if (username.isNotEmpty)
                                       Text('@$username', style: Theme.of(context).textTheme.bodyMedium),
@@ -366,19 +381,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                           const SizedBox(height: 20),
-                          Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                            _Count(
-                              label: 'Followers',
-                              value: profile['followers_count'],
-                              onTap: () => _openConnections('followers'),
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                  _Count(
+                                    label: 'Posts',
+                                    value: profile['posts_count'] ?? _posts.length,
+                                    onTap: () => setState(() {}),
+                                  ),
+                                  _Count(
+                                    label: 'Followers',
+                                    value: profile['followers_count'],
+                                    onTap: () => _openConnections('followers'),
+                                  ),
+                                  _Count(
+                                    label: 'Following',
+                                    value: profile['following_count'],
+                                    onTap: () => _openConnections('following'),
+                                  ),
+                                ],
+                              ),
                             ),
-                            const SizedBox(width: 28),
-                            _Count(
-                              label: 'Following',
-                              value: profile['following_count'],
-                              onTap: () => _openConnections('following'),
-                            ),
-                          ]),
+                          ),
                           if (!isSelf) ...[
                             const SizedBox(height: 18),
                             Wrap(
@@ -426,6 +453,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               const Center(child: Text('No posts yet.')),
                           ],
                         ],
+                      ),
+                        ),
                       ),
                     ),
     );
