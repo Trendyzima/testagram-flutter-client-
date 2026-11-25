@@ -638,10 +638,17 @@ class BackendApi {
         },
       );
 
-  Future<Map<String, dynamic>> listNotifications({int limit = 30, String? cursor}) =>
+  Future<Map<String, dynamic>> listNotifications({
+    int limit = 30,
+    String? cursor,
+    String category = 'all',
+    bool unreadOnly = false,
+  }) =>
       _request('GET', baseUri.resolve('/api/social/notifications')
           .replace(queryParameters: {
             'limit': '$limit',
+            'category': category,
+            'unread_only': '$unreadOnly',
             if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
           }));
 
