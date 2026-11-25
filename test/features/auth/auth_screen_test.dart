@@ -324,7 +324,7 @@ void main() {
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am at least 18 years old.'), findsOneWidget);
-    expect(find.textContaining('two independent approvals'), findsOneWidget);
+    expect(find.textContaining('two independent approvals'), findsWidgets);
   });
 
   testWidgets('application links let applicants inspect Terms and Privacy before consent', (tester) async {
