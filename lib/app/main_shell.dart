@@ -52,6 +52,7 @@ class _MainShellState extends State<MainShell> {
   bool _loadingSidebarTrends = false;
   List<Map<String, dynamic>> _sidebarTrends = [];
   List<Map<String, dynamic>> _sidebarTrendingWords = [];
+  List<Map<String, dynamic>> _sidebarKnowledgeTopics = [];
   Map<String, dynamic>? _sidebarProfile;
   bool _loadingSidebarContext = false;
 
@@ -88,14 +89,30 @@ class _MainShellState extends State<MainShell> {
     if (_loadingSidebarContext) return;
     _loadingSidebarContext = true;
     try {
+      Future<Map<String, dynamic>> optional(
+        Future<Map<String, dynamic>> request,
+      ) async {
+        try {
+          return await request;
+        } catch (_) {
+          return <String, dynamic>{};
+        }
+      }
+
+      // Each sidebar module is independent: a trends outage must not hide
+      // the signed-in profile or knowledge discovery.
       final responses = await Future.wait([
-        widget.api.getMyProfile(),
-        widget.api.getTrendingWords(limit: 6),
+        optional(widget.api.getMyProfile()),
+        optional(widget.api.getTrendingWords(limit: 6)),
+        optional(widget.api.getKnowledgeTopics(limit: 6)),
       ]);
       final profileRaw = responses[0]['data'];
       final wordsRaw = responses[1]['data'];
       final wordsData = wordsRaw is Map ? wordsRaw : responses[1];
+      final topicsRaw = responses[2]['data'];
+      final topicsData = topicsRaw is Map ? topicsRaw : responses[2];
       final rawWords = wordsData['items'];
+      final rawTopics = topicsData['items'];
       if (!mounted) return;
       setState(() {
         if (profileRaw is Map) {
@@ -103,6 +120,10 @@ class _MainShellState extends State<MainShell> {
         }
         _sidebarTrendingWords = rawWords is List
             ? rawWords.whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)).toList()
+            : [];
+        _sidebarKnowledgeTopics = rawTopics is List
+            ? rawTopics.whereType<Map>()
                 .map((item) => Map<String, dynamic>.from(item)).toList()
             : [];
       });
@@ -441,6 +462,47 @@ class _MainShellState extends State<MainShell> {
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                         subtitle: Text('${item['posts_count'] ?? 0} posts'),
                         onTap: () => _selectDestination(1),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (_sidebarKnowledgeTopics.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.auto_stories_rounded, color: theme.colorScheme.primary, size: 19),
+                      const SizedBox(width: 8),
+                      Text('Knowledge topics', style: theme.textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 6),
+                    Text('Follow ideas worth learning about.',
+                      style: theme.textTheme.bodySmall),
+                    const SizedBox(height: 6),
+                    for (final topic in _sidebarKnowledgeTopics.take(6))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.lightbulb_outline_rounded, size: 18),
+                        title: Text(
+                          (topic['name'] ?? topic['slug'] ?? 'Topic').toString(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: (topic['description'] ?? '').toString().isEmpty
+                            ? null
+                            : Text(
+                                topic['description'].toString(),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                        onTap: () => _selectDestination(2),
                       ),
                   ],
                 ),
