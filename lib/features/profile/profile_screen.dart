@@ -4,6 +4,7 @@ import '../posts/post_detail_screen.dart';
 
 import '../../core/backend_api.dart';
 import 'follow_requests_screen.dart';
+import '../posts/saved_posts_screen.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 import 'profile_connections_screen.dart';
 import 'profile_edit_screen.dart';
@@ -315,6 +316,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 builder: (_) => FollowRequestsScreen(api: widget.api),
               )),
               icon: const Icon(Icons.person_add_alt_1_outlined),
+            ),
+            IconButton(
+              tooltip: 'Browsing history',
+              onPressed: _busy ? null : () => Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => BrowsingHistoryScreen(api: widget.api),
+              )),
+              icon: const Icon(Icons.history_rounded),
             ),
             IconButton(
               tooltip: 'Edit profile',
