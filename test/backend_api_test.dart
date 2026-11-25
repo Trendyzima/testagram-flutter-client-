@@ -1274,4 +1274,96 @@ void main() {
       api.close();
     });
   });
+
+  test('maps Audio Spaces and follow-request actions to Backend-owned capabilities', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-route-contract-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await api.listLiveAudioSpaces();
+    await api.createAudioSpace(title: 'Kenya builders', description: 'Live discussion', maxAudience: 250);
+    await api.joinAudioSpace('space-uuid');
+    await api.requestAudioSpaceSpeaker('space-uuid');
+    await api.listAudioSpaceSpeakerRequests('space-uuid');
+    await api.decideAudioSpaceSpeaker(spaceId: 'space-uuid', userId: 'speaker-uuid', approve: true);
+    await api.leaveAudioSpace('space-uuid');
+    await api.endAudioSpace('space-uuid');
+    await api.listFollowRequests();
+    await api.acceptFollowRequest('follower-uuid');
+    await api.rejectFollowRequest('follower-uuid');
+
+    final payloads = requests.map((request) => jsonDecode(request.body) as Map<String, dynamic>).toList();
+    expect(requests, hasLength(10));
+    expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
+    expect(requests.every((request) => request.method == 'POST'), isTrue);
+    expect(requests.every((request) =>
+        request.headers['authorization'] == 'Bearer native-route-contract-token'), isTrue);
+    expect(payloads.map((item) => item['capability']).toList(), [
+      'testagram.audio_spaces.list_live',
+      'testagram.audio_spaces.create',
+      'testagram.audio_spaces.join',
+      'testagram.audio_spaces.request_speaker',
+      'testagram.audio_spaces.pending_speaker_requests',
+      'testagram.audio_spaces.decide_speaker',
+      'testagram.audio_spaces.leave',
+      'testagram.audio_spaces.end',
+      'testagram.follow_requests.list',
+      'testagram.follow_requests.accept',
+    ]);
+    expect(payloads[1]['input'], {
+      'title': 'Kenya builders',
+      'description': 'Live discussion',
+      'max_audience': 250,
+    });
+    expect(payloads[5]['input'], {
+      'space_id': 'space-uuid',
+      'user_id': 'speaker-uuid',
+      'decision': 'approved',
+    });
+    expect(payloads[9]['input'], {'target_user_id': 'follower-uuid'});
+    api.close();
+  });
+
+  test('rejects invalid Audio Space values before making a request', () {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+    expect(() => api.createAudioSpace(title: '', maxAudience: 1), throwsArgumentError);
+    expect(() => api.createAudioSpace(title: 'Valid title', maxAudience: 10001), throwsArgumentError);
+    expect(() => api.getAudioSpace(''), throwsArgumentError);
+    expect(() => api.decideAudioSpaceSpeaker(spaceId: 'space', userId: '', approve: true),
+        throwsArgumentError);
+    api.close();
+  });
+
+  test('maps post poll and interaction state reads to registered social routes', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-post-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+    await api.getPostPoll('post-uuid');
+    await api.getPostReactionState('post-uuid');
+    await api.getPostRepostState('post-uuid');
+    expect(requests.map((request) => request.url.path).toList(), [
+      '/api/social/posts/post-uuid/poll',
+      '/api/social/posts/post-uuid/reaction',
+      '/api/social/posts/post-uuid/reposts',
+    ]);
+    expect(requests.every((request) => request.method == 'GET'), isTrue);
+    api.close();
+  });
+
 }
