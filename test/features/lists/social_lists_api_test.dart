@@ -23,9 +23,10 @@ void main() {
     await api.getSocialListMembers('123e4567-e89b-42d3-a456-426614174000');
     await api.addSocialListMember(listId: '123e4567-e89b-42d3-a456-426614174000', userId: '223e4567-e89b-42d3-a456-426614174000');
     await api.removeSocialListMember(listId: '123e4567-e89b-42d3-a456-426614174000', userId: '223e4567-e89b-42d3-a456-426614174000');
+    await api.updateSocialListPin('123e4567-e89b-42d3-a456-426614174000', pinned: true);
     await api.deleteSocialList('123e4567-e89b-42d3-a456-426614174000');
 
-    expect(requests, hasLength(7));
+    expect(requests, hasLength(8));
     expect(requests[0].url.path, '/api/social/lists');
     expect(requests[1].method, 'POST');
     expect(requests[1].url.path, '/api/social/lists');
@@ -40,7 +41,10 @@ void main() {
     expect(jsonDecode(requests[4].body), {'user_id': '223e4567-e89b-42d3-a456-426614174000'});
     expect(requests[5].method, 'DELETE');
     expect(requests[5].url.path, '/api/social/lists/123e4567-e89b-42d3-a456-426614174000/members/223e4567-e89b-42d3-a456-426614174000');
-    expect(requests[6].method, 'DELETE');
+    expect(requests[6].method, 'PUT');
+    expect(requests[6].url.path, '/api/social/lists/123e4567-e89b-42d3-a456-426614174000/pin');
+    expect(jsonDecode(requests[6].body), {'pinned': true});
+    expect(requests[7].method, 'DELETE');
     expect(requests.every((r) => r.headers['authorization'] == 'Bearer native-session-token'), isTrue);
     api.close();
   });
