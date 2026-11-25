@@ -40,11 +40,12 @@ bool _isCanonicalFeedPostUuid(String value) {
 }
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, required this.api, required this.onSignOut, this.listId, this.feedTitle});
+  const FeedScreen({super.key, required this.api, required this.onSignOut, this.listId, this.feedTitle, this.composeOnOpen = false});
   final BackendApi api;
   final Future<void> Function() onSignOut;
   final String? listId;
   final String? feedTitle;
+  final bool composeOnOpen;
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -68,6 +69,11 @@ class _FeedScreenState extends State<FeedScreen> {
     _selectedListId = widget.listId;
     _load(reset: true);
     if (widget.listId == null) unawaited(_loadPinnedLists());
+    if (widget.composeOnOpen) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _composePost();
+      });
+    }
   }
 
   @override
