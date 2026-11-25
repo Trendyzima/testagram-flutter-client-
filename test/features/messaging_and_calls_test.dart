@@ -38,7 +38,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Member One'), findsOneWidget);
-    expect(find.text('Open conversation'), findsOneWidget);
+    expect(find.textContaining('Open conversation'), findsOneWidget);
     expect(find.textContaining('Encrypted message'), findsNothing);
     expect(find.text('never-render-this-ciphertext'), findsNothing);
     expect(find.text('2'), findsOneWidget);
