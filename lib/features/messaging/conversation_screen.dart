@@ -125,9 +125,9 @@ class _ConversationScreenState extends State<ConversationScreen> {
                               Text(senderName, style: Theme.of(context).textTheme.labelMedium),
                               const SizedBox(height: 6),
                               const Row(mainAxisSize: MainAxisSize.min, children: [
-                                const Icon(Icons.visibility_off_outlined, size: 16),
-                                const SizedBox(width: 7),
-                                const Text('Message unavailable'),
+                                Icon(Icons.visibility_off_outlined, size: 16),
+                                SizedBox(width: 7),
+                                Text('Message unavailable'),
                               ]),
                               const SizedBox(height: 4),
                               Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
