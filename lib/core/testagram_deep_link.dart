@@ -1,6 +1,6 @@
 /// A strictly allow-listed destination parsed from an incoming Testagram link.
 /// This parser never accepts arbitrary hosts, redirect URLs or payment parameters.
-enum TestagramDeepLinkKind { profileUsername, profileId, wallet, hashtag }
+enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, post, wallet, hashtag }
 
 class TestagramDeepLink {
   const TestagramDeepLink._({
@@ -8,12 +8,24 @@ class TestagramDeepLink {
     this.username,
     this.userId,
     this.tag,
+    this.destination,
+    this.postId,
+    this.connectionKind,
   });
 
   final TestagramDeepLinkKind kind;
   final String? username;
   final String? userId;
   final String? tag;
+  final String? destination;
+  final String? postId;
+  final String? connectionKind;
+
+  static const Set<String> _destinations = {
+    'home', 'explore', 'search', 'notifications', 'messages', 'inbox',
+    'lists', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
+    'polls', 'calls', 'creator', 'wallet', 'hashtags', 'federation', 'profile',
+  };
 
   static final RegExp _username = RegExp(r'^[A-Za-z0-9_.]{2,30}$');
   static final RegExp _tag = RegExp(r'^[\p{L}\p{N}_]{1,64}$', unicode: true);
@@ -38,6 +50,12 @@ class TestagramDeepLink {
         !value.startsWith('//');
     if (!isWeb && !isCustom && !isLocalRoute) return null;
 
+    if (isCustom && _destinations.contains(uri.host.toLowerCase()) && uri.pathSegments.isEmpty) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: uri.host.toLowerCase(),
+      );
+    }
     if (isCustom && uri.host.toLowerCase() == 'wallet' && uri.pathSegments.isEmpty) {
       return const TestagramDeepLink._(kind: TestagramDeepLinkKind.wallet);
     }
@@ -49,6 +67,56 @@ class TestagramDeepLink {
     }
 
     final segments = uri.pathSegments;
+    if (segments.length == 1 && _destinations.contains(segments.single.toLowerCase())) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: segments.single.toLowerCase(),
+      );
+    }
+    if (segments.length == 2 &&
+        segments.first.toLowerCase() == 'i' &&
+        segments[1].toLowerCase() == 'lists') {
+      return const TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: 'lists',
+      );
+    }
+    if (segments.length == 2 &&
+        segments.first.toLowerCase() == 'settings' &&
+        segments[1].toLowerCase() == 'federation') {
+      return const TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: 'federation',
+      );
+    }
+    if (segments.length == 2 &&
+        {'post', 'status'}.contains(segments.first.toLowerCase()) &&
+        _uuid.hasMatch(segments[1])) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.post,
+        postId: segments[1].toLowerCase(),
+      );
+    }
+    if (segments.length == 3 &&
+        segments[0].startsWith('@') &&
+        {'followers', 'following'}.contains(segments[2].toLowerCase())) {
+      final profile = _profileUsername(segments[0]);
+      if (profile == null) return null;
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.profileConnections,
+        username: profile.username,
+        connectionKind: segments[2].toLowerCase(),
+      );
+    }
+    if (segments.length == 4 &&
+        segments[0].startsWith('@') &&
+        segments[1].toLowerCase() == 'status' &&
+        _uuid.hasMatch(segments[2])) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.post,
+        postId: segments[2].toLowerCase(),
+      );
+    }
     if (segments.length == 1 && segments.single.toLowerCase() == 'wallet') {
       return const TestagramDeepLink._(kind: TestagramDeepLinkKind.wallet);
     }
