@@ -82,6 +82,12 @@ void main() {
     );
     expect(find.text('A public image post'), findsOneWidget);
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
+    expect(
+      requests.any((request) =>
+          request.url.path == '/api/social/profiles/$userId/posts' &&
+          request.url.queryParameters['media_only'] == 'true'),
+      isTrue,
+    );
     api.close();
   });
 
