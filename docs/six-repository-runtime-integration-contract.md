@@ -76,3 +76,19 @@ This is the shared communication contract for the six runtime organs plus the AP
 4. Exercise authorization failures, malformed/oversized payloads, duplicate requests, upstream outage, retry and recovery.
 5. Verify media upload -> completion -> CDN retrieval, including private-media denial and byte-range behavior.
 6. Keep all changes in reviewable PRs. Merge and deploy only after the release owner explicitly approves the verified set.
+
+
+## Flutter feature route mapping and current ingress verification (2026-11-26)
+
+The Flutter client uses the public Backend as its product API. Backend capability operations are sent to POST /api/capability with the native access token; a capability name is not a public microservice hostname.
+
+- Authentication is owned by NativeAuthClient at /api/auth/*.
+- Feed, profiles, posts, bookmarks, lists, hashtags, search, notifications, knowledge, polls, federation preferences/subscriptions and wallet actions use BackendApi against TESTAGRAM_API_URL.
+- Direct-message and call-session metadata uses Backend capabilities. Message plaintext/send remains disabled until the client has verified device-key registration, recipient-key verification and decryption. A call session or signaling ticket does not prove media is connected.
+- Audio Spaces lifecycle operations (discover/create/join/leave/speaker request/host decision/update/end/Super Chat) use Backend capabilities. The current Data Centre realtime contract explicitly requires a dedicated multi-party media transport/SFU for group Spaces; the one-to-one signaling room is not a substitute.
+- Algorithm and Federation remain private Backend-to-service calls. Flutter must not call either service directly.
+- Data Centre media lifecycle remains Backend-mediated. Flutter must not receive provider credentials or call the private media service directly.
+- The Data Centre video service is a distinct service (listener defaults to :8790). The current public Caddyfile routes api.testagram.site to api:8080 and does not route /v1/videos or /v1/feed to the video service. Consequently TESTAGRAM_VIDEO_API_URL has no default and must remain unset until a reviewed public HTTPS ingress targets that service. Pointing it at TESTAGRAM_API_URL would route video calls to the wrong handler.
+- The realtime Worker documentation states that it is not publicly deployed/routed. Do not enable call or group-audio media UX merely because Backend lifecycle routes exist.
+
+Normal Flutter navigation deliberately excludes staff-only identity review routes, provider callbacks, OPTIONS handlers, /internal/*, health/metrics endpoints, replication ingress and private service APIs. These exclusions are security boundaries, not missing product screens.
