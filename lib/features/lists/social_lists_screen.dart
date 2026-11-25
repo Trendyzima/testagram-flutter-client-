@@ -383,3 +383,65 @@ class _SocialListDetailScreenState extends State<_SocialListDetailScreen> {
     );
   }
 }
+
+
+class SocialListRouteScreen extends StatefulWidget {
+  const SocialListRouteScreen({
+    super.key,
+    required this.api,
+    required this.onSignOut,
+    required this.listId,
+  });
+
+  final BackendApi api;
+  final Future<void> Function() onSignOut;
+  final String listId;
+
+  @override
+  State<SocialListRouteScreen> createState() => _SocialListRouteScreenState();
+}
+
+class _SocialListRouteScreenState extends State<SocialListRouteScreen> {
+  late Future<Map<String, dynamic>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = widget.api.getSocialList(widget.listId);
+  }
+
+  void _retry() => setState(() => _future = widget.api.getSocialList(widget.listId));
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<Map<String, dynamic>>(
+      future: _future,
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return const Scaffold(body: Center(child: CircularProgressIndicator()));
+        }
+        if (snapshot.hasError) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('List unavailable')),
+            body: Center(child: FilledButton.tonal(onPressed: _retry, child: const Text('Try again'))),
+          );
+        }
+        final raw = snapshot.data?['data'];
+        final data = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+        final nested = data['list'];
+        final list = nested is Map ? Map<String, dynamic>.from(nested) : data;
+        if ((list['id'] ?? '').toString() != widget.listId) {
+          return Scaffold(
+            appBar: AppBar(title: const Text('List unavailable')),
+            body: const Center(child: Text('This list is unavailable or you do not have access.')),
+          );
+        }
+        return _SocialListDetailScreen(
+          api: widget.api,
+          onSignOut: widget.onSignOut,
+          list: list,
+        );
+      },
+    );
+  }
+}
