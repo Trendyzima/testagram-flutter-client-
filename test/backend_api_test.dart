@@ -1299,7 +1299,7 @@ void main() {
     await api.rejectFollowRequest('follower-uuid');
 
     final payloads = requests.map((request) => jsonDecode(request.body) as Map<String, dynamic>).toList();
-    expect(requests, hasLength(10));
+    expect(requests, hasLength(11));
     expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
     expect(requests.every((request) => request.method == 'POST'), isTrue);
     expect(requests.every((request) =>
@@ -1315,6 +1315,7 @@ void main() {
       'testagram.audio_spaces.end',
       'testagram.follow_requests.list',
       'testagram.follow_requests.accept',
+      'testagram.follow_requests.reject',
     ]);
     expect(payloads[1]['input'], {
       'title': 'Kenya builders',
@@ -1327,6 +1328,7 @@ void main() {
       'decision': 'approved',
     });
     expect(payloads[9]['input'], {'target_user_id': 'follower-uuid'});
+    expect(payloads[10]['input'], {'target_user_id': 'follower-uuid'});
     api.close();
   });
 
