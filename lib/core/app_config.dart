@@ -46,8 +46,10 @@ class AppConfig {
     defaultValue: '',
   );
 
-  static Uri? get videoApiOrigin {
-    final value = videoApiUrl.trim();
+  static Uri? get videoApiOrigin => parseVideoApiOrigin(videoApiUrl);
+
+  static Uri? parseVideoApiOrigin(String raw) {
+    final value = raw.trim();
     if (value.isEmpty || !_isHttpsUrl(value)) return null;
     final uri = Uri.parse(value);
     // VideoApi uses absolute /v1 paths. Reject path-prefixed values and the
@@ -56,12 +58,11 @@ class AppConfig {
     if (uri.path.isNotEmpty && uri.path != '/') return null;
     final api = backendOrigin;
     final site = Uri.parse(siteUrl);
-    final sameOrigin = (Uri other) => uri.scheme == other.scheme &&
+    bool sameOrigin(Uri other) => uri.scheme == other.scheme &&
         uri.host == other.host && uri.port == other.port;
     if (sameOrigin(api) || sameOrigin(site)) return null;
     return uri;
   }
-
   static bool get isConfigured =>
       _isHttpsUrl(backendApiUrl) && _isHttpsUrl(siteUrl);
 
