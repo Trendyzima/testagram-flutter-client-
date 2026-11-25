@@ -111,6 +111,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
       final response = await widget.api.getProfilePosts(
         _targetUserId,
         cursor: _postsCursor,
+        mediaOnly: _profileTabIndex == 1,
       );
       final data = response['data'];
       if (data is! Map || data['posts'] is! List) {
@@ -498,13 +499,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ChoiceChip(
                                   label: const Text('Posts'),
                                   selected: _profileTabIndex == 0,
-                                  onSelected: (_) => setState(() => _profileTabIndex = 0),
+                                  onSelected: _loadingPosts ? null : (_) {
+                                    setState(() => _profileTabIndex = 0);
+                                    _loadPosts(reset: true);
+                                  },
                                 ),
                                 const SizedBox(width: 8),
                                 ChoiceChip(
                                   label: const Text('Media'),
                                   selected: _profileTabIndex == 1,
-                                  onSelected: (_) => setState(() => _profileTabIndex = 1),
+                                  onSelected: _loadingPosts ? null : (_) {
+                                    setState(() => _profileTabIndex = 1);
+                                    _loadPosts(reset: true);
+                                  },
                                 ),
                               ],
                             ),
