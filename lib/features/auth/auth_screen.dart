@@ -434,10 +434,11 @@ class _AuthScreenState extends State<AuthScreen> {
     }
     await _run(() async {
       final application = _identityApplication;
+      Map<String, dynamic>? queueResult;
       if (application != null) {
         final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
         try {
-          await api.resendVerification(application);
+          queueResult = await api.resendVerification(application);
         } finally {
           api.close();
         }
@@ -448,7 +449,9 @@ class _AuthScreenState extends State<AuthScreen> {
       }
       if (mounted) {
         setState(() => _notice = application != null
-            ? 'If this approved application is still awaiting verification, a fresh Testagram verification link will be sent.'
+            ? queueResult?['email_queued'] == true
+                ? 'A new verification email has been queued by Testagram. Check your inbox and spam folder; mailbox delivery is not confirmed yet.'
+                : 'Testagram could not queue the verification email. Your account remains unverified; please retry shortly.'
             : 'If an unverified account exists for this email, a fresh verification code and link have been sent.');
       }
     });
@@ -642,9 +645,9 @@ class _AuthScreenState extends State<AuthScreen> {
         setState(() {
           _identityStatus = status;
           _page = _Page.verify;
-          _notice = result['email_delivery_pending'] == true
-              ? 'Your identity application is approved and your Testagram account has been created. Email delivery is being retried; use Resend verification when the email service is available.'
-              : 'Your identity application is approved and your Testagram account has been created. Check your email and verify it before signing in.';
+          _notice = result['email_queued'] == true
+              ? 'Your approved Testagram account has been created. A verification email has been queued; check your inbox and spam folder. Delivery to your mailbox is not confirmed until the mail service reports it.'
+              : 'Your approved Testagram account has been created, but Testagram could not queue the verification email. Use Resend verification to try again before signing in.';
         });
       } finally {
         api.close();
