@@ -26,7 +26,8 @@ class TestagramDeepLink {
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
     'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
-    'polls', 'calls', 'creator', 'hashtags', 'topics', 'compose', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
+    'polls', 'calls', 'creator', 'hashtags', 'topics', 'compose',
+    'following', 'for-you', 'for_you', 'latest', 'media', 'discover', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
   };
 
   static final RegExp _username = RegExp(r'^[A-Za-z0-9_.]{2,30}$');
