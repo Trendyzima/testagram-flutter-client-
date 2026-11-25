@@ -196,6 +196,7 @@ class _MainShellState extends State<MainShell> {
     (12, Icons.chat_bubble_outline_rounded, Icons.chat_bubble_rounded, 'Messages'),
     (13, Icons.call_outlined, Icons.call_rounded, 'Calls'),
     (14, Icons.list_alt_outlined, Icons.list_alt_rounded, 'Lists'),
+    (15, Icons.bookmark_border_rounded, Icons.bookmark_rounded, 'Bookmarks'),
   ];
 
   Future<void> _openInitialDeepLink() async {
@@ -272,11 +273,7 @@ class _MainShellState extends State<MainShell> {
           case 'calls':
           case 'live': _selectDestination(13); break;
           case 'lists': _selectDestination(14); break;
-          case 'bookmarks':
-            Navigator.of(context).push(MaterialPageRoute<void>(
-              builder: (_) => SavedPostsScreen(api: widget.api),
-            ));
-            break;
+          case 'bookmarks': _selectDestination(15); break;
           case 'hashtags':
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => HashtagsScreen(api: widget.api),
@@ -439,7 +436,7 @@ class _MainShellState extends State<MainShell> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4]),
+                        _sidebarSection('YOUR SPACE', const [0, 1, 2, 3, 4, 15]),
                         const SizedBox(height: 12),
                         _sidebarSection('CONNECT', const [12, 13, 14, 7]),
                         const SizedBox(height: 12),
@@ -861,6 +858,7 @@ class _MainShellState extends State<MainShell> {
         DirectMessagesScreen(api: widget.api),
         CallsScreen(api: widget.api),
         SocialListsScreen(api: widget.api, onSignOut: widget.onSignOut),
+        SavedPostsScreen(api: widget.api),
       ];
 
   @override
