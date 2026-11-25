@@ -29,7 +29,8 @@ void main() {
           'title': '',
           'members': [{'id': 'user-1', 'username': 'member_one', 'display_name': 'Member One'}],
           'unread_count': 2,
-          'latest_message': {'ciphertext': 'never-render-this-ciphertext'},
+          'updated_at': '2026-11-25T09:41:00Z',
+           'latest_message': {'id': 'message-1', 'sender_id': 'user-1', 'created_at': '2026-11-25T09:41:00Z', 'ciphertext': 'never-render-this-ciphertext'},
         }],
       }), 200);
     }));
@@ -40,6 +41,7 @@ void main() {
     expect(find.text('Member One'), findsOneWidget);
     expect(find.textContaining('Open conversation'), findsOneWidget);
     expect(find.textContaining('Encrypted message'), findsNothing);
+    expect(find.textContaining('Updated '), findsOneWidget);
     expect(find.text('never-render-this-ciphertext'), findsNothing);
     expect(find.text('2'), findsOneWidget);
     api.close();
