@@ -937,7 +937,22 @@ class _AuthScreenState extends State<AuthScreen> {
               field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
               const SizedBox(height: 14),
             ],
-            if (_page == _Page.verify) ...[
+            if (_page == _Page.verify && _identityApplication != null) ...[
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: pale.withValues(alpha: isDark ? 0.12 : 1),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: blue.withValues(alpha: 0.18)),
+                ),
+                child: const Text(
+                  'Your approved account is waiting for email verification. Open the single-use verification link sent to your email. This step does not use a six-digit code.',
+                  style: TextStyle(height: 1.45),
+                ),
+              ),
+              const SizedBox(height: 14),
+            ],
+            if (_page == _Page.verify && _identityApplication == null) ...[
               field(
                 controller: _otp,
                 label: 'Six-digit email code',
