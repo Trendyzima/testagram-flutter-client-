@@ -1,6 +1,7 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../threads/threads_screen.dart';
 import '../posts/post_detail_screen.dart';
 
 class SavedPostsScreen extends StatefulWidget {
@@ -177,4 +178,159 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
       ),
     );
   }
+}
+
+
+class BrowsingHistoryScreen extends StatefulWidget {
+  const BrowsingHistoryScreen({super.key, required this.api});
+  final BackendApi api;
+
+  @override
+  State<BrowsingHistoryScreen> createState() => _BrowsingHistoryScreenState();
+}
+
+class _BrowsingHistoryScreenState extends State<BrowsingHistoryScreen> {
+  List<Map<String, dynamic>> _items = [];
+  bool _loading = true;
+  bool _clearing = false;
+  String? _error;
+
+  Map<String, dynamic> _payload(Map<String, dynamic> response) {
+    final data = response['data'];
+    return data is Map ? Map<String, dynamic>.from(data) : response;
+  }
+
+  Future<void> _load() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final data = _payload(await widget.api.getBrowsingHistory());
+      final raw = data['items'];
+      final rows = raw is List
+          ? raw.whereType<Map>().map((row) => Map<String, dynamic>.from(row)).toList()
+          : <Map<String, dynamic>>[];
+      if (mounted) setState(() { _items = rows; _loading = false; });
+    } catch (error) {
+      if (mounted) setState(() { _error = error.toString(); _loading = false; });
+    }
+  }
+
+  Future<void> _clear() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Clear browsing history?'),
+        content: const Text('This removes your saved post, thread and video viewing history.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Clear history')),
+        ],
+      ),
+    );
+    if (!mounted || confirm != true) return;
+    setState(() => _clearing = true);
+    try {
+      await widget.api.clearBrowsingHistory();
+      if (mounted) {
+        setState(() => _items.clear());
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Browsing history cleared.')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error.toString())));
+      }
+    } finally {
+      if (mounted) setState(() => _clearing = false);
+    }
+  }
+
+  void _open(Map<String, dynamic> item) {
+    final type = (item['entity_type'] ?? '').toString();
+    final id = (item['entity_id'] ?? '').toString();
+    if (id.isEmpty) return;
+    if (type == 'post') {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => PostDetailScreen(api: widget.api, postId: id),
+      ));
+    } else if (type == 'thread') {
+      Navigator.of(context).push(MaterialPageRoute<void>(
+        builder: (_) => ThreadDetailScreen(api: widget.api, threadId: id),
+      ));
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    appBar: AppBar(
+      title: const Text('Browsing history'),
+      actions: [
+        IconButton(
+          tooltip: 'Refresh history',
+          onPressed: _loading ? null : _load,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+        IconButton(
+          tooltip: 'Clear browsing history',
+          onPressed: _clearing || _items.isEmpty ? null : _clear,
+          icon: _clearing
+              ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2))
+              : const Icon(Icons.delete_sweep_outlined),
+        ),
+      ],
+    ),
+    body: _loading && _items.isEmpty
+        ? const Center(child: CircularProgressIndicator())
+        : _error != null && _items.isEmpty
+            ? Center(child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(_error!, textAlign: TextAlign.center),
+                  const SizedBox(height: 12),
+                  OutlinedButton(onPressed: _load, child: const Text('Retry')),
+                ]),
+              ))
+            : _items.isEmpty
+                ? RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView(children: const [
+                      SizedBox(height: 120),
+                      Icon(Icons.history_rounded, size: 48),
+                      SizedBox(height: 12),
+                      Center(child: Text('Your browsing history is empty.')),
+                    ]),
+                  )
+                : RefreshIndicator(
+                    onRefresh: _load,
+                    child: ListView.separated(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      itemCount: _items.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (context, index) {
+                        final item = _items[index];
+                        final type = (item['entity_type'] ?? 'activity').toString();
+                        final id = (item['entity_id'] ?? '').toString();
+                        final date = (item['created_at'] ?? item['viewed_at'] ?? '').toString();
+                        final icon = type == 'post'
+                            ? Icons.article_outlined
+                            : type == 'thread'
+                                ? Icons.forum_outlined
+                                : Icons.play_circle_outline_rounded;
+                        return ListTile(
+                          leading: CircleAvatar(child: Icon(icon)),
+                          title: Text(type == 'video' ? 'Watched video' : 'Viewed ' + type),
+                          subtitle: Text(date.isEmpty ? id : date),
+                          trailing: const Icon(Icons.chevron_right_rounded),
+                          onTap: type == 'video' ? null : () => _open(item),
+                        );
+                      },
+                    ),
+                  ),
+  );
 }
