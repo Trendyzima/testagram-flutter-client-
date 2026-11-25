@@ -388,7 +388,7 @@ class _AuthScreenState extends State<AuthScreen> {
       return;
     }
     if (!mounted || draft == null) return;
-    final restorableDraft = draft!;
+    final restorableDraft = draft;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
