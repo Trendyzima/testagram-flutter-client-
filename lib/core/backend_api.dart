@@ -1272,24 +1272,21 @@ class BackendApi {
     if (postId.trim().isEmpty || postId.length > 64) {
       throw ArgumentError.value(postId, 'postId');
     }
-    return _request('GET', baseUri.resolve('/api/social/posts/' +
-        Uri.encodeComponent(postId.trim()) + '/poll'));
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/poll'));
   }
 
   Future<Map<String, dynamic>> getPostReactionState(String postId) {
     if (postId.trim().isEmpty || postId.length > 64) {
       throw ArgumentError.value(postId, 'postId');
     }
-    return _request('GET', baseUri.resolve('/api/social/posts/' +
-        Uri.encodeComponent(postId.trim()) + '/reaction'));
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reaction'));
   }
 
   Future<Map<String, dynamic>> getPostRepostState(String postId) {
     if (postId.trim().isEmpty || postId.length > 64) {
       throw ArgumentError.value(postId, 'postId');
     }
-    return _request('GET', baseUri.resolve('/api/social/posts/' +
-        Uri.encodeComponent(postId.trim()) + '/reposts'));
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reposts'));
   }
 
   /// Calls a first-party Backend capability. Product data never bypasses
