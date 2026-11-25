@@ -47,6 +47,7 @@ class _AuthScreenState extends State<AuthScreen> {
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
   bool _adultConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
+  bool _hasSavedIdentityDraft = false;
   late final IdentityApplicationStore _identityStore;
   IdentityApplicationDraft? _identityDraft;
   IdentityApplication? _identityApplication;
@@ -104,7 +105,7 @@ class _AuthScreenState extends State<AuthScreen> {
       _page = _Page.signUp;
     }
     if (entry.mode == AuthEntryMode.signIn && !widget.requireVerification) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreIdentityDraft());
+      WidgetsBinding.instance.addPostFrameCallback((_) => _checkSavedIdentityDraft());
     }
   }
 
@@ -295,6 +296,7 @@ class _AuthScreenState extends State<AuthScreen> {
     await _identityStore.clear();
     if (mounted) {
       setState(() {
+        _hasSavedIdentityDraft = false;
         _identityDraft = null;
         _identityApplication = null;
         _identityStatus = null;
@@ -370,6 +372,15 @@ class _AuthScreenState extends State<AuthScreen> {
         api.close();
       }
     });
+  }
+
+  Future<void> _checkSavedIdentityDraft() async {
+    try {
+      final draft = await _identityStore.load();
+      if (mounted) setState(() => _hasSavedIdentityDraft = draft != null);
+    } catch (_) {
+      if (mounted) setState(() => _hasSavedIdentityDraft = false);
+    }
   }
 
   Future<void> _restoreIdentityDraft() async {
@@ -1050,6 +1061,12 @@ class _AuthScreenState extends State<AuthScreen> {
                   label: const Text('Create account'),
                   style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 )),
+                if (_hasSavedIdentityDraft)
+                  TextButton.icon(
+                    onPressed: _busy ? null : _restoreIdentityDraft,
+                    icon: const Icon(Icons.restore_rounded),
+                    label: const Text('Resume saved identity application'),
+                  ),
               ],
             ] else
               Align(
