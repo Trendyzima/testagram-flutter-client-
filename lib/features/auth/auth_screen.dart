@@ -387,26 +387,25 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (_) {
       return;
     }
-    final savedDraft = draft;
-    if (!mounted || savedDraft == null) return;
+    if (!mounted || draft == null) return;
+    final restorableDraft = draft!;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        var currentDraft = savedDraft;
-        var application = currentDraft.application;
-        if (application == null) {
-          final createdApplication = await _submitIdentityDraft(api, currentDraft);
-          if (createdApplication == null) return;
-          application = createdApplication;
-          currentDraft = currentDraft.copyWith(application: createdApplication);
+        var currentDraft = restorableDraft;
+        final existingApplication = currentDraft.application;
+        final application = existingApplication ??
+            await _submitIdentityDraft(api, currentDraft);
+        if (application == null) return;
+        if (existingApplication == null) {
+          currentDraft = currentDraft.copyWith(application: application);
           await _identityStore.save(currentDraft);
         }
-        final readyApplication = application;
-        final status = await api.getStatus(readyApplication);
+        final status = await api.getStatus(application);
         if (!mounted) return;
         setState(() {
           _identityDraft = currentDraft;
-          _identityApplication = readyApplication;
+          _identityApplication = application;
           _identityStatus = status;
           _page = status.provisioningStatus == 'verification_pending'
               ? _Page.verify
