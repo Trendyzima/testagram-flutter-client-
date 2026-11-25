@@ -411,7 +411,7 @@ class _KnowledgeTopicsTabState extends State<_KnowledgeTopicsTab> {
                         child: Text(topic['is_following'] == true ? 'Following' : 'Follow'),
                       ),
                       onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
-                        builder: (_) => _KnowledgeTopicScreen(api: widget.api, slug: slug),
+                        builder: (_) => KnowledgeTopicScreen(api: widget.api, slug: slug),
                       )),
                     );
                   },
@@ -425,16 +425,16 @@ class _KnowledgeTopicsTabState extends State<_KnowledgeTopicsTab> {
   }
 }
 
-class _KnowledgeTopicScreen extends StatefulWidget {
-  const _KnowledgeTopicScreen({required this.api, required this.slug});
+class KnowledgeTopicScreen extends StatefulWidget {
+  const KnowledgeTopicScreen({required this.api, required this.slug});
   final BackendApi api;
   final String slug;
 
   @override
-  State<_KnowledgeTopicScreen> createState() => _KnowledgeTopicScreenState();
+  State<KnowledgeTopicScreen> createState() => KnowledgeTopicScreenState();
 }
 
-class _KnowledgeTopicScreenState extends State<_KnowledgeTopicScreen> {
+class KnowledgeTopicScreenState extends State<KnowledgeTopicScreen> {
   late Future<Map<String, dynamic>> _future;
 
   @override
