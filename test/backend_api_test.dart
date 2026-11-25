@@ -1330,13 +1330,24 @@ void main() {
       'description': 'Live discussion',
       'max_audience': 250,
     });
-    expect(payloads[8]['input'], {
+    expect(payloads[7]['input'], {
       'space_id': 'space-uuid',
       'user_id': 'speaker-uuid',
       'decision': 'approved',
     });
-    expect(payloads[10]['input'], {'target_user_id': 'follower-uuid'});
-    expect(payloads[11]['input'], {'target_user_id': 'follower-uuid'});
+    expect(payloads[9]['input'], {
+      'space_id': 'space-uuid',
+      'title': 'Updated title',
+      'description': 'Updated description',
+    });
+    expect(payloads[10]['input'], {
+      'space_id': 'space-uuid',
+      'message': 'Great session',
+      'amount': '100',
+      'idempotency_key': 'stable-superchat-key',
+    });
+    expect(payloads[13]['input'], {'target_user_id': 'follower-uuid'});
+    expect(payloads[14]['input'], {'target_user_id': 'follower-uuid'});
     api.close();
   });
 
