@@ -72,13 +72,12 @@ class _WalletTransactionDetailScreenState
 
   @override
   Widget build(BuildContext context) {
-    final tx = _transaction;
     final amount = _value('amount');
     final currency = _value('currency', 'KES');
     final kind = _value('kind', 'Wallet transaction').replaceAll('_', ' ');
     final status = _value('status', 'unknown').toUpperCase();
     return Scaffold(
-      appBar: const TestagramAppBar(title: 'Transaction details'),
+      appBar: TestagramAppBar(title: 'Transaction details'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
