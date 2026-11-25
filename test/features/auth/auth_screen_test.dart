@@ -58,22 +58,6 @@ class _FakeNativeAuthSession implements NativeAuthSession {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-class _IdentityReviewRequiredNativeAuthSession extends _FakeNativeAuthSession {
-  @override
-  Future<void> signUp({
-    required String email,
-    required String username,
-    required String password,
-  }) async {
-    signUpCalls++;
-    throw const NativeAuthException(
-      'Identity evidence review and two-person account approval are required before your Testagram account can be created.',
-      statusCode: 403,
-      code: 'IDENTITY_REVIEW_REQUIRED',
-    );
-  }
-}
-
 class _RecoveryReadyNativeAuthSession extends _FakeNativeAuthSession {
   int attempts = 0;
   String? lastEmail;
