@@ -448,11 +448,12 @@ class _AuthScreenState extends State<AuthScreen> {
         );
       }
       if (mounted) {
-        setState(() => _notice = application != null
-            ? queueResult?['email_queued'] == true
+        final notice = application == null
+            ? 'If an unverified account exists for this email, a fresh verification code and link have been sent.'
+            : (queueResult?['email_queued'] == true
                 ? 'A new verification email has been queued by Testagram. Check your inbox and spam folder; mailbox delivery is not confirmed yet.'
-                : 'Testagram could not queue the verification email. Your account remains unverified; please retry shortly.'
-            : 'If an unverified account exists for this email, a fresh verification code and link have been sent.');
+                : 'Testagram could not queue the verification email. Your account remains unverified; please retry shortly.');
+        setState(() => _notice = notice);
       }
     });
   }
