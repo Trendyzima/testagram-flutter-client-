@@ -86,6 +86,12 @@ void main() {
         '/home': 'home',
         '/explore': 'explore',
         '/communities': 'communities',
+        '/topics': 'topics',
+        '/questions': 'questions',
+        '/videos': 'videos',
+        '/watch': 'watch',
+        '/live': 'live',
+        '/federated': 'federated',
         '/search': 'search',
         '/notifications': 'notifications',
         '/messages': 'messages',
@@ -111,6 +117,8 @@ void main() {
         expect(link?.destination, entry.value, reason: entry.key);
       }
       expect(TestagramDeepLink.parse('testagram://messages')?.destination, 'messages');
+      expect(TestagramDeepLink.parse('/i/communities')?.destination, 'communities');
+      expect(TestagramDeepLink.parse('/i/spaces')?.destination, 'calls');
       expect(TestagramDeepLink.parse('https://evil.example/messages'), isNull);
       expect(TestagramDeepLink.parse('/messages?redirect=https://evil.example'), isNull);
     });
