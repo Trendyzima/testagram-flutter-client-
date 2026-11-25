@@ -29,6 +29,7 @@ import '../features/profile/profile_screen.dart';
 import '../features/messaging/direct_messages_screen.dart';
 import '../features/calls/calls_screen.dart';
 import '../features/calls/audio_spaces_screen.dart';
+import '../features/profile/follow_requests_screen.dart';
 import '../features/lists/social_lists_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -271,6 +272,11 @@ class _MainShellState extends State<MainShell> {
                 onSignOut: widget.onSignOut,
                 initialFeedMode: link.destination == 'for-you' ? 'for_you' : link.destination!,
               ),
+            ));
+            break;
+          case 'follow-requests':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FollowRequestsScreen(api: widget.api),
             ));
             break;
           case 'compose':
