@@ -24,6 +24,8 @@ class _ConversationScreenState extends State<ConversationScreen> {
   List<Map<String, dynamic>> _messages = [];
   bool _loading = true;
   String? _error;
+  String _myUserId = '';
+  final Set<String> _busyMessageActions = {};
 
   String get _id => (widget.conversationId ?? widget.conversation?['id'] ?? '').toString();
   String get _title {
@@ -40,12 +42,14 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
       if (_id.isEmpty) throw const BackendApiException('This conversation has an invalid identifier.');
+      final profileResponse = _data(await widget.api.getMyProfile());
+      final myId = (profileResponse['id'] ?? profileResponse['user_id'] ?? '').toString();
       final response = _data(await widget.api.listMessages(_id));
       final raw = response['items'];
       final rows = raw is List
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
           : <Map<String, dynamic>>[];
-      if (mounted) setState(() => _messages = rows.reversed.toList());
+      if (mounted) setState(() { _myUserId = myId; _messages = rows.reversed.toList(); });
       if (rows.isNotEmpty) {
         final latestId = (rows.first['id'] ?? '').toString();
         if (latestId.isNotEmpty) {
@@ -59,6 +63,38 @@ class _ConversationScreenState extends State<ConversationScreen> {
     }
   }
 
+  Future<void> _messageAction(Map<String, dynamic> message, String action) async {
+    final id = (message['id'] ?? '').toString();
+    if (id.isEmpty || !_busyMessageActions.add(id)) return;
+    setState(() {});
+    try {
+      if (action == 'react') {
+        await widget.api.reactToMessage(messageId: id, reaction: '❤️');
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Reaction added.')));
+      } else if (action == 'delete') {
+        if ((message['sender_id'] ?? '').toString() != _myUserId || _myUserId.isEmpty) return;
+        final confirmed = await showDialog<bool>(
+          context: context,
+          builder: (dialogContext) => AlertDialog(
+            title: const Text('Delete this message?'),
+            content: const Text('This removes the message from the conversation for everyone.'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+              FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Delete')),
+            ],
+          ),
+        );
+        if (confirmed != true) return;
+        await widget.api.deleteMessage(id);
+        if (mounted) setState(() => _messages.removeWhere((item) => (item['id'] ?? '').toString() == id));
+      }
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Message action failed: $error')));
+    } finally {
+      _busyMessageActions.remove(id);
+      if (mounted) setState(() {});
+    }
+  }
   @override
   void initState() {
     super.initState();
@@ -131,6 +167,19 @@ class _ConversationScreenState extends State<ConversationScreen> {
                               ]),
                               const SizedBox(height: 4),
                               Text((message['created_at'] ?? '').toString(), style: Theme.of(context).textTheme.bodySmall),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                TextButton.icon(
+                                  onPressed: _busyMessageActions.contains((message['id'] ?? '').toString()) ? null : () => _messageAction(message, 'react'),
+                                  icon: const Icon(Icons.favorite_border_rounded, size: 16),
+                                  label: const Text('React'),
+                                ),
+                                if (_myUserId.isNotEmpty && (message['sender_id'] ?? '').toString() == _myUserId)
+                                  PopupMenuButton<String>(
+                                    enabled: !_busyMessageActions.contains((message['id'] ?? '').toString()),
+                                    onSelected: (action) => _messageAction(message, action),
+                                    itemBuilder: (_) => const [PopupMenuItem(value: 'delete', child: Text('Delete for everyone'))],
+                                  ),
+                              ]),
                             ]),
                           ),
                         ),
