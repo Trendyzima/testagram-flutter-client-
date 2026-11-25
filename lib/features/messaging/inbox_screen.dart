@@ -54,6 +54,18 @@ class _InboxScreenState extends State<InboxScreen> {
     return item['kind'] == 'direct' ? 'Direct message' : 'Group conversation';
   }
 
+  String _activityLabel(Map<String, dynamic> item) {
+    final latest = item['latest_message'];
+    final latestCreatedAt = latest is Map ? latest['created_at'] : null;
+    final raw = (latestCreatedAt ?? item['updated_at'] ?? '').toString();
+    final timestamp = DateTime.tryParse(raw);
+    if (timestamp == null) return '';
+    final local = timestamp.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return 'Updated $hour:$minute';
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
@@ -87,6 +99,7 @@ class _InboxScreenState extends State<InboxScreen> {
                   final item = _items[index];
                   final unread = (item['unread_count'] as num?)?.toInt() ?? 0;
                   final kind = item['kind'] == 'group' ? 'Group' : 'Direct';
+                  final activity = _activityLabel(item);
                   return ListTile(
                     contentPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 5),
                     leading: CircleAvatar(
@@ -96,7 +109,7 @@ class _InboxScreenState extends State<InboxScreen> {
                     ),
                     title: Text(_conversationName(item), maxLines: 1, overflow: TextOverflow.ellipsis),
                     subtitle: Text(
-                      'Open conversation · $kind',
+                      'Open conversation · $kind${activity.isEmpty ? '' : ' · $activity'}',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
