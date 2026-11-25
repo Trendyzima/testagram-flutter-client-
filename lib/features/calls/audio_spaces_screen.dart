@@ -14,6 +14,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
   List<Map<String, dynamic>> _spaces = [];
   bool _loading = true;
   bool _creating = false;
+  final Map<String, String> _pendingSuperchatKeys = {};
   String? _error;
 
   Map<String, dynamic> _payload(Map<String, dynamic> response) {
@@ -258,13 +259,18 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
     );
     if (confirmed != true) return;
     try {
-      final key = 'space-' + spaceId + '-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+      final fingerprint = [spaceId, input['amount'] ?? '', input['message'] ?? ''].join('|');
+      final key = _pendingSuperchatKeys.putIfAbsent(
+        fingerprint,
+        () => 'space-' + spaceId + '-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString(),
+      );
       await widget.api.sendAudioSpaceSuperchat(
         spaceId: spaceId,
         message: input['message'] ?? '',
         amount: input['amount'] ?? '',
         idempotencyKey: key,
       );
+      _pendingSuperchatKeys.remove(fingerprint);
       if (mounted) _toast('Super Chat sent.');
     } catch (error) {
       if (mounted) _toast(error.toString());
