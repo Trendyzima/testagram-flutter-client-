@@ -1365,6 +1365,29 @@ void main() {
     api.close();
   });
 
+  test('maps browsing history list, record and clear to the canonical social route', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'history-contract-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+    await api.getBrowsingHistory();
+    await api.recordBrowsingHistory(entityType: 'post', entityId: '123e4567-e89b-42d3-a456-426614174000', metadata: {'title': 'A Testagram post'});
+    await api.clearBrowsingHistory();
+    expect(requests.map((request) => request.method).toList(), ['GET', 'POST', 'DELETE']);
+    expect(requests.map((request) => request.url.path).toList(), ['/api/social/history', '/api/social/history', '/api/social/history']);
+    expect(requests.every((request) => request.headers['authorization'] == 'Bearer history-contract-token'), isTrue);
+    expect(jsonDecode(requests[1].body), {
+      'entity_type': 'post',
+      'entity_id': '123e4567-e89b-42d3-a456-426614174000',
+      'metadata': {'title': 'A Testagram post'},
+    });
+    api.close();
+  });
   test('maps post poll and interaction state reads to registered social routes', () async {
     final requests = <http.Request>[];
     final api = BackendApi(
