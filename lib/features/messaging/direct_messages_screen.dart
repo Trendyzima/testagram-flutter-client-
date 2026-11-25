@@ -53,14 +53,29 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
   String _conversationTitle(Map<String, dynamic> item) {
     final title = (item['title'] ?? '').toString().trim();
     if (title.isNotEmpty) return title;
-    final members = item['members'];
-    if (members is List) {
-      final names = members.whereType<Map>().map((m) =>
-        (m['display_name'] ?? m['username'] ?? '').toString()
+    // The Backend supplies other_members specifically for display so the
+    // signed-in user is not accidentally listed as their own chat partner.
+    final otherMembers = item['other_members'];
+    final displayMembers = otherMembers is List ? otherMembers : item['members'];
+    if (displayMembers is List) {
+      final names = displayMembers.whereType<Map>().map((m) =>
+        (m['display_name'] ?? m['username'] ?? '').toString().trim()
       ).where((v) => v.isNotEmpty).toList();
       if (names.isNotEmpty) return names.join(', ');
     }
     return item['kind'] == 'group' ? 'Group conversation' : 'Direct message';
+  }
+
+  String _activityLabel(Map<String, dynamic> item) {
+    final latest = item['latest_message'];
+    final raw = (latest is Map ? latest['created_at'] : null) ??
+        item['updated_at'] ?? '';
+    final timestamp = DateTime.tryParse(raw.toString());
+    if (timestamp == null) return '';
+    final local = timestamp.toLocal();
+    final hour = local.hour.toString().padLeft(2, '0');
+    final minute = local.minute.toString().padLeft(2, '0');
+    return 'Updated $hour:$minute';
   }
 
   Future<void> _startDirectMessage() async {
@@ -161,10 +176,15 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
                 itemBuilder: (context, index) {
                   final item = _items[index];
                   final unread = int.tryParse((item['unread_count'] ?? 0).toString()) ?? 0;
+                  final activity = _activityLabel(item);
                   return ListTile(
                     leading: CircleAvatar(child: Icon(item['kind'] == 'group' ? Icons.groups_outlined : Icons.person_outline)),
                     title: Text(_conversationTitle(item), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: const Text('Open conversation', maxLines: 1),
+                    subtitle: Text(
+                      'Open conversation${activity.isEmpty ? '' : ' · $activity'}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_right),
                     onTap: () async {
                       await Navigator.of(context).push(MaterialPageRoute<void>(
