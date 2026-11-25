@@ -84,6 +84,7 @@ void main() {
     test('resolves first-class X-style Testagram destinations', () {
       const routes = {
         '/home': 'home',
+        '/compose/post': 'compose',
         '/explore': 'explore',
         '/communities': 'communities',
         '/topics': 'topics',
@@ -117,6 +118,7 @@ void main() {
         expect(link?.destination, entry.value, reason: entry.key);
       }
       expect(TestagramDeepLink.parse('testagram://messages')?.destination, 'messages');
+      expect(TestagramDeepLink.parse('testagram://compose/post')?.destination, 'compose');
       expect(TestagramDeepLink.parse('/i/communities')?.destination, 'communities');
       expect(TestagramDeepLink.parse('/i/spaces')?.destination, 'calls');
       expect(TestagramDeepLink.parse('https://evil.example/messages'), isNull);
