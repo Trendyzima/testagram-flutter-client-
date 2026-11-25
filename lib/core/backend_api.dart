@@ -646,8 +646,8 @@ class BackendApi {
           }));
 
   /// Opens the authenticated Backend notification stream. The Backend
-  /// proxies the private Data Centre SSE endpoint; the client never calls
-  /// internal services directly. Reconnect with the returned stream_cursor.
+  /// reads the canonical notification inbox from its own PostgreSQL database;
+  /// the client never calls internal services directly. Reconnect with the returned stream_cursor.
   Stream<Map<String, dynamic>> streamNotifications({String? lastEventId}) async* {
     final request = http.Request(
       'GET',
