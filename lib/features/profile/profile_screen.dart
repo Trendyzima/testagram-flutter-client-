@@ -321,6 +321,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: _busy ? null : _editProfile,
               icon: const Icon(Icons.edit_outlined),
             ),
+          ],
         ],
       ),
       body: _loading && profile == null
