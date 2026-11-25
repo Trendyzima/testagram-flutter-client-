@@ -78,11 +78,11 @@ jobs:
             -H 'Content-Type: application/json' \
             --data-binary '{"email":"signup-probe@example.invalid","username":"signup_probe","password":"short"}')"
           code="$(jq -r '.error.code // empty' "$response" 2>/dev/null || true)"
-          if [[ "$status" != "400" || "$code" != "INVALID_PASSWORD" ]]; then
-            echo "::error::Production native signup did not reach password validation (HTTP $status, code=$code). Refusing to publish the web frontend."
+          if [[ "$status" != "403" || "$code" != "IDENTITY_REVIEW_REQUIRED" ]]; then
+            echo "::error::Production signup did not preserve the required identity-review and two-person approval gate (HTTP $status, code=$code). Refusing to publish the web frontend."
             exit 1
           fi
-          echo "Native signup API is live; the deliberately invalid probe created no account and sent no email."
+          echo "Production signup is correctly fail-closed behind evidence review and two-person approval; the probe created no account and sent no email."
 
       - name: Install Flutter
         uses: subosito/flutter-action@v2
