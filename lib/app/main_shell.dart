@@ -31,6 +31,7 @@ import '../features/calls/calls_screen.dart';
 import '../features/calls/audio_spaces_screen.dart';
 import '../features/profile/follow_requests_screen.dart';
 import '../features/lists/social_lists_screen.dart';
+import '../features/history/browsing_history_screen.dart';
 
 class MainShell extends StatefulWidget {
   const MainShell({
