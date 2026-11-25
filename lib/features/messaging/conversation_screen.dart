@@ -42,8 +42,13 @@ class _ConversationScreenState extends State<ConversationScreen> {
     if (mounted) setState(() { _loading = true; _error = null; });
     try {
       if (_id.isEmpty) throw const BackendApiException('This conversation has an invalid identifier.');
-      final profileResponse = _data(await widget.api.getMyProfile());
-      final myId = (profileResponse['id'] ?? profileResponse['user_id'] ?? '').toString();
+      var myId = '';
+      try {
+        final profileResponse = _data(await widget.api.getMyProfile());
+        myId = (profileResponse['id'] ?? profileResponse['user_id'] ?? '').toString();
+      } catch (_) {
+        // Profile lookup is optional; message history must remain available.
+      }
       final response = _data(await widget.api.listMessages(_id));
       final raw = response['items'];
       final rows = raw is List
