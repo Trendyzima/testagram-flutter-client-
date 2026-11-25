@@ -618,7 +618,11 @@ void main() {
       );
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002/posts');
-      expect(captured.url.queryParameters, {'limit': '20', 'before': 'previous-post'});
+      expect(captured.url.queryParameters, {
+        'limit': '20',
+        'media_only': 'false',
+        'before': 'previous-post',
+      });
       expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['posts'], hasLength(1));
       api.close();
