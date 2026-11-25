@@ -84,6 +84,11 @@ void main() {
     test('resolves first-class X-style Testagram destinations', () {
       const routes = {
         '/home': 'home',
+        '/following': 'following',
+        '/for-you': 'for-you',
+        '/latest': 'latest',
+        '/media': 'media',
+        '/discover': 'discover',
         '/compose/post': 'compose',
         '/explore': 'explore',
         '/communities': 'communities',
