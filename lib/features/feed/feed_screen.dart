@@ -40,12 +40,13 @@ bool _isCanonicalFeedPostUuid(String value) {
 }
 
 class FeedScreen extends StatefulWidget {
-  const FeedScreen({super.key, required this.api, required this.onSignOut, this.listId, this.feedTitle, this.composeOnOpen = false});
+  const FeedScreen({super.key, required this.api, required this.onSignOut, this.listId, this.feedTitle, this.composeOnOpen = false, this.initialFeedMode = 'for_you'});
   final BackendApi api;
   final Future<void> Function() onSignOut;
   final String? listId;
   final String? feedTitle;
   final bool composeOnOpen;
+  final String initialFeedMode;
   @override
   State<FeedScreen> createState() => _FeedScreenState();
 }
@@ -67,6 +68,10 @@ class _FeedScreenState extends State<FeedScreen> {
     super.initState();
     _scroll.addListener(_onScroll);
     _selectedListId = widget.listId;
+    const supportedFeedModes = {'for_you', 'following', 'latest', 'media', 'discover'};
+    _feedMode = supportedFeedModes.contains(widget.initialFeedMode)
+        ? widget.initialFeedMode
+        : 'for_you';
     _load(reset: true);
     if (widget.listId == null) unawaited(_loadPinnedLists());
     if (widget.composeOnOpen) {
