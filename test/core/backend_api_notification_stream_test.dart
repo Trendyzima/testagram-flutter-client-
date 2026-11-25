@@ -10,7 +10,7 @@ void main() {
       baseUri: Uri.parse('https://api.testagram.site'),
       getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
       client: MockClient((request) async {
-        captured = request as http.Request;
+        captured = request;
         return http.Response(
           ': keep-alive\n'
           'event: notification\n'
