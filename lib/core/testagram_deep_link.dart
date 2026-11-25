@@ -24,7 +24,7 @@ class TestagramDeepLink {
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
     'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
-    'polls', 'calls', 'creator', 'hashtags', 'federation', 'profile',
+    'polls', 'calls', 'creator', 'hashtags', 'topics', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
   };
 
   static final RegExp _username = RegExp(r'^[A-Za-z0-9_.]{2,30}$');
@@ -72,6 +72,24 @@ class TestagramDeepLink {
         kind: TestagramDeepLinkKind.destination,
         destination: segments.single.toLowerCase(),
       );
+    }
+    if (segments.length == 2 && segments.first.toLowerCase() == 'i') {
+      const aliases = {
+        'communities': 'communities',
+        'notifications': 'notifications',
+        'messages': 'messages',
+        'search': 'search',
+        'explore': 'explore',
+        'spaces': 'calls',
+        'shorts': 'shorts',
+      };
+      final destination = aliases[segments[1].toLowerCase()];
+      if (destination != null) {
+        return TestagramDeepLink._(
+          kind: TestagramDeepLinkKind.destination,
+          destination: destination,
+        );
+      }
     }
     if (segments.length == 2 &&
         segments.first.toLowerCase() == 'i' &&
