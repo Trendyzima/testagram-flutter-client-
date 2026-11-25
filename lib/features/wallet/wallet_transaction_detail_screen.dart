@@ -77,7 +77,7 @@ class _WalletTransactionDetailScreenState
     final kind = _value('kind', 'Wallet transaction').replaceAll('_', ' ');
     final status = _value('status', 'unknown').toUpperCase();
     return Scaffold(
-      appBar: TestagramAppBar(title: 'Transaction details'),
+      appBar: const TestagramAppBar(title: 'Transaction details'),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
