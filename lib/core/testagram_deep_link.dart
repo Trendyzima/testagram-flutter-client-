@@ -1,6 +1,6 @@
 /// A strictly allow-listed destination parsed from an incoming Testagram link.
 /// This parser never accepts arbitrary hosts, redirect URLs or payment parameters.
-enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, profileMedia, socialList, post, wallet, hashtag }
+enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, profileMedia, socialList, post, thread, wallet, hashtag }
 
 class TestagramDeepLink {
   const TestagramDeepLink._({
@@ -12,6 +12,7 @@ class TestagramDeepLink {
     this.postId,
     this.connectionKind,
     this.listId,
+    this.threadId,
   });
 
   final TestagramDeepLinkKind kind;
@@ -22,6 +23,7 @@ class TestagramDeepLink {
   final String? postId;
   final String? connectionKind;
   final String? listId;
+  final String? threadId;
 
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
@@ -142,6 +144,14 @@ class TestagramDeepLink {
       return const TestagramDeepLink._(
         kind: TestagramDeepLinkKind.destination,
         destination: 'federation',
+      );
+    }
+    if (segments.length == 2 &&
+        {'thread', 'threads'}.contains(segments.first.toLowerCase()) &&
+        _uuid.hasMatch(segments[1])) {
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.thread,
+        threadId: segments[1].toLowerCase(),
       );
     }
     if (segments.length == 2 &&
