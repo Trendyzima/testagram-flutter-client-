@@ -40,7 +40,6 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID || secrets.CLOUDFLARE_ACCOUNT_ID }}
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_CACHE_PURGE_API_TOKEN: ${{ secrets.CLOUDFLARE_CACHE_PURGE_API_TOKEN }}
-      CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID }}
       CLOUDFLARE_PAGES_PROJECT: testagram-flutter-web
       CF_PAGES_COMMIT_SHA: ${{ github.sha }}
     steps:
@@ -51,16 +50,12 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CLOUDFLARE_CACHE_PURGE_API_TOKEN CLOUDFLARE_ZONE_ID; do
+          for name in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN CLOUDFLARE_CACHE_PURGE_API_TOKEN; do
             if [[ -z "${!name:-}" ]]; then
               echo "::error::Production Pages deployment is missing required GitHub production configuration: $name"
               exit 1
             fi
           done
-          if [[ ! "$CLOUDFLARE_ZONE_ID" =~ ^[A-Fa-f0-9]{32}$ ]]; then
-            echo "::error::CLOUDFLARE_ZONE_ID must be the 32-character zone ID for testagram.site."
-            exit 1
-          fi
           cache_token_verify="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS \
             -H "Authorization: Bearer $CLOUDFLARE_CACHE_PURGE_API_TOKEN" \
             "https://api.cloudflare.com/client/v4/user/tokens/verify")"
@@ -126,6 +121,21 @@ jobs:
             exit 1
           fi
 
+          zone_response="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
+            "https://api.cloudflare.com/client/v4/zones?name=testagram.site&account.id=$CLOUDFLARE_ACCOUNT_ID&status=active&per_page=2")"
+          if [[ "$(jq -r '.success // false' <<<"$zone_response")" != "true" ]] || [[ "$(jq '.result | length' <<<"$zone_response")" != "1" ]]; then
+            echo "::error::Could not identify exactly one active testagram.site zone with the existing Cloudflare API token. Grant that token Zone:Read access; no new credential is required."
+            jq -c '{success,errors,messages}' <<<"$zone_response" || true
+            exit 1
+          fi
+          zone_id="$(jq -r '.result[0].id // empty' <<<"$zone_response")"
+          zone_name="$(jq -r '.result[0].name // empty' <<<"$zone_response")"
+          if [[ "$zone_name" != "testagram.site" || ! "$zone_id" =~ ^[A-Fa-f0-9]{32}$ ]]; then
+            echo "::error::Cloudflare returned an unexpected zone identity; refusing to purge any cache."
+            exit 1
+          fi
+          echo "CLOUDFLARE_ZONE_ID=$zone_id" >> "$GITHUB_ENV"
+          echo "Discovered the active testagram.site zone using the existing Cloudflare API token."
           project="$(curl --retry 2 --retry-all-errors --retry-delay 2 -fsS -H "$auth" \
             "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CLOUDFLARE_PAGES_PROJECT")"
           if [[ "$(jq -r '.success // false' <<<"$project")" != "true" ]]; then
