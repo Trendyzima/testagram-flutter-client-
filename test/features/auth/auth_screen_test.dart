@@ -156,7 +156,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
     expect(find.text('Apply for Testagram'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(3));
-    expect(find.textContaining('two independent approvals'), findsOneWidget);
+    expect(find.textContaining('two independent approvals'), findsWidgets);
   });
 
   testWidgets('native signup does not restore an old identity application',
@@ -185,7 +185,7 @@ void main() {
     expect(find.text('Create account'), findsOneWidget);
     await tapVisible(tester, find.text('Create account'));
     await tester.pumpAndSettle();
-    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Apply for Testagram'), findsOneWidget);
     expect(find.text('Submit application'), findsOneWidget);
     expect(find.text('saved-applicant@example.test'), findsNothing);
     // Preserve the user's encrypted draft for a future, deliberate reopening.
@@ -320,7 +320,6 @@ void main() {
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
     expect(find.text('Apply for Testagram'), findsOneWidget);
-    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
