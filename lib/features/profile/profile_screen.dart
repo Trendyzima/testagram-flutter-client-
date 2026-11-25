@@ -8,12 +8,13 @@ import 'profile_connections_screen.dart';
 import 'profile_edit_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key, required this.api, required this.userId});
+  const ProfileScreen({super.key, required this.api, required this.userId, this.initialTab = 0});
 
-  const ProfileScreen.currentUser({super.key, required this.api}) : userId = null;
+  const ProfileScreen.currentUser({super.key, required this.api, this.initialTab = 0}) : userId = null;
 
   final BackendApi api;
   final String? userId;
+  final int initialTab;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -37,6 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    _profileTabIndex = widget.initialTab.clamp(0, 1);
     _load();
   }
 
