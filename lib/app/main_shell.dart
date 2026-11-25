@@ -9,6 +9,11 @@ import '../core/testagram_theme.dart';
 import '../core/widgets/testagram_brand_mark.dart';
 import '../features/discovery/explore_screen.dart';
 import '../features/discovery/hashtag_screen.dart';
+import '../features/discovery/hashtags_screen.dart';
+import '../features/posts/post_detail_screen.dart';
+import '../features/profile/profile_connections_screen.dart';
+import '../features/federation/federation_settings_screen.dart';
+import '../features/messaging/inbox_screen.dart';
 import '../features/feed/feed_screen.dart';
 import '../features/knowledge/knowledge_hub_screen.dart';
 import '../features/monetization/monetization_hub_screen.dart';
@@ -197,7 +202,7 @@ class _MainShellState extends State<MainShell> {
     if (link == null || !mounted) return;
     switch (link.kind) {
       case TestagramDeepLinkKind.wallet:
-        setState(() => _index = 9);
+        _selectDestination(9);
         break;
       case TestagramDeepLinkKind.profileId:
         _openProfile(link.userId!);
@@ -207,27 +212,88 @@ class _MainShellState extends State<MainShell> {
           builder: (_) => HashtagScreen(api: widget.api, tag: link.tag!),
         ));
         break;
+      case TestagramDeepLinkKind.post:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => PostDetailScreen(api: widget.api, postId: link.postId!),
+        ));
+        break;
       case TestagramDeepLinkKind.profileUsername:
-        try {
-          final response = await widget.api.resolveProfileUsername(link.username!);
-          final raw = response['data'];
-          final userId = raw is Map ? (raw['id'] ?? raw['user_id'] ?? '').toString() : '';
-          if (!mounted) return;
-          if (userId.isEmpty) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('This profile is unavailable.')),
-            );
-            return;
-          }
-          _openProfile(userId);
-        } catch (error) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Could not open profile: $error')),
-            );
-          }
+        final userId = await _resolveProfileId(link.username!);
+        if (userId != null) _openProfile(userId);
+        break;
+      case TestagramDeepLinkKind.profileConnections:
+        final userId = await _resolveProfileId(link.username!);
+        if (userId != null && mounted) {
+          Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ProfileConnectionsScreen(
+              api: widget.api,
+              userId: userId,
+              kind: link.connectionKind!,
+            ),
+          ));
         }
         break;
+      case TestagramDeepLinkKind.destination:
+        switch (link.destination) {
+          case 'home': _selectDestination(0); break;
+          case 'explore':
+          case 'search': _selectDestination(1); break;
+          case 'knowledge':
+          case 'ask': _selectDestination(2); break;
+          case 'notifications': _selectDestination(3); break;
+          case 'profile': _selectDestination(4); break;
+          case 'video': _selectDestination(5); break;
+          case 'shorts': _selectDestination(6); break;
+          case 'threads': _selectDestination(7); break;
+          case 'polls': _selectDestination(8); break;
+          case 'wallet': _selectDestination(9); break;
+          case 'settings': _selectDestination(10); break;
+          case 'creator': _selectDestination(11); break;
+          case 'messages': _selectDestination(12); break;
+          case 'calls': _selectDestination(13); break;
+          case 'lists': _selectDestination(14); break;
+          case 'hashtags':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => HashtagsScreen(api: widget.api),
+            ));
+            break;
+          case 'inbox':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => InboxScreen(api: widget.api),
+            ));
+            break;
+          case 'federation':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => FederationSettingsScreen(api: widget.api),
+            ));
+            break;
+        }
+        break;
+    }
+  }
+
+  Future<String?> _resolveProfileId(String username) async {
+    try {
+      final response = await widget.api.resolveProfileUsername(username);
+      final raw = response['data'];
+      final userId = raw is Map
+          ? (raw['id'] ?? raw['user_id'] ?? '').toString()
+          : '';
+      if (!mounted) return null;
+      if (userId.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This profile is unavailable.')),
+        );
+        return null;
+      }
+      return userId;
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not open profile: $error')),
+        );
+      }
+      return null;
     }
   }
 
