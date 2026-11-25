@@ -502,7 +502,19 @@ class _MainShellState extends State<MainShell> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                        onTap: () => _selectDestination(2),
+                        onTap: () {
+                          final slug = (topic['slug'] ?? '').toString().trim();
+                          if (slug.isEmpty) {
+                            _selectDestination(2);
+                            return;
+                          }
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => KnowledgeTopicScreen(
+                              api: widget.api,
+                              slug: slug,
+                            ),
+                          ));
+                        },
                       ),
                   ],
                 ),
