@@ -274,6 +274,11 @@ class _MainShellState extends State<MainShell> {
               ),
             ));
             break;
+          case 'history':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => BrowsingHistoryScreen(api: widget.api),
+            ));
+            break;
           case 'follow-requests':
             Navigator.of(context).push(MaterialPageRoute<void>(
               builder: (_) => FollowRequestsScreen(api: widget.api),
