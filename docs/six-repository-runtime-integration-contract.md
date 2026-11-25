@@ -83,8 +83,9 @@ This is the shared communication contract for the six runtime organs plus the AP
 The Flutter client uses the public Backend as its product API. Backend capability operations are sent to POST /api/capability with the native access token; a capability name is not a public microservice hostname.
 
 - Authentication is owned by NativeAuthClient at /api/auth/*.
-- Feed, profiles, posts, bookmarks, lists, hashtags, search, notifications, knowledge, polls, federation preferences/subscriptions and wallet actions use BackendApi against TESTAGRAM_API_URL.
+- Public discovery feed, feed lanes, profiles, posts, replies, post interaction summaries/lists, bookmarks, lists, hashtags, search, notifications, knowledge, polls, federation preferences/subscriptions, wallet actions, browsing history and owned/private media routes use BackendApi against TESTAGRAM_API_URL.
 - Direct-message and call-session metadata uses Backend capabilities. Message plaintext/send remains disabled until the client has verified device-key registration, recipient-key verification and decryption. A call session or signaling ticket does not prove media is connected.
+- Threads list/detail, create, media attachment, delete, like/repost/bookmark toggles, individual state reads, batch state reads and interaction lists use BackendApi against the registered /api/threads routes. Browsing history and private-media list/download routes are also represented by BackendApi methods.
 - Audio Spaces lifecycle operations (discover/create/join/leave/speaker request/host decision/update/end/Super Chat) use Backend capabilities. The current Data Centre realtime contract explicitly requires a dedicated multi-party media transport/SFU for group Spaces; the one-to-one signaling room is not a substitute.
 - Algorithm and Federation remain private Backend-to-service calls. Flutter must not call either service directly.
 - Data Centre media lifecycle remains Backend-mediated. Flutter must not receive provider credentials or call the private media service directly.
