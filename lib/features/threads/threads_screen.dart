@@ -508,6 +508,17 @@ class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
   void initState() {
     super.initState();
     _load();
+    _recordBrowsingHistory();
+  }
+
+  Future<void> _recordBrowsingHistory() async {
+    try {
+      await widget.api.recordBrowsingHistory(
+        entityType: 'thread',
+        entityId: widget.threadId,
+        metadata: const {'source': 'thread_detail'},
+      );
+    } catch (_) {}
   }
 
   @override
