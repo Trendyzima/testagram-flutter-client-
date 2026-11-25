@@ -82,6 +82,20 @@ Testagram adaptations:
 3. **User-controlled content labels**: expose transparent labels and per-label show/warn/hide controls. Testagram's safety policy and legal obligations remain authoritative; user controls do not disable required safety enforcement.
 4. **Federated identity clarity**: preserve the existing distinction between local, ActivityPub and AT Protocol identities. Remote actions must only appear enabled when a verified Backend handler supports them.
 
+### Quora
+
+Useful patterns:
+- Topic follows and topic-specific feeds make knowledge discovery interest-led rather than purely follower-led.
+- Answers are structured around the question, with a clear accepted answer and visible author context.
+- Credibility improves when contributors can attach sources, distinguish first-hand experience from sourced claims, and revise answers with an auditable history.
+- Helpful-answer voting and answer sorting make high-signal contributions easier to find, but need anti-brigading and abuse controls.
+
+Testagram adaptations:
+1. **Cited Answers**: allow an answer author to attach a small set of titled HTTPS references with optional quoted passages. Store references as structured records, validate and normalize URLs, render safe external links, and never fetch arbitrary URLs from the API server.
+2. **Helpful Answer Signals**: authenticated users can mark an answer helpful once; expose aggregate counts and the viewer's own vote. Use a unique database constraint, idempotent toggles, rate limits and block/mute-aware eligibility. The question author’s accepted-answer choice remains distinct from community votes.
+3. **Answer Quality Context**: show accepted status, source count, revision history and author context without presenting popularity as factual correctness.
+4. **Topic Expertise**: use followed topics and transparent contribution history to improve the Knowledge feed, while avoiding unverifiable expert badges or paid ranking.
+
 ### Mastodon
 
 Useful patterns:
