@@ -250,13 +250,18 @@ class _MainShellState extends State<MainShell> {
         switch (link.destination) {
           case 'home': _selectDestination(0); break;
           case 'explore':
-          case 'search': _selectDestination(1); break;
+          case 'search':
+          case 'federated': _selectDestination(1); break;
           case 'knowledge':
           case 'ask':
-          case 'communities': _selectDestination(2); break;
+          case 'communities':
+          case 'topics':
+          case 'questions': _selectDestination(2); break;
           case 'notifications': _selectDestination(3); break;
           case 'profile': _selectDestination(4); break;
-          case 'video': _selectDestination(5); break;
+          case 'video':
+          case 'videos':
+          case 'watch': _selectDestination(5); break;
           case 'shorts': _selectDestination(6); break;
           case 'threads': _selectDestination(7); break;
           case 'polls': _selectDestination(8); break;
@@ -264,7 +269,8 @@ class _MainShellState extends State<MainShell> {
           case 'settings': _selectDestination(10); break;
           case 'creator': _selectDestination(11); break;
           case 'messages': _selectDestination(12); break;
-          case 'calls': _selectDestination(13); break;
+          case 'calls':
+          case 'live': _selectDestination(13); break;
           case 'lists': _selectDestination(14); break;
           case 'bookmarks':
             Navigator.of(context).push(MaterialPageRoute<void>(
