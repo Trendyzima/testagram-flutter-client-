@@ -283,7 +283,7 @@ class _MainShellState extends State<MainShell> {
 
   Widget _buildSidebar(BuildContext context, bool extended) {
     return SizedBox(
-      width: extended ? 224 : 88,
+      width: extended ? 275 : 88,
       child: Column(
         children: [
           Padding(
@@ -344,9 +344,9 @@ class _MainShellState extends State<MainShell> {
   Widget _buildRightSidebar(BuildContext context) {
     final theme = Theme.of(context);
     return SizedBox(
-      width: 292,
+      width: 350,
       child: ListView(
-        padding: const EdgeInsets.fromLTRB(16, 22, 16, 24),
+        padding: const EdgeInsets.fromLTRB(12, 18, 20, 24),
         children: [
           Text('Your space', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
@@ -502,7 +502,19 @@ class _MainShellState extends State<MainShell> {
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
-                        onTap: () => _selectDestination(2),
+                        onTap: () {
+                          final slug = (topic['slug'] ?? '').toString().trim();
+                          if (slug.isEmpty) {
+                            _selectDestination(2);
+                            return;
+                          }
+                          Navigator.of(context).push(MaterialPageRoute<void>(
+                            builder: (_) => KnowledgeTopicScreen(
+                              api: widget.api,
+                              slug: slug,
+                            ),
+                          ));
+                        },
                       ),
                   ],
                 ),
@@ -646,12 +658,15 @@ class _MainShellState extends State<MainShell> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final desktop = constraints.maxWidth >= 760;
-        final extended = constraints.maxWidth >= 1120;
-        final showRightSidebar = constraints.maxWidth >= 1200;
+        // Match X's desktop proportions: a stable navigation rail, a focused
+        // ~600px conversation column, and a contextual discovery rail.
+        // Keep the navigation compact until there is room for all three.
+        final extended = constraints.maxWidth >= 1280;
+        final showRightSidebar = constraints.maxWidth >= 1280;
         final content = TestagramBackground(
           child: Center(
             child: ConstrainedBox(
-              constraints: BoxConstraints(maxWidth: showRightSidebar ? 760 : TestagramTheme.contentMaxWidth),
+              constraints: BoxConstraints(maxWidth: showRightSidebar ? 600 : TestagramTheme.contentMaxWidth),
               child: IndexedStack(index: _index, children: pages),
             ),
           ),

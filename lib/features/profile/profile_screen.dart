@@ -59,7 +59,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _postsHasMore = false;
           _postsError = null;
         });
-        if (raw['can_view_posts'] == true) {
+        // Public profiles remain viewable when older API payloads omit this flag.
+        // Protected profiles require the server's explicit permission grant.
+        if (_canViewPosts(raw)) {
           await _loadPosts(reset: true);
         }
       }
@@ -69,6 +71,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  bool _canViewPosts(Map profile) =>
+      profile['is_self'] == true ||
+      profile['protected_account'] != true ||
+      profile['can_view_posts'] == true;
+
+  List<Map<String, dynamic>> get _mediaPosts =>
+      _posts.where(_postHasMedia).toList(growable: false);
 
   bool _postHasMedia(Map<String, dynamic> post) {
     final urls = post['media_urls'];
@@ -112,9 +122,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
           .toList();
       if (mounted) {
         setState(() {
-          _posts.addAll(page);
-          _postsCursor = (data['next_cursor'] ?? '').toString();
-          _postsHasMore = data['has_more'] == true && _postsCursor!.isNotEmpty;
+          // Cursor pages can repeat their boundary item; retain the first copy.
+          final knownIds = _posts
+              .map((post) => (post['id'] ?? '').toString())
+              .where((id) => id.isNotEmpty)
+              .toSet();
+          for (final post in page) {
+            final id = (post['id'] ?? '').toString();
+            if (id.isEmpty || knownIds.add(id)) _posts.add(post);
+          }
+          final nextCursor = (data['next_cursor'] ?? '').toString();
+          final cursorAdvanced =
+              nextCursor.isNotEmpty && nextCursor != _postsCursor;
+          _postsCursor = nextCursor.isEmpty ? null : nextCursor;
+          _postsHasMore = data['has_more'] == true && cursorAdvanced;
         });
       }
     } catch (error) {
@@ -122,6 +143,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
     } finally {
       if (mounted) setState(() => _loadingPosts = false);
     }
+  }
+
+  Widget _buildMediaPreview(Map<String, dynamic> post) {
+    final rawUrls = post['media_urls'];
+    final firstUrl = rawUrls is List && rawUrls.isNotEmpty
+        ? rawUrls.first
+        : post['image_url'];
+    final url = firstUrl is Map
+        ? (firstUrl['url'] ?? firstUrl['media_url'] ?? firstUrl['src'] ?? '').toString()
+        : (firstUrl ?? '').toString();
+    final contentTypes = post['media_content_types'];
+    final firstType = contentTypes is List && contentTypes.isNotEmpty
+        ? contentTypes.first.toString().toLowerCase()
+        : '';
+    final icon = firstType.startsWith('video/') || post['is_video'] == true
+        ? Icons.play_circle_outline_rounded
+        : firstType.startsWith('audio/')
+            ? Icons.audio_file_outlined
+            : Icons.image_outlined;
+
+    if (url.startsWith('https://') || url.startsWith('http://')) {
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(9),
+        child: Image.network(
+          url,
+          width: 64,
+          height: 64,
+          fit: BoxFit.cover,
+          errorBuilder: (_, __, ___) => SizedBox(
+            width: 64,
+            height: 64,
+            child: Icon(icon, size: 28),
+          ),
+        ),
+      );
+    }
+    return SizedBox(width: 64, height: 64, child: Icon(icon, size: 30));
   }
 
   Future<void> _toggleFollow() async {
@@ -269,20 +327,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onRefresh: _load,
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 860),
+                          constraints: const BoxConstraints(maxWidth: 600),
                           child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
                               Container(
-                                height: 150,
+                                height: 200,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(18),
+                                  borderRadius: BorderRadius.zero,
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: (profile['cover_url'] ?? '').toString().startsWith('http')
@@ -294,13 +352,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : const Center(child: Icon(Icons.landscape_outlined, size: 38)),
                               ),
                               Positioned(
-                                left: 18,
-                                bottom: -38,
+                                left: 16,
+                                bottom: -42,
                                 child: CircleAvatar(
-                                  radius: 48,
+                                  radius: 54,
                                   backgroundColor: Theme.of(context).colorScheme.surface,
                                   child: CircleAvatar(
-                                    radius: 43,
+                                    radius: 48,
                                     backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
                                     child: avatar.startsWith('http') ? null : Text(
                                       displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
@@ -311,7 +369,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 48),
+                          const SizedBox(height: 54),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
@@ -434,7 +492,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ],
                           const SizedBox(height: 20),
-                          if (profile['protected_account'] != true || profile['can_view_posts'] == true) ...[
+                          if (_canViewPosts(profile)) ...[
                             Row(
                               children: [
                                 ChoiceChip(
@@ -452,16 +510,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                             const SizedBox(height: 12),
                           ],
-                          if (profile['protected_account'] == true && profile['can_view_posts'] != true)
+                          if (!_canViewPosts(profile))
                             const Center(child: Text('This account is private. Follow to see their posts.'))
                           else ...[
                             const SizedBox(height: 12),
                             Text(_profileTabIndex == 0 ? 'Posts' : 'Media', style: Theme.of(context).textTheme.titleLarge),
                             if (_postsError != null)
-                              TextButton(onPressed: _loadPosts, child: const Text('Could not load posts. Retry')),
-                            for (final post in (_profileTabIndex == 0 ? _posts : _posts.where(_postHasMedia).toList()))
+                              TextButton(
+                                onPressed: () => _loadPosts(reset: _posts.isEmpty),
+                                child: const Text('Could not load posts. Retry'),
+                              ),
+                            for (final post in (_profileTabIndex == 0 ? _posts : _mediaPosts))
                               Card(
                                 child: ListTile(
+                                  leading: _profileTabIndex == 1
+                                      ? _buildMediaPreview(post)
+                                      : null,
                                   title: Text((post['content'] ?? '').toString(), maxLines: 5, overflow: TextOverflow.ellipsis),
                                   subtitle: Text('${post['likes_count'] ?? 0} likes · ${post['replies_count'] ?? 0} replies'),
                                   onTap: (post['id'] ?? '').toString().isEmpty ? null : () {
@@ -477,8 +541,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             if (_loadingPosts)
                               const Padding(padding: EdgeInsets.all(16), child: Center(child: CircularProgressIndicator())),
                             if (_postsHasMore && !_loadingPosts)
-                              Center(child: TextButton(onPressed: _loadPosts, child: const Text('Load more posts'))),
-                            if ((_profileTabIndex == 0 ? _posts.isEmpty : !_posts.any(_postHasMedia)) && !_loadingPosts && _postsError == null)
+                              Center(child: TextButton(
+                                onPressed: _loadPosts,
+                                child: Text(_profileTabIndex == 1 ? 'Load more media' : 'Load more posts'),
+                              )),
+                            if ((_profileTabIndex == 0 ? _posts.isEmpty : _mediaPosts.isEmpty) && !_loadingPosts && _postsError == null)
                               Center(child: Text(_profileTabIndex == 0 ? 'No posts yet.' : 'No media posts yet.')),
                           ],
                         ],

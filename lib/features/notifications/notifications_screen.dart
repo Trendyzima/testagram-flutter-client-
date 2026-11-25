@@ -22,6 +22,10 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _loadGeneration = 0;
   int _activeLoads = 0;
   String? _cursor, _error;
+  String _category = 'all';
+  bool _unreadOnly = false;
+  int _unreadCount = 0;
+  Map<String, int> _categoryUnreadCounts = {};
   final Set<String> _marking = {};
   StreamSubscription<Map<String, dynamic>>? _realtimeSubscription;
   String? _streamCursor;
@@ -84,6 +88,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!reset && (_loading || !_hasMore)) return;
     final generation = reset ? ++_loadGeneration : _loadGeneration;
     final pageCursor = reset ? null : _cursor;
+    final requestedCategory = _category;
     setState(() {
       _activeLoads++;
       _loading = true;
@@ -98,13 +103,20 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       final data = _data(await widget.api.listNotifications(
         limit: 30,
         cursor: pageCursor,
+        category: requestedCategory,
+        unreadOnly: _unreadOnly,
       ));
       final raw = data['items'];
       final rows = raw is List
           ? raw.whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList()
           : <Map<String, dynamic>>[];
-      if (mounted && generation == _loadGeneration) {
+      if (mounted && generation == _loadGeneration && requestedCategory == _category) {
         setState(() {
+          _unreadCount = (data['unread_count'] as num?)?.toInt() ?? _unreadCount;
+          final rawCounts = data['category_unread_counts'];
+          if (rawCounts is Map) {
+            _categoryUnreadCounts = rawCounts.map((key, value) => MapEntry(key.toString(), (value as num?)?.toInt() ?? 0));
+          }
           final ids = _items.map((e) => (e['id'] ?? '').toString()).toSet();
           _items.addAll(rows.where((e) => !ids.contains((e['id'] ?? '').toString())));
           _cursor = (data['next_cursor'] ?? '').toString();
@@ -210,7 +222,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _marking.add(id));
     try {
       await widget.api.markNotificationRead(id);
-      if (mounted) setState(() => item['read_at'] = DateTime.now().toUtc().toIso8601String());
+      if (mounted) {
+        setState(() {
+          item['read_at'] = DateTime.now().toUtc().toIso8601String();
+          if (_unreadCount > 0) _unreadCount--;
+          final category = (item['category'] ?? 'system').toString();
+          if ((_categoryUnreadCounts[category] ?? 0) > 0) {
+            _categoryUnreadCounts[category] = _categoryUnreadCounts[category]! - 1;
+          }
+        });
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
@@ -218,10 +239,30 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  void _toggleUnreadOnly(bool value) {
+    if (_unreadOnly == value) return;
+    setState(() {
+      _unreadOnly = value;
+      _cursor = null;
+      _hasMore = true;
+    });
+    _load(reset: true);
+  }
+
+  void _selectCategory(String category) {
+    if (_category == category) return;
+    setState(() {
+      _category = category;
+      _cursor = null;
+      _hasMore = true;
+    });
+    _load(reset: true);
+  }
+
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: TestagramAppBar(
-      title: 'Notifications',
+      title: _unreadCount > 0 ? 'Notifications · $_unreadCount' : 'Notifications',
       actions: [
         IconButton(
           onPressed: _loading ? null : () => _load(reset: true),
@@ -230,7 +271,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         ),
       ],
     ),
-    body: RefreshIndicator(
+    body: Column(
+      children: [
+        SizedBox(
+          height: 56,
+          child: ListView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text('Unread${_unreadCount > 0 ? ' · $_unreadCount' : ''}'),
+                  selected: _unreadOnly,
+                  onSelected: _toggleUnreadOnly,
+                ),
+              ),
+              for (final option in const [
+                ('all', 'All'), ('mentions', 'Mentions'), ('likes', 'Likes'),
+                ('follows', 'Follows'), ('replies', 'Replies'), ('reposts', 'Reposts'),
+                ('messages', 'Messages'), ('wallet', 'Wallet'), ('system', 'System'),
+              ])
+                Padding(
+                  padding: const EdgeInsets.only(right: 8),
+                  child: ChoiceChip(
+                    label: Text(option.$1 == 'all'
+                        ? '${option.$2}${_unreadCount > 0 ? ' · $_unreadCount' : ''}'
+                        : '${option.$2}${(_categoryUnreadCounts[option.$1] ?? 0) > 0 ? ' · ${_categoryUnreadCounts[option.$1]}' : ''}'),
+                    selected: _category == option.$1,
+                    onSelected: (_) => _selectCategory(option.$1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(child: RefreshIndicator(
       onRefresh: () => _load(reset: true),
       child: _loading && _items.isEmpty
         ? ListView(
@@ -321,6 +396,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   );
                 },
               ),
+    )),
+      ],
     ),
   );
 }

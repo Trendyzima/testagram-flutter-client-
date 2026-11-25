@@ -177,4 +177,44 @@ void main() {
     expect(find.text('Load more questions'), findsNothing);
     api.close();
   });
+
+  testWidgets('sidebar topic destination opens the canonical topic page', (tester) async {
+    final requested = <String>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-token',
+      client: MockClient((request) async {
+        requested.add(request.url.path);
+        if (request.url.path == '/api/knowledge/topics/kenya') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'slug': 'kenya',
+              'name': 'Kenya',
+              'description': 'Local knowledge and community questions.',
+              'followers_count': 8,
+              'questions_count': 3,
+              'is_following': false,
+            },
+          }), 200);
+        }
+        return http.Response(jsonEncode({
+          'ok': true,
+          'data': {'items': [], 'has_more': false},
+        }), 200);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: KnowledgeTopicScreen(api: api, slug: 'kenya'),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(requested, contains('/api/knowledge/topics/kenya'));
+    expect(find.text('Kenya'), findsOneWidget);
+    expect(find.text('Local knowledge and community questions.'), findsOneWidget);
+    expect(find.text('8 followers · 3 questions'), findsOneWidget);
+    api.close();
+  });
+
 }
