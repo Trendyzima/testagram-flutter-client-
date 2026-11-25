@@ -38,7 +38,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    _profileTabIndex = widget.initialTab.clamp(0, 1);
+    _profileTabIndex = widget.initialTab.clamp(0, 1).toInt();
     _load();
   }
 
