@@ -387,11 +387,12 @@ class _AuthScreenState extends State<AuthScreen> {
     } catch (_) {
       return;
     }
-    if (!mounted || draft == null) return;
+    final savedDraft = draft;
+    if (!mounted || savedDraft == null) return;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
       try {
-        var currentDraft = draft;
+        var currentDraft = savedDraft;
         var application = currentDraft.application;
         if (application == null) {
           final createdApplication = await _submitIdentityDraft(api, currentDraft);
@@ -400,7 +401,7 @@ class _AuthScreenState extends State<AuthScreen> {
           currentDraft = currentDraft.copyWith(application: createdApplication);
           await _identityStore.save(currentDraft);
         }
-        final readyApplication = application!;
+        final readyApplication = application;
         final status = await api.getStatus(readyApplication);
         if (!mounted) return;
         setState(() {
