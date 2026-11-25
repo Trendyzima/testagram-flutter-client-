@@ -1289,6 +1289,109 @@ class BackendApi {
     return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reposts'));
   }
 
+  Future<Map<String, dynamic>> getPublicFeed({int limit = 20, String? before}) {
+    if (limit < 1 || limit > 50) throw ArgumentError.value(limit, 'limit');
+    final query = <String, String>{'limit': '$limit'};
+    if (before != null && before.trim().isNotEmpty) query['before'] = before.trim();
+    return _request('GET', baseUri.resolve('/api/feed/public').replace(queryParameters: query));
+  }
+
+  String _requiredThreadId(String value) {
+    final id = value.trim();
+    if (id.isEmpty || id.length > 64) throw ArgumentError.value(value, 'threadId');
+    return id;
+  }
+
+  Future<Map<String, dynamic>> getThread(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> deleteThread(String threadId) =>
+      _request('DELETE', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> listThreadLikes(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadLikeState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes/state'));
+
+  Future<Map<String, dynamic>> listThreadReposts(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts/state'));
+
+  Future<Map<String, dynamic>> getThreadLikeStates(List<String> threadIds) {
+    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/likes/states'), body: {'thread_ids': threadIds});
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostStates(List<String> threadIds) {
+    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/reposts/states'), body: {'thread_ids': threadIds});
+  }
+
+  Future<Map<String, dynamic>> getThreadBookmarkStates(List<String> threadIds) {
+    if (threadIds.length > 100 || threadIds.any((id) => id.trim().isEmpty || id.length > 64)) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/bookmarks/states'), body: {'thread_ids': threadIds});
+  }
+
+  Future<Map<String, dynamic>> getBrowsingHistory() =>
+      _request('GET', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> recordBrowsingHistory({
+    required String entityType,
+    required String entityId,
+    Map<String, dynamic> metadata = const {},
+  }) {
+    if (!const {'post', 'thread', 'video'}.contains(entityType.trim().toLowerCase()) ||
+        entityId.trim().isEmpty || entityId.length > 64) {
+      throw ArgumentError('Browsing history item is invalid');
+    }
+    return _request('POST', baseUri.resolve('/api/social/history'), body: {
+      'entity_type': entityType.trim().toLowerCase(),
+      'entity_id': entityId.trim(),
+      'metadata': metadata,
+    });
+  }
+
+  Future<Map<String, dynamic>> clearBrowsingHistory() =>
+      _request('DELETE', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> listOwnedMedia() =>
+      _request('POST', baseUri.resolve('/api/media/list'), body: const {});
+
+  Future<Map<String, dynamic>> getPrivateMediaDownloadUrl(String key) {
+    if (key.trim().isEmpty || key.length > 1024) throw ArgumentError.value(key, 'key');
+    return _request('POST', baseUri.resolve('/api/media/private-download-url'),
+        body: {'key': key.trim()});
+  }
+
+  Future<Map<String, dynamic>> getPostInteractionSummary(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) throw ArgumentError.value(postId, 'postId');
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/interaction-summary'));
+  }
+
+  Future<Map<String, dynamic>> listPostInteractions(String postId, String kind, {int limit = 50}) {
+    if (postId.trim().isEmpty || postId.length > 64 ||
+        !const {'likes', 'reposts', 'quotes', 'quote-likes'}.contains(kind) || limit < 1 || limit > 100) {
+      throw ArgumentError('Post interaction query is invalid');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/interactions/$kind')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
