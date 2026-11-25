@@ -89,6 +89,7 @@ void main() {
         '/notifications': 'notifications',
         '/messages': 'messages',
         '/inbox': 'inbox',
+        '/i/bookmarks': 'bookmarks',
         '/i/lists': 'lists',
         '/lists': 'lists',
         '/settings': 'settings',
