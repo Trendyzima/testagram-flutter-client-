@@ -223,6 +223,15 @@ class _MainShellState extends State<MainShell> {
         final userId = await _resolveProfileId(link.username!);
         if (userId != null) _openProfile(userId);
         break;
+      case TestagramDeepLinkKind.socialList:
+        Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => SocialListRouteScreen(
+            api: widget.api,
+            onSignOut: widget.onSignOut,
+            listId: link.listId!,
+          ),
+        ));
+        break;
       case TestagramDeepLinkKind.profileMedia:
         final mediaUserId = await _resolveProfileId(link.username!);
         if (mediaUserId != null && mounted) {
