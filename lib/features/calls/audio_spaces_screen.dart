@@ -239,7 +239,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
     );
     amount.dispose();
     message.dispose();
-    if (input == null) return;
+    if (input == null || !mounted) return;
     final value = double.tryParse(input['amount'] ?? '');
     if (value == null || value <= 0 || (input['message'] ?? '').isEmpty) {
       if (mounted) _toast('Enter a positive amount and a message.');
@@ -256,12 +256,12 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
         ],
       ),
     );
-    if (confirmed != true) return;
+    if (!mounted || confirmed != true) return;
     try {
       final fingerprint = [spaceId, input['amount'] ?? '', input['message'] ?? ''].join('|');
       final key = _pendingSuperchatKeys.putIfAbsent(
         fingerprint,
-        () => 'space-' + spaceId + '-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString(),
+        () => 'space-$spaceId-${DateTime.now().toUtc().microsecondsSinceEpoch}',
       );
       await widget.api.sendAudioSpaceSuperchat(
         spaceId: spaceId,
