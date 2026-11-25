@@ -72,7 +72,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
         description: (input['description'] ?? '').toString(),
         maxAudience: input['max_audience'] as int,
       );
-      if (mounted) _toast('Your Audio Space is live.');
+      if (mounted) _toast('Your Space was created. Live audio transport is not enabled yet.');
       await _load(silent: true);
     } catch (error) {
       if (mounted) _toast(error.toString());
@@ -150,6 +150,16 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
                   await _manageSpeakerRequests(id);
                 }, child: const Text('Speaker requests')),
               if (isHost)
+                OutlinedButton(onPressed: () async {
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  await _editSpace(id, (details['title'] ?? '').toString(), (details['description'] ?? '').toString());
+                }, child: const Text('Edit details')),
+              if (joined && !isHost)
+                OutlinedButton(onPressed: () async {
+                  if (dialogContext.mounted) Navigator.pop(dialogContext);
+                  await _sendSuperchat(id);
+                }, child: const Text('Super Chat')),
+              if (isHost)
                 FilledButton.tonal(onPressed: () async {
                   try {
                     await widget.api.endAudioSpace(id);
@@ -162,6 +172,100 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
           );
         },
       );
+    } catch (error) {
+      if (mounted) _toast(error.toString());
+    }
+  }
+
+  Future<void> _editSpace(String spaceId, String currentTitle, String currentDescription) async {
+    final title = TextEditingController(text: currentTitle);
+    final description = TextEditingController(text: currentDescription);
+    final input = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit Audio Space'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: title, maxLength: 120,
+            decoration: const InputDecoration(labelText: 'Title')),
+          TextField(controller: description, maxLength: 2000, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Description')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, {
+            'title': title.text.trim(), 'description': description.text.trim(),
+          }), child: const Text('Save')),
+        ],
+      ),
+    );
+    title.dispose();
+    description.dispose();
+    if (input == null) return;
+    try {
+      await widget.api.updateAudioSpace(
+        spaceId: spaceId,
+        title: input['title'] ?? '',
+        description: input['description'] ?? '',
+      );
+      if (mounted) {
+        _toast('Audio Space details updated.');
+        await _load(silent: true);
+      }
+    } catch (error) {
+      if (mounted) _toast(error.toString());
+    }
+  }
+
+  Future<void> _sendSuperchat(String spaceId) async {
+    final amount = TextEditingController(text: '100');
+    final message = TextEditingController();
+    final input = await showDialog<Map<String, String>>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Send a Super Chat'),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          TextField(controller: amount, keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(labelText: 'Amount in your wallet currency')),
+          TextField(controller: message, maxLength: 280, maxLines: 3,
+            decoration: const InputDecoration(labelText: 'Message')),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, {
+            'amount': amount.text.trim(), 'message': message.text.trim(),
+          }), child: const Text('Continue')),
+        ],
+      ),
+    );
+    amount.dispose();
+    message.dispose();
+    if (input == null) return;
+    final value = double.tryParse(input['amount'] ?? '');
+    if (value == null || value <= 0 || (input['message'] ?? '').isEmpty) {
+      if (mounted) _toast('Enter a positive amount and a message.');
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Confirm Super Chat'),
+        content: Text('Send ' + (input['amount'] ?? '') + ' from your wallet with this message?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(dialogContext, false), child: const Text('Cancel')),
+          FilledButton(onPressed: () => Navigator.pop(dialogContext, true), child: const Text('Send')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    try {
+      final key = 'space-' + spaceId + '-' + DateTime.now().toUtc().microsecondsSinceEpoch.toString();
+      await widget.api.sendAudioSpaceSuperchat(
+        spaceId: spaceId,
+        message: input['message'] ?? '',
+        amount: input['amount'] ?? '',
+        idempotencyKey: key,
+      );
+      if (mounted) _toast('Super Chat sent.');
     } catch (error) {
       if (mounted) _toast(error.toString());
     }
@@ -241,7 +345,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
   @override
   Widget build(BuildContext context) => Scaffold(
     appBar: AppBar(
-      title: const Text('Live Audio Spaces'),
+      title: const Text('Audio Spaces'),
       actions: [
         IconButton(
           tooltip: 'Refresh live Spaces',
@@ -290,7 +394,7 @@ class _AudioSpacesScreenState extends State<AudioSpacesScreen> {
                           SizedBox(height: 120),
                           Icon(Icons.graphic_eq_rounded, size: 48),
                           SizedBox(height: 12),
-                          Center(child: Text('No live Audio Spaces right now.')),
+                          Center(child: Text('No open Audio Spaces right now.')),
                         ]),
                       )
                     : RefreshIndicator(
