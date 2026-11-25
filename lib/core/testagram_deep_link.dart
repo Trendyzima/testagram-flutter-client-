@@ -97,15 +97,15 @@ class TestagramDeepLink {
         postId: segments[1].toLowerCase(),
       );
     }
-    if (segments.length == 3 &&
+    if (segments.length == 2 &&
         segments[0].startsWith('@') &&
-        {'followers', 'following'}.contains(segments[2].toLowerCase())) {
+        {'followers', 'following'}.contains(segments[1].toLowerCase())) {
       final profile = _profileUsername(segments[0]);
       if (profile == null) return null;
       return TestagramDeepLink._(
         kind: TestagramDeepLinkKind.profileConnections,
         username: profile.username,
-        connectionKind: segments[2].toLowerCase(),
+        connectionKind: segments[1].toLowerCase(),
       );
     }
     if (segments.length == 3 &&
