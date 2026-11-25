@@ -10,6 +10,7 @@ import '../../core/auth/native_auth_client.dart';
 import '../../core/widgets/testagram_brand_mark.dart';
 import '../../core/testagram_theme.dart';
 import 'auth_entry.dart';
+import 'auth_legal_documents.dart';
 import 'identity_verification_client.dart';
 import 'identity_application_store.dart';
 
@@ -301,6 +302,25 @@ class _AuthScreenState extends State<AuthScreen> {
       });
     }
     return null;
+  }
+
+  Future<void> _showLegalDocument(String title, String content) async {
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: Text(title),
+        content: SizedBox(
+          width: 560,
+          child: SingleChildScrollView(child: SelectableText(content)),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
   }
 
   Future<void> _beginIdentityApplication() async {
@@ -932,6 +952,19 @@ class _AuthScreenState extends State<AuthScreen> {
                 onChanged: _busy ? null : (value) => setState(() => _privacyAccepted = value == true),
                 controlAffinity: ListTileControlAffinity.leading,
                 title: const Text('I have read and accept the Testagram Privacy Notice.'),
+              ),
+              Wrap(
+                spacing: 8,
+                children: [
+                  TextButton(
+                    onPressed: _busy ? null : () => _showLegalDocument('Testagram Terms of Service', AuthLegalDocuments.termsText),
+                    child: const Text('Read Terms'),
+                  ),
+                  TextButton(
+                    onPressed: _busy ? null : () => _showLegalDocument('Testagram Privacy Notice', AuthLegalDocuments.privacyText),
+                    child: const Text('Read Privacy Notice'),
+                  ),
+                ],
               ),
               const SizedBox(height: 8),
             ],
