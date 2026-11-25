@@ -112,7 +112,7 @@ class _FollowRequestsScreenState extends State<FollowRequestsScreen> {
                         return ListTile(
                           leading: const CircleAvatar(child: Icon(Icons.person_outline_rounded)),
                           title: Text((request['display_name'] ?? request['username'] ?? 'Testagram member').toString()),
-                          subtitle: Text('@' + (request['username'] ?? '').toString()),
+                          subtitle: Text('@${(request['username'] ?? '').toString()}'),
                           trailing: Wrap(spacing: 4, children: [
                             IconButton(
                               tooltip: 'Accept follow request',
