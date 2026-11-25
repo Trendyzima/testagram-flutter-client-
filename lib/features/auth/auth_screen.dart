@@ -92,13 +92,10 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
-    // Registration always uses the native email/password API. The Backend
-    // remains authoritative and must keep it fail-closed until identity
-    // evidence review and two-person approval are complete.
-    // Do not create review applications as a side effect of a signup attempt.
-    // Preserve explicit email-verification and password-recovery callbacks.
-    // The legacy review flag may select the signup entry only for a plain
-    // sign-in launch; it must never override a security-sensitive deep link.
+    // Public account creation is not a direct email/password signup. The
+    // application screen submits explicit consent and identity-review evidence;
+    // only the Backend may provision an account after two independent approvals.
+    // Preserve email-verification and password-recovery callbacks above.
     if (widget.requireIdentityReview &&
         entry.mode == AuthEntryMode.signIn &&
         !widget.requireVerification) {
@@ -938,7 +935,7 @@ class _AuthScreenState extends State<AuthScreen> {
             if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
-                label: _page == _Page.reset ? 'New password' : (_page == _Page.signUp ? 'Create password' : 'Password'),
+                label: _page == _Page.reset ? 'New password' : 'Password',
                 icon: Icons.lock_outline_rounded,
                 obscure: _obscure,
                 autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
