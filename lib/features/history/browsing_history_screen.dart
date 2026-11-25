@@ -2,6 +2,9 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../posts/post_detail_screen.dart';
+import '../threads/threads_screen.dart';
+import '../../core/app_config.dart';
+import '../video/video_feed_screen.dart';
 
 class BrowsingHistoryScreen extends StatefulWidget {
   const BrowsingHistoryScreen({super.key, required this.api});
@@ -89,6 +92,14 @@ class _BrowsingHistoryScreenState extends State<BrowsingHistoryScreen> {
   void _open(Map<String, dynamic> item) {
     final type = (item['entity_type'] ?? '').toString();
     final id = (item['entity_id'] ?? '').toString();
+    if (type == 'thread' && id.isNotEmpty) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => ThreadDetailScreen(api: widget.api, threadId: id)));
+      return;
+    }
+    if (type == 'video' && id.isNotEmpty) {
+      Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => VideoFeedScreen(api: widget.api, videoApiBaseUri: AppConfig.videoApiOrigin)));
+      return;
+    }
     if (type == 'post' && id.isNotEmpty) {
       Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PostDetailScreen(api: widget.api, postId: id),
