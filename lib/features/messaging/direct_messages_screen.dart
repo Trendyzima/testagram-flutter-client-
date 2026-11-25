@@ -161,18 +161,10 @@ class _DirectMessagesScreenState extends State<DirectMessagesScreen> {
                 itemBuilder: (context, index) {
                   final item = _items[index];
                   final unread = int.tryParse((item['unread_count'] ?? 0).toString()) ?? 0;
-                  final latest = item['latest_message'];
-                  final encrypted = latest is Map &&
-                      latest['e2ee_enabled'] == true &&
-                      latest['ciphertext'] is String &&
-                      (latest['ciphertext'] as String).isNotEmpty &&
-                      latest['e2ee_version'] == 'v1' &&
-                      latest['e2ee_epoch'] is num &&
-                      (latest['e2ee_epoch'] as num) > 0;
                   return ListTile(
                     leading: CircleAvatar(child: Icon(item['kind'] == 'group' ? Icons.groups_outlined : Icons.person_outline)),
                     title: Text(_conversationTitle(item), maxLines: 1, overflow: TextOverflow.ellipsis),
-                    subtitle: Text(encrypted ? 'Encrypted message' : 'Open conversation', maxLines: 1),
+                    subtitle: const Text('Open conversation', maxLines: 1),
                     trailing: unread > 0 ? CircleAvatar(radius: 12, child: Text('$unread', style: const TextStyle(fontSize: 11))) : const Icon(Icons.chevron_right),
                     onTap: () async {
                       await Navigator.of(context).push(MaterialPageRoute<void>(
