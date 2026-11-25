@@ -14,9 +14,31 @@ void main() {
       expect(AppConfig.enableIdentityRegistrationUi, isTrue);
     });
 
-    test('routes the video service through the canonical HTTPS API origin', () {
-      expect(AppConfig.videoApiOrigin, AppConfig.backendOrigin);
-      expect(AppConfig.videoApiOrigin?.scheme, 'https');
+    test('requires video to use a separately configured HTTPS service origin', () {
+      expect(AppConfig.videoApiOrigin, isNull);
+      expect(
+        AppConfig.parseVideoApiOrigin('https://video.testagram.site'),
+        Uri.parse('https://video.testagram.site'),
+      );
+    });
+
+    test('rejects product API, website, insecure and path-prefixed video origins', () {
+      expect(
+        AppConfig.parseVideoApiOrigin('https://api.testagram.site'),
+        isNull,
+      );
+      expect(
+        AppConfig.parseVideoApiOrigin('https://testagram.site'),
+        isNull,
+      );
+      expect(
+        AppConfig.parseVideoApiOrigin('http://video.testagram.site'),
+        isNull,
+      );
+      expect(
+        AppConfig.parseVideoApiOrigin('https://video.testagram.site/v1'),
+        isNull,
+      );
     });
   });
 
