@@ -140,6 +140,10 @@ void main() {
       expect(followers?.connectionKind, 'followers');
       final following = TestagramDeepLink.parse('/@Trendz_01/following');
       expect(following?.connectionKind, 'following');
+      final list = TestagramDeepLink.parse('/i/lists/$postId');
+      expect(list?.kind, TestagramDeepLinkKind.socialList);
+      expect(list?.listId, postId);
+      expect(TestagramDeepLink.parse('/i/lists/not-a-uuid'), isNull);
       expect(TestagramDeepLink.parse('/post/not-a-uuid'), isNull);
       expect(TestagramDeepLink.parse('/@Trendz_01/blocked'), isNull);
     });
