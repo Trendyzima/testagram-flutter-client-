@@ -72,7 +72,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  bool _canViewPosts(Map<String, dynamic> profile) =>
+  bool _canViewPosts(Map profile) =>
       profile['is_self'] == true ||
       profile['protected_account'] != true ||
       profile['can_view_posts'] == true;
