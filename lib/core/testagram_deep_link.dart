@@ -1,6 +1,6 @@
 /// A strictly allow-listed destination parsed from an incoming Testagram link.
 /// This parser never accepts arbitrary hosts, redirect URLs or payment parameters.
-enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, post, wallet, hashtag }
+enum TestagramDeepLinkKind { destination, profileUsername, profileId, profileConnections, profileMedia, post, wallet, hashtag }
 
 class TestagramDeepLink {
   const TestagramDeepLink._({
@@ -22,7 +22,7 @@ class TestagramDeepLink {
   final String? connectionKind;
 
   static const Set<String> _destinations = {
-    'home', 'explore', 'search', 'notifications', 'messages', 'inbox',
+    'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
     'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
     'polls', 'calls', 'creator', 'hashtags', 'federation', 'profile',
   };
@@ -103,6 +103,16 @@ class TestagramDeepLink {
       return TestagramDeepLink._(
         kind: TestagramDeepLinkKind.post,
         postId: segments[1].toLowerCase(),
+      );
+    }
+    if (segments.length == 2 &&
+        segments[0].startsWith('@') &&
+        segments[1].toLowerCase() == 'media') {
+      final profile = _profileUsername(segments[0]);
+      if (profile == null) return null;
+      return TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.profileMedia,
+        username: profile.username,
       );
     }
     if (segments.length == 2 &&
