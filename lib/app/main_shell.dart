@@ -53,6 +53,8 @@ class _MainShellState extends State<MainShell> {
   List<Map<String, dynamic>> _sidebarTrends = [];
   List<Map<String, dynamic>> _sidebarTrendingWords = [];
   List<Map<String, dynamic>> _sidebarKnowledgeTopics = [];
+  List<Map<String, dynamic>> _sidebarSuggestions = [];
+  final Set<String> _followingSuggestions = {};
   Map<String, dynamic>? _sidebarProfile;
   bool _loadingSidebarContext = false;
 
@@ -105,14 +107,18 @@ class _MainShellState extends State<MainShell> {
         optional(widget.api.getMyProfile()),
         optional(widget.api.getTrendingWords(limit: 6)),
         optional(widget.api.getKnowledgeTopics(limit: 6)),
+        optional(widget.api.getSocialSuggestions(limit: 8)),
       ]);
       final profileRaw = responses[0]['data'];
       final wordsRaw = responses[1]['data'];
       final wordsData = wordsRaw is Map ? wordsRaw : responses[1];
       final topicsRaw = responses[2]['data'];
       final topicsData = topicsRaw is Map ? topicsRaw : responses[2];
+      final suggestionsRaw = responses[3]['data'];
+      final suggestionsData = suggestionsRaw is Map ? suggestionsRaw : responses[3];
       final rawWords = wordsData['items'];
       final rawTopics = topicsData['items'];
+      final rawSuggestions = suggestionsData['items'];
       if (!mounted) return;
       setState(() {
         if (profileRaw is Map) {
@@ -126,11 +132,45 @@ class _MainShellState extends State<MainShell> {
             ? rawTopics.whereType<Map>()
                 .map((item) => Map<String, dynamic>.from(item)).toList()
             : [];
+        _sidebarSuggestions = rawSuggestions is List
+            ? rawSuggestions.whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)).toList()
+            : [];
       });
     } catch (_) {
       // Sidebar data is optional; core navigation remains available.
     } finally {
       _loadingSidebarContext = false;
+    }
+  }
+
+  Future<void> _followSuggestedAccount(Map<String, dynamic> account) async {
+    final id = (account['id'] ?? '').toString();
+    if (id.isEmpty || _followingSuggestions.contains(id)) return;
+    setState(() => _followingSuggestions.add(id));
+    try {
+      final response = await widget.api.followUser(id);
+      final raw = response['data'];
+      final data = raw is Map ? Map<String, dynamic>.from(raw) : response;
+      final status = (data['status'] ?? 'accepted').toString();
+      if (!mounted) return;
+      setState(() {
+        account['is_following'] = status == 'accepted';
+        account['follow_status'] = status;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(status == 'pending'
+            ? 'Follow request sent.'
+            : 'You are now following @${account['username'] ?? 'this account'}.'),
+      ));
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not follow this account: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _followingSuggestions.remove(id));
     }
   }
 
@@ -463,6 +503,78 @@ class _MainShellState extends State<MainShell> {
                         subtitle: Text('${item['posts_count'] ?? 0} posts'),
                         onTap: () => _selectDestination(1),
                       ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+          if (_sidebarSuggestions.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.person_add_alt_1_rounded,
+                          color: theme.colorScheme.primary, size: 19),
+                      const SizedBox(width: 8),
+                      Text('Who to follow', style: theme.textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 8),
+                    for (final account in _sidebarSuggestions.take(5))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 7),
+                        child: Row(children: [
+                          CircleAvatar(
+                            radius: 20,
+                            backgroundImage: (account['avatar_url'] ?? '').toString().startsWith('http')
+                                ? NetworkImage(account['avatar_url'].toString())
+                                : null,
+                            child: (account['avatar_url'] ?? '').toString().startsWith('http')
+                                ? null : const Icon(Icons.person_outline_rounded),
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text((account['display_name'] ?? account['username'] ?? 'Testagram member').toString(),
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.labelLarge),
+                              Text('@${account['username'] ?? ''}',
+                                maxLines: 1, overflow: TextOverflow.ellipsis,
+                                style: theme.textTheme.bodySmall),
+                              if ((account['mutual_followers_count'] as num?)?.toInt() case final count? when count > 0)
+                                Text('$count mutual connections',
+                                  style: theme.textTheme.bodySmall),
+                            ],
+                          )),
+                          const SizedBox(width: 6),
+                          FilledButton.tonal(
+                            onPressed: _followingSuggestions.contains((account['id'] ?? '').toString()) ||
+                                    account['is_following'] == true
+                                ? null
+                                : () => _followSuggestedAccount(account),
+                            style: FilledButton.styleFrom(
+                              visualDensity: VisualDensity.compact,
+                              padding: const EdgeInsets.symmetric(horizontal: 12),
+                            ),
+                            child: _followingSuggestions.contains((account['id'] ?? '').toString())
+                                ? const SizedBox(width: 14, height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2))
+                                : Text(account['follow_status'] == 'pending' ? 'Requested' :
+                                    account['is_following'] == true ? 'Following' : 'Follow'),
+                          ),
+                        ]),
+                      ),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: TextButton(
+                        onPressed: () => _selectDestination(1),
+                        child: const Text('Discover more'),
+                      ),
+                    ),
                   ],
                 ),
               ),
