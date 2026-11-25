@@ -34,7 +34,7 @@ class AuthEntry {
     final path = uri.path.toLowerCase();
     final isNativeVerification = path.endsWith('/verify-email') ||
         (applicationId != null && token != null);
-    final isNativeReset = token != null && !isNativeVerification;
+    final isNativeReset = token != null && !isNativeVerification && rawMode != 'verification';
     final AuthEntryMode mode;
     if (isNativeVerification) {
       mode = AuthEntryMode.verifyEmail;
