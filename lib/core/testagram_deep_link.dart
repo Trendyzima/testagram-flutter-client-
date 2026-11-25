@@ -26,7 +26,7 @@ class TestagramDeepLink {
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
     'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
-    'polls', 'calls', 'creator', 'hashtags', 'topics', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
+    'polls', 'calls', 'creator', 'hashtags', 'topics', 'compose', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
   };
 
   static final RegExp _username = RegExp(r'^[A-Za-z0-9_.]{2,30}$');
@@ -60,6 +60,15 @@ class TestagramDeepLink {
     }
     if (isCustom && uri.host.toLowerCase() == 'wallet' && uri.pathSegments.isEmpty) {
       return const TestagramDeepLink._(kind: TestagramDeepLinkKind.wallet);
+    }
+    if (isCustom &&
+        uri.host.toLowerCase() == 'compose' &&
+        uri.pathSegments.length == 1 &&
+        uri.pathSegments.single.toLowerCase() == 'post') {
+      return const TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: 'compose',
+      );
     }
     if (isCustom && uri.host.toLowerCase() == 'profile' && uri.pathSegments.length == 1) {
       return _profileUsername(uri.pathSegments.single);
@@ -116,6 +125,14 @@ class TestagramDeepLink {
       return const TestagramDeepLink._(
         kind: TestagramDeepLinkKind.destination,
         destination: 'lists',
+      );
+    }
+    if (segments.length == 2 &&
+        segments.first.toLowerCase() == 'compose' &&
+        segments[1].toLowerCase() == 'post') {
+      return const TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: 'compose',
       );
     }
     if (segments.length == 2 &&
