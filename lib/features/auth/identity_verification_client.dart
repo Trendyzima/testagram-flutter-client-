@@ -320,7 +320,7 @@ class IdentityVerificationClient {
     _decode(response);
   }
 
-  Future<void> resendVerification(IdentityApplication application) async {
+  Future<Map<String, dynamic>> resendVerification(IdentityApplication application) async {
     final response = await _client.post(
       _endpoint('/api/identity/applications/${application.applicationId}/resend-verification'),
       headers: {
@@ -328,7 +328,7 @@ class IdentityVerificationClient {
         'X-Application-Token': application.applicationToken,
       },
     );
-    _decode(response);
+    return _decode(response);
   }
 
   void close() => _client.close();
