@@ -327,20 +327,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       onRefresh: _load,
                       child: Center(
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 860),
+                          constraints: const BoxConstraints(maxWidth: 600),
                           child: ListView(
                         physics: const AlwaysScrollableScrollPhysics(),
-                        padding: const EdgeInsets.all(20),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
                         children: [
                           Stack(
                             clipBehavior: Clip.none,
                             children: [
                               Container(
-                                height: 150,
+                                height: 200,
                                 width: double.infinity,
                                 decoration: BoxDecoration(
                                   color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                                  borderRadius: BorderRadius.circular(18),
+                                  borderRadius: BorderRadius.zero,
                                 ),
                                 clipBehavior: Clip.antiAlias,
                                 child: (profile['cover_url'] ?? '').toString().startsWith('http')
@@ -352,13 +352,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     : const Center(child: Icon(Icons.landscape_outlined, size: 38)),
                               ),
                               Positioned(
-                                left: 18,
-                                bottom: -38,
+                                left: 16,
+                                bottom: -42,
                                 child: CircleAvatar(
-                                  radius: 48,
+                                  radius: 54,
                                   backgroundColor: Theme.of(context).colorScheme.surface,
                                   child: CircleAvatar(
-                                    radius: 43,
+                                    radius: 48,
                                     backgroundImage: avatar.startsWith('http') ? NetworkImage(avatar) : null,
                                     child: avatar.startsWith('http') ? null : Text(
                                       displayName.isEmpty ? '?' : displayName[0].toUpperCase(),
@@ -369,7 +369,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 48),
+                          const SizedBox(height: 54),
                           Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
