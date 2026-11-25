@@ -8,6 +8,51 @@ import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/feed/feed_screen.dart';
 
 void main() {
+  testWidgets('pinned lists appear as Home shortcuts and request the selected list feed', (tester) async {
+    final requestedUris = <Uri>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((request) async {
+        requestedUris.add(request.url);
+        if (request.url.path == '/api/social/lists') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {
+              'items': [
+                {'id': '123e4567-e89b-42d3-a456-426614174000', 'name': 'Kenya builders', 'pinned': true},
+                {'id': '223e4567-e89b-42d3-a456-426614174000', 'name': 'Unpinned list', 'pinned': false},
+              ],
+            },
+          }), 200);
+        }
+        if (request.url.path == '/api/feed/home') {
+          return http.Response(jsonEncode({
+            'ok': true,
+            'data': {'posts': [], 'has_more': false, 'next_cursor': ''},
+          }), 200);
+        }
+        return http.Response(jsonEncode({'ok': false}), 404);
+      }),
+    );
+
+    await tester.pumpWidget(MaterialApp(
+      home: FeedScreen(api: api, onSignOut: () async {}),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Kenya builders'), findsOneWidget);
+    expect(find.text('Unpinned list'), findsNothing);
+    await tester.tap(find.text('Kenya builders'));
+    await tester.pumpAndSettle();
+
+    expect(requestedUris.any((uri) =>
+        uri.path == '/api/feed/home' &&
+        uri.queryParameters['list_id'] == '123e4567-e89b-42d3-a456-426614174000'), isTrue);
+    expect(tester.takeException(), isNull);
+    api.close();
+  });
+
   testWidgets('X-inspired feed tabs query Following and desktop topics come from real posts', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
