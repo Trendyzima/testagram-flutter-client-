@@ -1113,6 +1113,25 @@ class BackendApi {
     });
   }
 
+  Future<Map<String, dynamic>> deleteMessage(String messageId) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.delete', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> reactToMessage({
+    required String messageId,
+    String reaction = '❤️',
+    bool remove = false,
+  }) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    final emoji = reaction.trim();
+    if (emoji.isEmpty || emoji.length > 32) throw ArgumentError.value(reaction, 'reaction');
+    return callCapability('testagram.messages.react', input: {
+      'message_id': messageId.trim(),
+      'reaction': emoji,
+      'remove': remove,
+    });
+  }
   Future<Map<String, dynamic>> markMessageRead(String messageId) {
     if (messageId.trim().isEmpty) throw ArgumentError.value(messageId, 'messageId');
     return callCapability('testagram.messages.mark_read', input: {'message_id': messageId.trim()});
