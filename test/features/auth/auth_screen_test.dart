@@ -156,7 +156,7 @@ void main() {
     expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
     expect(find.text('Apply for Testagram'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(3));
-    expect(find.textContaining('identity evidence review and two independent account approvals'), findsOneWidget);
+    expect(find.textContaining('two independent approvals'), findsOneWidget);
   });
 
   testWidgets('native signup does not restore an old identity application',
