@@ -7,6 +7,32 @@ import 'package:http/testing.dart';
 import 'package:testagram/core/backend_api.dart';
 
 void main() {
+  test('loads bookmarked posts from the authenticated saved timeline', () async {
+    late http.Request captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-bookmark-token',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({
+          'ok': true,
+          'data': {'posts': [], 'next_cursor': 'next-page', 'has_more': true},
+        }), 200);
+      }),
+    );
+
+    await api.getBookmarkedPosts(limit: 25, cursor: 'bookmark-cursor');
+
+    expect(captured.method, 'GET');
+    expect(captured.url.path, '/api/social/bookmarks');
+    expect(captured.url.queryParameters, {
+      'limit': '25',
+      'before': 'bookmark-cursor',
+    });
+    expect(captured.headers['authorization'], 'Bearer native-bookmark-token');
+    api.close();
+  });
+
   test('search sends advanced filters through the native authenticated API', () async {
     late http.Request captured;
     final api = BackendApi(
