@@ -49,7 +49,17 @@ class AppConfig {
   static Uri? get videoApiOrigin {
     final value = videoApiUrl.trim();
     if (value.isEmpty || !_isHttpsUrl(value)) return null;
-    return Uri.parse(value);
+    final uri = Uri.parse(value);
+    // VideoApi uses absolute /v1 paths. Reject path-prefixed values and the
+    // product API/site origins so a missing video ingress cannot silently
+    // send video traffic to the Backend or marketing site.
+    if (uri.path.isNotEmpty && uri.path != '/') return null;
+    final api = backendOrigin;
+    final site = Uri.parse(siteUrl);
+    final sameOrigin = (Uri other) => uri.scheme == other.scheme &&
+        uri.host == other.host && uri.port == other.port;
+    if (sameOrigin(api) || sameOrigin(site)) return null;
+    return uri;
   }
 
   static bool get isConfigured =>
