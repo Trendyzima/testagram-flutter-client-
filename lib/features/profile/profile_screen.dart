@@ -72,8 +72,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   bool _postHasMedia(Map<String, dynamic> post) {
     final urls = post['media_urls'];
+    final contentTypes = post['media_content_types'];
+    final hasTypedMedia = contentTypes is List && contentTypes.any((value) {
+      final type = value.toString().toLowerCase().trim();
+      return type.startsWith('image/') ||
+          type.startsWith('video/') ||
+          type.startsWith('audio/');
+    });
     return (post['image_url'] ?? '').toString().isNotEmpty ||
-        (urls is List && urls.isNotEmpty) || post['is_video'] == true;
+        (urls is List && urls.isNotEmpty) ||
+        post['is_video'] == true ||
+        hasTypedMedia;
   }
 
   Future<void> _loadPosts({bool reset = false}) async {
