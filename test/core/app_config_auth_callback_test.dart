@@ -15,7 +15,7 @@ void main() {
     });
 
     test('requires video to use a separately configured HTTPS service origin', () {
-      expect(AppConfig.videoApiOrigin, isNull);
+      expect(AppConfig.parseVideoApiOrigin(''), isNull);
       expect(
         AppConfig.parseVideoApiOrigin('https://video.testagram.site'),
         Uri.parse('https://video.testagram.site'),
