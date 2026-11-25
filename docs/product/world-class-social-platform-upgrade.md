@@ -171,3 +171,22 @@ Testagram is ready to call a feature production-grade only when:
 7. CI, PostgreSQL integration tests and relevant end-to-end tests pass.
 8. Monitoring can show latency, errors, delivery state and abuse signals.
 9. The user can understand and control why content appears and how their data is used.
+
+
+## Public benchmark references
+
+- Meta — [Facebook Local and Messenger Communities](https://about.fb.com/news/2024/10/facebook-local-tab-messenger-communities-ai/)
+- Meta — [Instagram Broadcast Channels](https://about.fb.com/news/2023/02/instagram-broadcast-channels-creators-deepen-connections-with-followers/)
+- Meta — [Threads Communities](https://about.fb.com/news/2025/10/introducing-threads-communities-find-your-people/)
+- Meta — [Shareable custom feeds on Threads](https://about.fb.com/news/2025/02/share-custom-feeds-on-threads/)
+- Meta — [Dear Algo feed controls](https://about.fb.com/news/2026/02/threads-dear-algo/)
+- Meta — [Threads fediverse feed and discovery](https://about.fb.com/news/2025/06/its-now-easier-to-see-more-fediverse-content-threads/)
+- Meta — [Threads messaging and inbox controls](https://about.fb.com/news/2025/07/introducing-messaging-highlighted-perspectives-threads/)
+- TikTok — [LIVE Events, co-hosting and LIVE Q&A](https://newsroom.tiktok.com/new-tiktok-live-features)
+- TikTok — [Creator subscriptions and member perks](https://newsroom.tiktok.com/empowering-creators-and-fostering-communities-with-the-expanded-subscription-feature)
+- TikTok — [Creator Care Mode and safety tools](https://newsroom.tiktok.com/new-tools-for-creators/)
+- TikTok — [Smart Split creator editing tools](https://newsroom.tiktok.com/new-ai-powered-tools-to-make-it-easier-to-create-and-share-on-tiktok)
+- X — [Lists](https://help.x.com/en/using-x/x-lists), [Bookmarks](https://help.x.com/en/using-x/bookmarks), and [Articles](https://help.x.com/en/using-x/articles)
+- Bluesky — [Custom feeds and moderation](https://blueskyweb.zendesk.com/hc/en-us/articles/19002427251981-Moderation-and-Custom-Feeds) and [Starter Packs](https://bsky.social/about/blog/06-26-2024-starter-packs)
+- Mastodon — [Federated network and product overview](https://github.com/mastodon/mastodon) and [network features](https://docs.joinmastodon.org/user/network/)
+- Elk — [Features](https://docs.elk.zone/guide/features) and [product overview](https://docs.elk.zone/)
