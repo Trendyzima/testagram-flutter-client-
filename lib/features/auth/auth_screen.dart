@@ -133,12 +133,14 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
-      if (e.code == 'IDENTITY_APPROVAL_REQUIRED' ||
-          e.code == 'IDENTITY_REVIEW_REQUIRED' ||
-          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+      if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
+          e.code == 'IDENTITY_APPROVAL_REQUIRED') {
+        return 'Identity evidence review and two-person account approval are required before your Testagram account can be created.';
+      }
+      if (e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
           e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
           e.code == 'REGISTRATION_DISABLED') {
-        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
+        return 'Identity review is not ready yet. No Testagram account has been created; please try again later.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
@@ -165,11 +167,13 @@ class _AuthScreenState extends State<AuthScreen> {
         return 'Testagram sign-in is not fully configured on the server yet. Your password has not been changed; please try again later.';
       }
       if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
-          e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
-          e.code == 'REGISTRATION_DISABLED' ||
-          e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
           e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Testagram authentication is temporarily unavailable. Please retry in a moment.';
+        return 'Identity evidence review and two-person account approval are required before your Testagram account can be created.';
+      }
+      if (e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
+          e.code == 'REGISTRATION_DISABLED' ||
+          e.code == 'IDENTITY_SERVICE_UNAVAILABLE') {
+        return 'Identity review is not ready yet. No Testagram account has been created; please try again later.';
       }
       if (e.code == 'PRIVATE_EVIDENCE_STORAGE_UNAVAILABLE' || e.code == 'EVIDENCE_REPLICATION_INCOMPLETE') {
         return 'Private identity verification storage is not ready yet. Your application has not been approved or activated.';
@@ -606,7 +610,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final title = switch (_page) {
       _Page.signIn => 'Welcome back',
-      _Page.signUp => 'Join the conversation',
+      _Page.signUp => 'Identity review required',
       _Page.forgot => 'Reset your password',
       _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
@@ -614,7 +618,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Create an account with your email, username and password. Verify your email to activate it.',
+      _Page.signUp => 'Public account creation is closed until identity evidence review and two-person approval are complete.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
@@ -854,13 +858,13 @@ class _AuthScreenState extends State<AuthScreen> {
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Icon(Icons.verified_user_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
-                  Expanded(child: Text('Create your Testagram account with your email, username and password. Verify your email to activate it—no administrator approval is required.', style: TextStyle(height: 1.45, fontSize: 13))),
+                  Expanded(child: Text('Public signup is fail-closed. Testagram accounts are provisioned only after identity evidence review and two independent account approvals. Email verification is still required after provisioning.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
               ),
               const SizedBox(height: 12),
-              // Age assurance and legal acknowledgements are intentionally
-              // suppressed in ordinary signup for now. Their state and
-              // legal-document content remain available for a future rollout.
+              // This legacy form cannot provision an account. The Backend
+              // returns IDENTITY_REVIEW_REQUIRED until the evidence-backed
+              // identity application and two-person approval process completes.
               const SizedBox(height: 8),
             ],
             if (_page == _Page.identity) ...[

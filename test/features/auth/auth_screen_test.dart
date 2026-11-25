@@ -65,9 +65,10 @@ class _IdentityReviewRequiredNativeAuthSession extends _FakeNativeAuthSession {
     required String username,
     required String password,
   }) async {
+    signUpCalls++;
     throw const NativeAuthException(
-      'Identity review is required before public signup can proceed.',
-      statusCode: 503,
+      'Identity evidence review and two-person account approval are required before your Testagram account can be created.',
+      statusCode: 403,
       code: 'IDENTITY_REVIEW_REQUIRED',
     );
   }
@@ -153,7 +154,7 @@ void main() {
     expect(recoveryAuth.lastPassword, 'correct-password-123');
   });
 
-  testWidgets('native account creation remains available when legacy identity flag is disabled', (tester) async {
+  testWidgets('public signup entry explains the identity approval requirement when legacy identity flag is disabled', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(
         authClient: authClient,
@@ -170,6 +171,8 @@ void main() {
     expect(find.text('Submit application'), findsNothing);
     await tapVisible(tester, find.text('Sign up'));
     expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
+    expect(find.text('Identity review required'), findsOneWidget);
+    expect(find.textContaining('identity evidence review and two independent account approvals'), findsOneWidget);
   });
 
   testWidgets('native signup does not restore an old identity application',
@@ -221,7 +224,7 @@ void main() {
 
     await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
-    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Identity review required'), findsOneWidget);
     expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
 
     await tapVisible(tester, find.text('Reset password'));
@@ -234,62 +237,28 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('native signup success UI follows ordinary signup and email verification', (tester) async {
-    final nativeAuth = _FakeNativeAuthSession();
+  testWidgets('public signup is rejected until evidence review and two-person approval', (tester) async {
+    final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, enableIdentityRegistration: false, identityApplicationStore: identityStore),
     ));
 
     await tapVisible(tester, find.text('Sign up'));
-    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Identity review required'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
 
     final signupFields = find.byType(TextFormField);
     expect(signupFields, findsNWidgets(3));
     await tester.enterText(signupFields.at(0), 'native_user');
     await tester.enterText(signupFields.at(1), 'native@example.test');
     await tester.enterText(signupFields.at(2), 'native-password-123');
-
-    // Native account creation is independent of identity review; the user
-    // activates the account by verifying the email address.
-    expect(find.byType(CheckboxListTile), findsNothing);
-    expect(find.text('Read terms'), findsNothing);
-    expect(find.text('Read privacy notice'), findsNothing);
-
     await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
     await tester.pumpAndSettle();
 
     expect(nativeAuth.signUpCalls, 1);
-    expect(nativeAuth.signedUpEmail, 'native@example.test');
-    expect(nativeAuth.signedUpUsername, 'native_user');
-    expect(nativeAuth.signedUpPassword, 'native-password-123');
-    expect(find.textContaining('Check your email'), findsOneWidget);
-    expect(find.text('Submit application'), findsNothing);
-  });
-
-  testWidgets('unexpected legacy identity-review response is temporary, not a signup requirement', (tester) async {
-    final nativeAuth = _IdentityReviewRequiredNativeAuthSession();
-    await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(
-        authClient: nativeAuth,
-        onSignedIn: () {},
-        enableIdentityRegistration: false,
-        identityApplicationStore: identityStore,
-      ),
-    ));
-
-    await tapVisible(tester, find.text('Sign up'));
-    await tester.enterText(find.byType(TextFormField).at(0), 'native_user');
-    await tester.enterText(find.byType(TextFormField).at(1), 'native@example.test');
-    await tester.enterText(find.byType(TextFormField).at(2), 'native-password-123');
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
-    await tester.pumpAndSettle();
-
-    expect(find.textContaining('temporarily unavailable'), findsOneWidget);
-    expect(find.textContaining('identity evidence review'), findsNothing);
+    expect(find.textContaining('Identity evidence review and two-person account approval are required'), findsOneWidget);
     expect(find.textContaining('Check your email'), findsNothing);
     expect(find.text('Verify your email'), findsNothing);
     expect(find.text('Submit application'), findsNothing);
@@ -363,16 +332,16 @@ void main() {
     expect(find.text('Create account'), findsOneWidget);
   });
 
-  testWidgets('signup entry opens native account creation instead of identity application', (tester) async {
+  testWidgets('identity-review entry opens the blocked public signup notice', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    expect(find.text('Join the conversation'), findsOneWidget);
+    expect(find.text('Identity review required'), findsOneWidget);
     expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Create password'), findsOneWidget);
-    expect(find.textContaining('no administrator approval is required'), findsOneWidget);
+    expect(find.textContaining('identity evidence review and two independent account approvals'), findsOneWidget);
   });
 
   testWidgets('legal copy is retained for later but hidden from current signup', (tester) async {
