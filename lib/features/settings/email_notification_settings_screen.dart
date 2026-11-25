@@ -211,6 +211,35 @@ class _EmailNotificationSettingsScreenState
                     'Email me when an account I follow shares a post I can access.',
                   ),
                 ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton(
+                    onPressed: _saving
+                        ? null
+                        : () => _save(
+                              newFollowers: _newFollowers,
+                              newPosts: _newPosts,
+                            ),
+                    child: _saving
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Text('Save my choices'),
+                  ),
+                ),
+                if (_error != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_error!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
+                ],
+                if (_notice != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_notice!,
+                      style: TextStyle(color: Theme.of(context).colorScheme.primary)),
+                ],
                 const SizedBox(height: 24),
                 Text('Push notifications',
                     style: Theme.of(context).textTheme.titleLarge),
@@ -247,35 +276,6 @@ class _EmailNotificationSettingsScreenState
                         : const Text('Save push preferences'),
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  height: 52,
-                  child: FilledButton(
-                    onPressed: _saving
-                        ? null
-                        : () => _save(
-                              newFollowers: _newFollowers,
-                              newPosts: _newPosts,
-                            ),
-                    child: _saving
-                        ? const SizedBox(
-                            width: 20,
-                            height: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Save my choices'),
-                  ),
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_error!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.error)),
-                ],
-                if (_notice != null) ...[
-                  const SizedBox(height: 12),
-                  Text(_notice!,
-                      style: TextStyle(color: Theme.of(context).colorScheme.primary)),
-                ],
               ],
             ),
     );
