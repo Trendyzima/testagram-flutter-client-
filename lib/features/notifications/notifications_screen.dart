@@ -222,14 +222,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     setState(() => _marking.add(id));
     try {
       await widget.api.markNotificationRead(id);
-      if (mounted) setState(() {
-        item['read_at'] = DateTime.now().toUtc().toIso8601String();
-        if (_unreadCount > 0) _unreadCount--;
-        final category = (item['category'] ?? 'system').toString();
-        if ((_categoryUnreadCounts[category] ?? 0) > 0) {
-          _categoryUnreadCounts[category] = _categoryUnreadCounts[category]! - 1;
-        }
-      });
+      if (mounted) {
+        setState(() {
+          item['read_at'] = DateTime.now().toUtc().toIso8601String();
+          if (_unreadCount > 0) _unreadCount--;
+          final category = (item['category'] ?? 'system').toString();
+          if ((_categoryUnreadCounts[category] ?? 0) > 0) {
+            _categoryUnreadCounts[category] = _categoryUnreadCounts[category]! - 1;
+          }
+        });
+      }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
     } finally {
