@@ -43,9 +43,10 @@ class _InboxScreenState extends State<InboxScreen> {
   String _conversationName(Map<String, dynamic> item) {
     final title = (item['title'] ?? '').toString().trim();
     if (title.isNotEmpty) return title;
-    final members = item['members'];
-    if (members is List) {
-      final names = members.whereType<Map>().map((m) {
+    final otherMembers = item['other_members'];
+    final displayMembers = otherMembers is List ? otherMembers : item['members'];
+    if (displayMembers is List) {
+      final names = displayMembers.whereType<Map>().map((m) {
         final name = (m['display_name'] ?? m['username'] ?? '').toString().trim();
         return name;
       }).where((name) => name.isNotEmpty).toList();
