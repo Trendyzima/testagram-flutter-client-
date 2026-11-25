@@ -324,7 +324,7 @@ class _BrowsingHistoryScreenState extends State<BrowsingHistoryScreen> {
                                 : Icons.play_circle_outline_rounded;
                         return ListTile(
                           leading: CircleAvatar(child: Icon(icon)),
-                          title: Text(type == 'video' ? 'Watched video' : 'Viewed ' + type),
+                          title: Text(type == 'video' ? 'Watched video' : 'Viewed $type'),
                           subtitle: Text(date.isEmpty ? id : date),
                           trailing: const Icon(Icons.chevron_right_rounded),
                           onTap: type == 'video' ? null : () => _open(item),
