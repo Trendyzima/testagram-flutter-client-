@@ -386,11 +386,13 @@ class _AuthScreenState extends State<AuthScreen> {
           currentDraft = currentDraft.copyWith(application: application);
           await _identityStore.save(currentDraft);
         }
-        final status = await api.getStatus(application);
+        final readyApplication = application;
+        if (readyApplication == null) return;
+        final status = await api.getStatus(readyApplication);
         if (!mounted) return;
         setState(() {
           _identityDraft = currentDraft;
-          _identityApplication = application;
+          _identityApplication = readyApplication;
           _identityStatus = status;
           _page = status.provisioningStatus == 'verification_pending'
               ? _Page.verify
