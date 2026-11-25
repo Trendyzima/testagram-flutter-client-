@@ -81,6 +81,56 @@ void main() {
       }
     });
 
+    test('resolves first-class X-style Testagram destinations', () {
+      const routes = {
+        '/home': 'home',
+        '/explore': 'explore',
+        '/search': 'search',
+        '/notifications': 'notifications',
+        '/messages': 'messages',
+        '/inbox': 'inbox',
+        '/i/lists': 'lists',
+        '/lists': 'lists',
+        '/settings': 'settings',
+        '/settings/federation': 'federation',
+        '/knowledge': 'knowledge',
+        '/ask': 'ask',
+        '/video': 'video',
+        '/shorts': 'shorts',
+        '/threads': 'threads',
+        '/polls': 'polls',
+        '/calls': 'calls',
+        '/creator': 'creator',
+        '/hashtags': 'hashtags',
+      };
+      for (final entry in routes.entries) {
+        final link = TestagramDeepLink.parse(entry.key);
+        expect(link?.kind, TestagramDeepLinkKind.destination, reason: entry.key);
+        expect(link?.destination, entry.value, reason: entry.key);
+      }
+      expect(TestagramDeepLink.parse('testagram://messages')?.destination, 'messages');
+      expect(TestagramDeepLink.parse('https://evil.example/messages'), isNull);
+      expect(TestagramDeepLink.parse('/messages?redirect=https://evil.example'), isNull);
+    });
+
+    test('resolves post and profile connection routes with validated identifiers', () {
+      const postId = '123e4567-e89b-42d3-a456-426614174000';
+      final post = TestagramDeepLink.parse('/post/$postId');
+      expect(post?.kind, TestagramDeepLinkKind.post);
+      expect(post?.postId, postId);
+      final status = TestagramDeepLink.parse('/@Trendz_01/status/$postId');
+      expect(status?.kind, TestagramDeepLinkKind.post);
+      expect(status?.postId, postId);
+      final followers = TestagramDeepLink.parse('/@Trendz_01/followers');
+      expect(followers?.kind, TestagramDeepLinkKind.profileConnections);
+      expect(followers?.username, 'Trendz_01');
+      expect(followers?.connectionKind, 'followers');
+      final following = TestagramDeepLink.parse('/@Trendz_01/following');
+      expect(following?.connectionKind, 'following');
+      expect(TestagramDeepLink.parse('/post/not-a-uuid'), isNull);
+      expect(TestagramDeepLink.parse('/@Trendz_01/blocked'), isNull);
+    });
+
     test('rejects oversized input', () {
       expect(TestagramDeepLink.parse('/${List.filled(2049, 'a').join()}'), isNull);
     });
