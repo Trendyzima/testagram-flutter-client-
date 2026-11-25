@@ -12,23 +12,37 @@ void main() {
       (tester) async {
     http.Request? captured;
     final client = MockClient((request) async {
-      captured = request;
-      return http.Response(
-        jsonEncode({
-          'ok': true,
-          'data': {
-            'id': 'canonical-user-123',
-            'username': 'test_user',
-            'display_name': 'Test User',
-            'is_self': true,
-            'can_view_posts': false,
-            'followers_count': 3,
-            'following_count': 5,
-          },
-        }),
-        200,
-        headers: {'content-type': 'application/json'},
-      );
+      if (request.url.path == '/api/me/profile') {
+        captured = request;
+        return http.Response(
+          jsonEncode({
+            'ok': true,
+            'data': {
+              'id': 'canonical-user-123',
+              'username': 'test_user',
+              'display_name': 'Test User',
+              'is_self': true,
+              'can_view_posts': false,
+              'followers_count': 3,
+              'following_count': 5,
+            },
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      if (request.url.path ==
+          '/api/social/profiles/canonical-user-123/posts') {
+        return http.Response(
+          jsonEncode({
+            'ok': true,
+            'data': {'posts': [], 'has_more': false},
+          }),
+          200,
+          headers: {'content-type': 'application/json'},
+        );
+      }
+      return http.Response('{}', 404);
     });
     final api = BackendApi(
       baseUri: Uri.parse('https://api.testagram.example'),
