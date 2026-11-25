@@ -426,7 +426,7 @@ class _KnowledgeTopicsTabState extends State<_KnowledgeTopicsTab> {
 }
 
 class KnowledgeTopicScreen extends StatefulWidget {
-  const KnowledgeTopicScreen({required this.api, required this.slug});
+  const KnowledgeTopicScreen({super.key, required this.api, required this.slug});
   final BackendApi api;
   final String slug;
 
