@@ -388,11 +388,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
                                   _Count(
-                                    label: 'Posts',
-                                    value: profile['posts_count'] ?? _posts.length,
-                                    onTap: () => setState(() {}),
-                                  ),
-                                  _Count(
                                     label: 'Followers',
                                     value: profile['followers_count'],
                                     onTap: () => _openConnections('followers'),
