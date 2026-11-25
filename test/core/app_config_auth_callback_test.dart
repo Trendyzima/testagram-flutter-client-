@@ -27,7 +27,8 @@ void main() {
       );
 
       expect(entry.mode, AuthEntryMode.verifyEmail);
-      expect(entry.hasCompleteCallback, isTrue);
+      expect(entry.hasCompleteCallback, isFalse);
+      expect(entry.isNativeVerification, isTrue);
       expect(entry.token, 'single-use-token');
     });
 
