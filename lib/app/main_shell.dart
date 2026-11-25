@@ -545,8 +545,8 @@ class _MainShellState extends State<MainShell> {
                               Text('@${account['username'] ?? ''}',
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall),
-                              if ((account['mutual_followers_count'] as num?)?.toInt() case final count? when count > 0)
-                                Text('$count mutual connections',
+                              if (((account['mutual_followers_count'] as num?)?.toInt() ?? 0) > 0)
+                                Text('${account['mutual_followers_count']} mutual connections',
                                   style: theme.textTheme.bodySmall),
                             ],
                           )),
