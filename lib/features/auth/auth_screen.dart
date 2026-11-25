@@ -103,6 +103,9 @@ class _AuthScreenState extends State<AuthScreen> {
         !widget.requireVerification) {
       _page = _Page.signUp;
     }
+    if (entry.mode == AuthEntryMode.signIn && !widget.requireVerification) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _restoreIdentityDraft());
+    }
   }
 
   @override
@@ -362,6 +365,39 @@ class _AuthScreenState extends State<AuthScreen> {
           _notice = 'Your application has been received. Submit the requested evidence and follow its review status. Your account will not be created until two independent approvals are complete.';
           _password.clear();
           _confirm.clear();
+        });
+      } finally {
+        api.close();
+      }
+    });
+  }
+
+  Future<void> _restoreIdentityDraft() async {
+    final draft = await _identityStore.load();
+    if (!mounted || draft == null) return;
+    await _run(() async {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        var currentDraft = draft;
+        var application = currentDraft.application;
+        if (application == null) {
+          application = await _submitIdentityDraft(api, currentDraft);
+          if (application == null) return;
+          currentDraft = currentDraft.copyWith(application: application);
+          await _identityStore.save(currentDraft);
+        }
+        final status = await api.getStatus(application);
+        if (!mounted) return;
+        setState(() {
+          _identityDraft = currentDraft;
+          _identityApplication = application;
+          _identityStatus = status;
+          _page = status.provisioningStatus == 'verification_pending'
+              ? _Page.verify
+              : _Page.identity;
+          _notice = status.provisioningStatus == 'verification_pending'
+              ? 'Your approved Testagram account is waiting for email verification.'
+              : 'Your saved identity application has been restored.';
         });
       } finally {
         api.close();
