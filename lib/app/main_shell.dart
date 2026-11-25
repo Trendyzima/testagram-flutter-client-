@@ -546,8 +546,16 @@ class _MainShellState extends State<MainShell> {
                                 maxLines: 1, overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodySmall),
                               if (((account['mutual_followers_count'] as num?)?.toInt() ?? 0) > 0)
-                                Text('${account['mutual_followers_count']} mutual connections',
-                                  style: theme.textTheme.bodySmall),
+                                Text('${account['mutual_followers_count']} people you follow also follow them',
+                                  maxLines: 2, overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall)
+                              else
+                                Text(
+                                  account['reason'] == 'active_in_testagram'
+                                      ? 'Active on Testagram'
+                                      : 'Suggested for you',
+                                  style: theme.textTheme.bodySmall,
+                                ),
                             ],
                           )),
                           const SizedBox(width: 6),
