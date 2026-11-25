@@ -28,6 +28,7 @@ import '../features/video/video_feed_screen.dart';
 import '../features/profile/profile_screen.dart';
 import '../features/messaging/direct_messages_screen.dart';
 import '../features/calls/calls_screen.dart';
+import '../features/calls/audio_spaces_screen.dart';
 import '../features/lists/social_lists_screen.dart';
 
 class MainShell extends StatefulWidget {
@@ -302,8 +303,14 @@ class _MainShellState extends State<MainShell> {
           case 'settings': _selectDestination(10); break;
           case 'creator': _selectDestination(11); break;
           case 'messages': _selectDestination(12); break;
-          case 'calls':
-          case 'live': _selectDestination(13); break;
+          case 'calls': _selectDestination(13); break;
+          case 'live':
+          case 'spaces':
+          case 'audio-spaces':
+            Navigator.of(context).push(MaterialPageRoute<void>(
+              builder: (_) => AudioSpacesScreen(api: widget.api),
+            ));
+            break;
           case 'lists': _selectDestination(14); break;
           case 'bookmarks': _selectDestination(15); break;
           case 'hashtags':
