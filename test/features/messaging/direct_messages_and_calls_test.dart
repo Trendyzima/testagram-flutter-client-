@@ -133,16 +133,18 @@ void main() {
     expect(api.conversationListCalls, 1);
     expect(find.text('Messages'), findsOneWidget);
     expect(find.text('A private conversation'), findsOneWidget);
-    expect(find.text('Encrypted message'), findsOneWidget);
+    expect(find.text('Encrypted message'), findsNothing);
+    expect(find.text('Open conversation'), findsOneWidget);
   });
 
-  testWidgets('inbox never labels ciphertext as E2EE without verified metadata', (tester) async {
+  testWidgets('inbox never infers E2EE from caller-supplied envelope fields', (tester) async {
     final api = _UnverifiedEnvelopeCommunicationApi();
     await tester.pumpWidget(MaterialApp(home: DirectMessagesScreen(api: api)));
     await tester.pumpAndSettle();
 
     expect(find.text('Unverified envelope'), findsOneWidget);
     expect(find.text('Encrypted message'), findsNothing);
+    expect(find.text('Open conversation'), findsOneWidget);
   });
 
   testWidgets('new direct message resolves a Testagram handle before creating a conversation', (tester) async {
@@ -174,7 +176,7 @@ void main() {
 
     expect(api.messageListCalls, 1);
     expect(api.markReadCalls, 1);
-    expect(find.text('Encrypted payload — decryption unavailable'), findsOneWidget);
+    expect(find.text('Message unavailable'), findsOneWidget);
     expect(find.textContaining('opaque-ciphertext-never-render-this'), findsNothing);
     expect(find.textContaining('Secure message composition is paused'), findsOneWidget);
   });
