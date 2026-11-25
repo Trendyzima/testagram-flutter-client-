@@ -7,6 +7,32 @@ import 'package:http/testing.dart';
 import 'package:testagram/core/backend_api.dart';
 
 void main() {
+  test('loads bookmarked posts from the authenticated saved timeline', () async {
+    late http.Request captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-bookmark-token',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({
+          'ok': true,
+          'data': {'posts': [], 'next_cursor': 'next-page', 'has_more': true},
+        }), 200);
+      }),
+    );
+
+    await api.getBookmarkedPosts(limit: 25, cursor: 'bookmark-cursor');
+
+    expect(captured.method, 'GET');
+    expect(captured.url.path, '/api/social/bookmarks');
+    expect(captured.url.queryParameters, {
+      'limit': '25',
+      'before': 'bookmark-cursor',
+    });
+    expect(captured.headers['authorization'], 'Bearer native-bookmark-token');
+    api.close();
+  });
+
   test('search sends advanced filters through the native authenticated API', () async {
     late http.Request captured;
     final api = BackendApi(
@@ -618,7 +644,11 @@ void main() {
       );
       expect(captured.method, 'GET');
       expect(captured.url.path, '/api/social/profiles/00000000-0000-4000-8000-000000000002/posts');
-      expect(captured.url.queryParameters, {'limit': '20', 'before': 'previous-post'});
+      expect(captured.url.queryParameters, {
+        'limit': '20',
+        'media_only': 'false',
+        'before': 'previous-post',
+      });
       expect(captured.headers['authorization'], 'Bearer testagram-native-access-token');
       expect((response['data'] as Map)['posts'], hasLength(1));
       api.close();
@@ -1244,4 +1274,245 @@ void main() {
       api.close();
     });
   });
+
+  test('maps Audio Spaces and follow-request actions to Backend-owned capabilities', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-route-contract-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await api.listLiveAudioSpaces();
+    await api.getAudioSpace('space-uuid');
+    await api.getMyAudioSpaceStatus('space-uuid');
+    await api.createAudioSpace(title: 'Kenya builders', description: 'Live discussion', maxAudience: 250);
+    await api.joinAudioSpace('space-uuid');
+    await api.requestAudioSpaceSpeaker('space-uuid');
+    await api.listAudioSpaceSpeakerRequests('space-uuid');
+    await api.decideAudioSpaceSpeaker(spaceId: 'space-uuid', userId: 'speaker-uuid', approve: true);
+    await api.leaveAudioSpace('space-uuid');
+    await api.updateAudioSpace(spaceId: 'space-uuid', title: 'Updated title', description: 'Updated description');
+    await api.sendAudioSpaceSuperchat(spaceId: 'space-uuid', message: 'Great session', amount: '100', idempotencyKey: 'stable-superchat-key');
+    await api.endAudioSpace('space-uuid');
+    await api.listFollowRequests();
+    await api.acceptFollowRequest('follower-uuid');
+    await api.rejectFollowRequest('follower-uuid');
+
+    final payloads = requests.map((request) => jsonDecode(request.body) as Map<String, dynamic>).toList();
+    expect(requests, hasLength(15));
+    expect(requests.every((request) => request.url.path == '/api/capability'), isTrue);
+    expect(requests.every((request) => request.method == 'POST'), isTrue);
+    expect(requests.every((request) =>
+        request.headers['authorization'] == 'Bearer native-route-contract-token'), isTrue);
+    expect(payloads.map((item) => item['capability']).toList(), [
+      'testagram.audio_spaces.list_live',
+      'testagram.audio_spaces.get',
+      'testagram.audio_spaces.my_status',
+      'testagram.audio_spaces.create',
+      'testagram.audio_spaces.join',
+      'testagram.audio_spaces.request_speaker',
+      'testagram.audio_spaces.pending_speaker_requests',
+      'testagram.audio_spaces.decide_speaker',
+      'testagram.audio_spaces.leave',
+      'testagram.audio_spaces.update',
+      'testagram.audio_spaces.superchat',
+      'testagram.audio_spaces.end',
+      'testagram.follow_requests.list',
+      'testagram.follow_requests.accept',
+      'testagram.follow_requests.reject',
+    ]);
+    expect(payloads[3]['input'], {
+      'title': 'Kenya builders',
+      'description': 'Live discussion',
+      'max_audience': 250,
+    });
+    expect(payloads[7]['input'], {
+      'space_id': 'space-uuid',
+      'user_id': 'speaker-uuid',
+      'decision': 'approved',
+    });
+    expect(payloads[9]['input'], {
+      'space_id': 'space-uuid',
+      'title': 'Updated title',
+      'description': 'Updated description',
+    });
+    expect(payloads[10]['input'], {
+      'space_id': 'space-uuid',
+      'message': 'Great session',
+      'amount': '100',
+      'idempotency_key': 'stable-superchat-key',
+    });
+    expect(payloads[13]['input'], {'target_user_id': 'follower-uuid'});
+    expect(payloads[14]['input'], {'target_user_id': 'follower-uuid'});
+    api.close();
+  });
+
+  test('rejects invalid Audio Space values before making a request', () {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+    expect(() => api.createAudioSpace(title: '', maxAudience: 1), throwsArgumentError);
+    expect(() => api.createAudioSpace(title: 'Valid title', maxAudience: 10001), throwsArgumentError);
+    expect(() => api.getAudioSpace(''), throwsArgumentError);
+    expect(() => api.decideAudioSpaceSpeaker(spaceId: 'space', userId: '', approve: true),
+        throwsArgumentError);
+    api.close();
+  });
+
+  test('maps supported message reactions and deletion to authenticated capabilities', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'message-action-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+    await api.reactToMessage(messageId: '123e4567-e89b-42d3-a456-426614174000');
+    await api.deleteMessage('123e4567-e89b-42d3-a456-426614174000');
+    expect(requests, hasLength(2));
+    expect(requests.every((request) => request.method == 'POST' && request.url.path == '/api/capability'), isTrue);
+    expect(requests.map((request) => (jsonDecode(request.body) as Map)['capability']).toList(), [
+      'testagram.messages.react', 'testagram.messages.delete',
+    ]);
+    expect((jsonDecode(requests.first.body) as Map)['input'], {
+      'message_id': '123e4567-e89b-42d3-a456-426614174000', 'reaction': '❤️', 'remove': false,
+    });
+    expect((jsonDecode(requests.last.body) as Map)['input'], {
+      'message_id': '123e4567-e89b-42d3-a456-426614174000',
+    });
+    api.close();
+  });
+  test('maps browsing history list, record and clear to the canonical social route', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'history-contract-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+    await api.getBrowsingHistory();
+    await api.recordBrowsingHistory(entityType: 'post', entityId: '123e4567-e89b-42d3-a456-426614174000', metadata: {'title': 'A Testagram post'});
+    await api.clearBrowsingHistory();
+    expect(requests.map((request) => request.method).toList(), ['GET', 'POST', 'DELETE']);
+    expect(requests.map((request) => request.url.path).toList(), ['/api/social/history', '/api/social/history', '/api/social/history']);
+    expect(requests.every((request) => request.headers['authorization'] == 'Bearer history-contract-token'), isTrue);
+    expect(jsonDecode(requests[1].body), {
+      'entity_type': 'post',
+      'entity_id': '123e4567-e89b-42d3-a456-426614174000',
+      'metadata': {'title': 'A Testagram post'},
+    });
+    api.close();
+  });
+  test('maps post poll and interaction state reads to registered social routes', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-post-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {}}), 200);
+      }),
+    );
+    await api.getPostPoll('post-uuid');
+    await api.getPostReactionState('post-uuid');
+    await api.getPostRepostState('post-uuid');
+    expect(requests.map((request) => request.url.path).toList(), [
+      '/api/social/posts/post-uuid/poll',
+      '/api/social/posts/post-uuid/reaction',
+      '/api/social/posts/post-uuid/reposts',
+    ]);
+    expect(requests.every((request) => request.method == 'GET'), isTrue);
+    api.close();
+  });
+
+
+  test('maps public feed, thread detail/state, history and media routes', () async {
+    const threadId = '11111111-1111-4111-8111-111111111111';
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'route-map-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        return http.Response(jsonEncode({'ok': true, 'data': {'items': []}}), 200);
+      }),
+    );
+
+    await api.getPublicFeed(limit: 15, before: 'opaque-cursor');
+    await api.getThread(threadId);
+    await api.deleteThread(threadId);
+    await api.listThreadLikes(threadId, limit: 25);
+    await api.getThreadLikeState(threadId);
+    await api.listThreadReposts(threadId, limit: 30);
+    await api.getThreadRepostState(threadId);
+    await api.getThreadLikeStates([threadId]);
+    await api.getThreadRepostStates([threadId]);
+    await api.getThreadBookmarkStates([threadId]);
+    await api.getBrowsingHistory();
+    await api.recordBrowsingHistory(
+      entityType: 'thread',
+      entityId: threadId,
+      metadata: {'source': 'threads'},
+    );
+    await api.clearBrowsingHistory();
+    await api.listOwnedMedia();
+    await api.getPrivateMediaDownloadUrl('private/object/key');
+
+    expect(requests.map((request) => request.method).toList(), [
+      'GET', 'GET', 'DELETE', 'GET', 'GET', 'GET', 'GET',
+      'POST', 'POST', 'POST', 'GET', 'POST', 'DELETE', 'POST', 'POST',
+    ]);
+    expect(requests.map((request) => request.url.path).toList(), [
+      '/api/feed/public',
+      '/api/threads/$threadId',
+      '/api/threads/$threadId',
+      '/api/threads/$threadId/likes',
+      '/api/threads/$threadId/likes/state',
+      '/api/threads/$threadId/reposts',
+      '/api/threads/$threadId/reposts/state',
+      '/api/threads/likes/states',
+      '/api/threads/reposts/states',
+      '/api/threads/bookmarks/states',
+      '/api/social/history',
+      '/api/social/history',
+      '/api/social/history',
+      '/api/media/list',
+      '/api/media/private-download-url',
+    ]);
+    expect(requests.first.url.queryParameters, {'limit': '15', 'before': 'opaque-cursor'});
+    expect(jsonDecode(requests[11].body), {
+      'entity_type': 'thread',
+      'entity_id': threadId,
+      'metadata': {'source': 'threads'},
+    });
+    expect(jsonDecode(requests[14].body), {'key': 'private/object/key'});
+    expect(requests.every((request) =>
+        request.headers['authorization'] == 'Bearer route-map-token'), isTrue);
+    api.close();
+  });
+
+  test('rejects invalid thread IDs and history entities before requests', () {
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.testagram.site'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'jwt',
+      client: MockClient((_) async => http.Response('{}', 200)),
+    );
+    expect(() => api.getThread('not-a-uuid'), throwsArgumentError);
+    expect(() => api.getThreadLikeStates(['not-a-uuid']), throwsArgumentError);
+    expect(() => api.recordBrowsingHistory(entityType: 'account', entityId: 'not-a-uuid'),
+        throwsArgumentError);
+    expect(() => api.getPublicFeed(limit: 51), throwsArgumentError);
+    api.close();
+  });
+
 }
