@@ -104,6 +104,34 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     return Icons.notifications_none_rounded;
   }
 
+  String _walletNotificationTitle(String kind, String amount) {
+    final suffix = amount.isEmpty ? '' : ' · KES $amount';
+    switch (kind) {
+      case 'wallet.transfer.sent':
+        return 'Wallet transfer sent$suffix';
+      case 'wallet.transfer.received':
+        return 'You received a wallet transfer$suffix';
+      case 'wallet.tip.sent':
+        return 'Tip sent$suffix';
+      case 'wallet.tip.received':
+        return 'You received a tip$suffix';
+      case 'wallet.superchat.sent':
+        return 'Super Chat sent$suffix';
+      case 'wallet.superchat.received':
+        return 'You received a Super Chat$suffix';
+      case 'wallet.deposit.completed':
+        return 'M-Pesa deposit completed$suffix';
+      case 'wallet.deposit.failed':
+        return 'M-Pesa deposit failed';
+      case 'wallet.withdrawal.completed':
+        return 'Wallet withdrawal completed$suffix';
+      case 'wallet.withdrawal.failed':
+        return 'Wallet withdrawal failed';
+      default:
+        return 'Wallet activity$suffix';
+    }
+  }
+
   Future<void> _openNotification(Map<String, dynamic> item) async {
     await _markRead(item);
     if (!mounted) return;
@@ -223,9 +251,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
                   final rawKind = (item['kind'] ?? 'activity').toString().toLowerCase();
                   final kind = rawKind.replaceAll('_', ' ');
+                  final rawPayload = item['payload'];
+                  final payload = rawPayload is Map
+                      ? Map<String, dynamic>.from(rawPayload)
+                      : <String, dynamic>{};
+                  final walletAmount = (payload['amount_kes'] ??
+                          payload['amount'] ??
+                          '')
+                      .toString();
                   final title = rawKind == 'mention'
                       ? '$actorName mentioned you in a post'
-                      : '$actorName $kind';
+                      : rawKind.startsWith('wallet.')
+                          ? _walletNotificationTitle(rawKind, walletAmount)
+                          : rawKind == 'social.reactions.aggregated'
+                              ? 'People reacted to your post'
+                              : '$actorName $kind';
                   final unread = item['read_at'] == null;
                   return ListTile(
                     leading: CircleAvatar(
