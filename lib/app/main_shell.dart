@@ -222,6 +222,18 @@ class _MainShellState extends State<MainShell> {
         final userId = await _resolveProfileId(link.username!);
         if (userId != null) _openProfile(userId);
         break;
+      case TestagramDeepLinkKind.profileMedia:
+        final mediaUserId = await _resolveProfileId(link.username!);
+        if (mediaUserId != null && mounted) {
+          Navigator.of(context).push(MaterialPageRoute<void>(
+            builder: (_) => ProfileScreen(
+              api: widget.api,
+              userId: mediaUserId,
+              initialTab: 1,
+            ),
+          ));
+        }
+        break;
       case TestagramDeepLinkKind.profileConnections:
         final userId = await _resolveProfileId(link.username!);
         if (userId != null && mounted) {
@@ -240,7 +252,8 @@ class _MainShellState extends State<MainShell> {
           case 'explore':
           case 'search': _selectDestination(1); break;
           case 'knowledge':
-          case 'ask': _selectDestination(2); break;
+          case 'ask':
+          case 'communities': _selectDestination(2); break;
           case 'notifications': _selectDestination(3); break;
           case 'profile': _selectDestination(4); break;
           case 'video': _selectDestination(5); break;
