@@ -51,11 +51,15 @@ class _MainShellState extends State<MainShell> {
   bool _bottomBarVisible = true;
   bool _loadingSidebarTrends = false;
   List<Map<String, dynamic>> _sidebarTrends = [];
+  List<Map<String, dynamic>> _sidebarTrendingWords = [];
+  Map<String, dynamic>? _sidebarProfile;
+  bool _loadingSidebarContext = false;
 
   @override
   void initState() {
     super.initState();
     _loadSidebarTrends();
+    _loadSidebarContext();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _openInitialDeepLink();
     });
@@ -77,6 +81,35 @@ class _MainShellState extends State<MainShell> {
       // The navigation shell remains useful if trend discovery is unavailable.
     } finally {
       _loadingSidebarTrends = false;
+    }
+  }
+
+  Future<void> _loadSidebarContext() async {
+    if (_loadingSidebarContext) return;
+    _loadingSidebarContext = true;
+    try {
+      final responses = await Future.wait([
+        widget.api.getMyProfile(),
+        widget.api.getTrendingWords(limit: 6),
+      ]);
+      final profileRaw = responses[0]['data'];
+      final wordsRaw = responses[1]['data'];
+      final wordsData = wordsRaw is Map ? wordsRaw : responses[1];
+      final rawWords = wordsData['items'];
+      if (!mounted) return;
+      setState(() {
+        if (profileRaw is Map) {
+          _sidebarProfile = Map<String, dynamic>.from(profileRaw);
+        }
+        _sidebarTrendingWords = rawWords is List
+            ? rawWords.whereType<Map>()
+                .map((item) => Map<String, dynamic>.from(item)).toList()
+            : [];
+      });
+    } catch (_) {
+      // Sidebar data is optional; core navigation remains available.
+    } finally {
+      _loadingSidebarContext = false;
     }
   }
 
@@ -294,6 +327,44 @@ class _MainShellState extends State<MainShell> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 22, 16, 24),
         children: [
+          Text('Your space', style: theme.textTheme.titleMedium),
+          const SizedBox(height: 12),
+          if (_sidebarProfile != null)
+            Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(14),
+                onTap: () => _selectDestination(4),
+                child: Padding(
+                  padding: const EdgeInsets.all(13),
+                  child: Row(children: [
+                    CircleAvatar(
+                      radius: 23,
+                      backgroundImage: (_sidebarProfile!['avatar_url'] ?? '').toString().startsWith('http')
+                          ? NetworkImage(_sidebarProfile!['avatar_url'].toString())
+                          : null,
+                      child: (_sidebarProfile!['avatar_url'] ?? '').toString().startsWith('http')
+                          ? null : const Icon(Icons.person_outline_rounded),
+                    ),
+                    const SizedBox(width: 11),
+                    Expanded(child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text((_sidebarProfile!['display_name'] ?? _sidebarProfile!['username'] ?? 'Your profile').toString(),
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleSmall),
+                        Text('@${(_sidebarProfile!['username'] ?? '').toString()}',
+                          maxLines: 1, overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall),
+                      ],
+                    )),
+                    const Icon(Icons.chevron_right_rounded, size: 18),
+                  ]),
+                ),
+              ),
+            )
+          else if (_loadingSidebarContext)
+            const LinearProgressIndicator(),
+          const SizedBox(height: 18),
           Text('Explore Testagram', style: theme.textTheme.titleMedium),
           const SizedBox(height: 12),
           Card(
@@ -347,6 +418,35 @@ class _MainShellState extends State<MainShell> {
               ),
             ),
           ),
+          if (_sidebarTrendingWords.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [
+                      Icon(Icons.bolt_rounded, color: theme.colorScheme.primary, size: 19),
+                      const SizedBox(width: 8),
+                      Text('Trending words', style: theme.textTheme.titleSmall),
+                    ]),
+                    const SizedBox(height: 8),
+                    for (final item in _sidebarTrendingWords.take(6))
+                      ListTile(
+                        dense: true,
+                        contentPadding: EdgeInsets.zero,
+                        leading: const Icon(Icons.trending_up_rounded, size: 18),
+                        title: Text((item['word'] ?? '').toString(),
+                          maxLines: 1, overflow: TextOverflow.ellipsis),
+                        subtitle: Text('${item['posts_count'] ?? 0} posts'),
+                        onTap: () => _selectDestination(1),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
           const SizedBox(height: 14),
           Card(
             child: Padding(
