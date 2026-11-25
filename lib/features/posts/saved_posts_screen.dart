@@ -1,6 +1,8 @@
 import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
+import '../../core/app_config.dart';
+import '../video/video_feed_screen.dart';
 import '../threads/threads_screen.dart';
 import '../posts/post_detail_screen.dart';
 
@@ -327,7 +329,7 @@ class _BrowsingHistoryScreenState extends State<BrowsingHistoryScreen> {
                           title: Text(type == 'video' ? 'Watched video' : 'Viewed $type'),
                           subtitle: Text(date.isEmpty ? id : date),
                           trailing: const Icon(Icons.chevron_right_rounded),
-                          onTap: type == 'video' ? null : () => _open(item),
+                          onTap: () => _open(item),
                         );
                       },
                     ),
