@@ -108,7 +108,7 @@ class TestagramDeepLink {
         connectionKind: segments[2].toLowerCase(),
       );
     }
-    if (segments.length == 4 &&
+    if (segments.length == 3 &&
         segments[0].startsWith('@') &&
         segments[1].toLowerCase() == 'status' &&
         _uuid.hasMatch(segments[2])) {
