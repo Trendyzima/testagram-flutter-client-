@@ -163,7 +163,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
       }
       return;
     }
-    if (kind == 'mention' && postId.isNotEmpty) {
+    if ((kind == 'mention' || kind == 'social.reactions.aggregated') && postId.isNotEmpty) {
       Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PostDetailScreen(api: widget.api, postId: postId),
       ));
