@@ -28,6 +28,25 @@ void main() {
       expect(reset.hasCompleteCallback, isTrue);
     });
 
+
+    test('rejects native verification links without an application reference', () {
+      final entry = AuthEntry.fromUri(Uri.parse(
+        'https://testagram.site/verify-email?token=one-time',
+      ));
+      expect(entry.mode, AuthEntryMode.verifyEmail);
+      expect(entry.isNativeVerification, isTrue);
+      expect(entry.hasCompleteCallback, isFalse);
+    });
+
+    test('keeps legacy verification callbacks on the legacy contract', () {
+      final entry = AuthEntry.fromUri(Uri.parse(
+        'https://testagram.site/?mode=verification&token=legacy-token',
+      ));
+      expect(entry.mode, AuthEntryMode.verifyEmail);
+      expect(entry.isNativeVerification, isFalse);
+      expect(entry.hasCompleteCallback, isTrue);
+    });
+
     test('recognizes email-verification callbacks', () {
       final entry = AuthEntry.fromUri(Uri.parse(
         'https://testagram.site/verify-email?application_id=11111111-1111-4111-8111-111111111111&token=verify',
