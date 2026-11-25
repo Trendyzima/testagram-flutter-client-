@@ -23,6 +23,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   int _activeLoads = 0;
   String? _cursor, _error;
   String _category = 'all';
+  bool _unreadOnly = false;
   int _unreadCount = 0;
   Map<String, int> _categoryUnreadCounts = {};
   final Set<String> _marking = {};
@@ -103,6 +104,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         limit: 30,
         cursor: pageCursor,
         category: requestedCategory,
+        unreadOnly: _unreadOnly,
       ));
       final raw = data['items'];
       final rows = raw is List
@@ -235,6 +237,16 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     }
   }
 
+  void _toggleUnreadOnly(bool value) {
+    if (_unreadOnly == value) return;
+    setState(() {
+      _unreadOnly = value;
+      _cursor = null;
+      _hasMore = true;
+    });
+    _load(reset: true);
+  }
+
   void _selectCategory(String category) {
     if (_category == category) return;
     setState(() {
@@ -265,6 +277,14 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             children: [
+              Padding(
+                padding: const EdgeInsets.only(right: 8),
+                child: FilterChip(
+                  label: Text('Unread${_unreadCount > 0 ? ' · $_unreadCount' : ''}'),
+                  selected: _unreadOnly,
+                  onSelected: _toggleUnreadOnly,
+                ),
+              ),
               for (final option in const [
                 ('all', 'All'), ('mentions', 'Mentions'), ('likes', 'Likes'),
                 ('follows', 'Follows'), ('replies', 'Replies'), ('reposts', 'Reposts'),
