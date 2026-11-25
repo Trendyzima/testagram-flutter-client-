@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../posts/post_detail_screen.dart';
+import '../wallet/wallet_transaction_detail_screen.dart';
 import '../../core/widgets/testagram_app_bar.dart';
 import '../../core/widgets/testagram_state_view.dart';
 
@@ -97,9 +98,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (normalized.contains('reply') || normalized.contains('comment')) return Icons.mode_comment_outlined;
     if (normalized.contains('like') || normalized.contains('reaction')) return Icons.favorite_border_rounded;
     if (normalized.contains('repost') || normalized.contains('share')) return Icons.repeat_rounded;
+    if (normalized.contains('wallet') || normalized.contains('deposit') || normalized.contains('transfer') || normalized.contains('topup')) return Icons.account_balance_wallet_outlined;
     if (normalized.contains('answer')) return Icons.lightbulb_outline_rounded;
     if (normalized.contains('moderation') || normalized.contains('security')) return Icons.shield_outlined;
     return Icons.notifications_none_rounded;
+  }
+
+  String _walletNotificationTitle(String kind, String amount) {
+    final suffix = amount.isEmpty ? '' : ' · KES $amount';
+    switch (kind) {
+      case 'wallet.transfer.sent':
+        return 'Wallet transfer sent$suffix';
+      case 'wallet.transfer.received':
+        return 'You received a wallet transfer$suffix';
+      case 'wallet.tip.sent':
+        return 'Tip sent$suffix';
+      case 'wallet.tip.received':
+        return 'You received a tip$suffix';
+      case 'wallet.superchat.sent':
+        return 'Super Chat sent$suffix';
+      case 'wallet.superchat.received':
+        return 'You received a Super Chat$suffix';
+      case 'wallet.deposit.completed':
+        return 'M-Pesa deposit completed$suffix';
+      case 'wallet.deposit.failed':
+        return 'M-Pesa deposit failed';
+      case 'wallet.withdrawal.completed':
+        return 'Wallet withdrawal completed$suffix';
+      case 'wallet.withdrawal.failed':
+        return 'Wallet withdrawal failed';
+      default:
+        return 'Wallet activity$suffix';
+    }
   }
 
   Future<void> _openNotification(Map<String, dynamic> item) async {
@@ -107,7 +137,33 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
     if (!mounted) return;
     final kind = (item['kind'] ?? '').toString().toLowerCase();
     final postId = (item['post_id'] ?? '').toString();
-    if (kind == 'mention' && postId.isNotEmpty) {
+    if (kind.startsWith('wallet.')) {
+      final rawPayload = item['payload'];
+      final payload = rawPayload is Map
+          ? Map<String, dynamic>.from(rawPayload)
+          : <String, dynamic>{};
+      final reference = (payload['transfer_id'] ??
+              payload['topup_id'] ??
+              payload['withdrawal_id'] ??
+              payload['transaction_id'] ??
+              item['entity_id'] ??
+              '')
+          .toString();
+      if (reference.isNotEmpty) {
+        await Navigator.of(context).push(MaterialPageRoute<void>(
+          builder: (_) => WalletTransactionDetailScreen(
+            api: widget.api,
+            transactionReference: reference,
+          ),
+        ));
+      } else if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('This wallet notification has no transaction reference.')),
+        );
+      }
+      return;
+    }
+    if ((kind == 'mention' || kind == 'social.reactions.aggregated') && postId.isNotEmpty) {
       Navigator.of(context).push(MaterialPageRoute<void>(
         builder: (_) => PostDetailScreen(api: widget.api, postId: postId),
       ));
@@ -195,9 +251,21 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   final actorName = actor is Map ? (actor['display_name'] ?? actor['username'] ?? 'Someone') : 'Testagram';
                   final rawKind = (item['kind'] ?? 'activity').toString().toLowerCase();
                   final kind = rawKind.replaceAll('_', ' ');
+                  final rawPayload = item['payload'];
+                  final payload = rawPayload is Map
+                      ? Map<String, dynamic>.from(rawPayload)
+                      : <String, dynamic>{};
+                  final walletAmount = (payload['amount_kes'] ??
+                          payload['amount'] ??
+                          '')
+                      .toString();
                   final title = rawKind == 'mention'
                       ? '$actorName mentioned you in a post'
-                      : '$actorName $kind';
+                      : rawKind.startsWith('wallet.')
+                          ? _walletNotificationTitle(rawKind, walletAmount)
+                          : rawKind == 'social.reactions.aggregated'
+                              ? 'People reacted to your post'
+                              : '$actorName $kind';
                   final unread = item['read_at'] == null;
                   return ListTile(
                     leading: CircleAvatar(
