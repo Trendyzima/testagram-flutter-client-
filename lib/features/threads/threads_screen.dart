@@ -511,8 +511,10 @@ class _ThreadDetailScreenState extends State<ThreadDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final thread = _thread;
-    final profile = thread?['profiles'] is Map ? thread!['profiles'] as Map : const {};
-    final media = thread?['media_urls'] is List ? thread!['media_urls'] as List : const [];
+    final profileValue = thread?['profiles'];
+    final profile = profileValue is Map ? profileValue : const {};
+    final mediaValue = thread?['media_urls'];
+    final media = mediaValue is List ? mediaValue : const [];
     final avatar = (profile['avatar_url'] ?? '').toString();
     return Scaffold(
       appBar: AppBar(
