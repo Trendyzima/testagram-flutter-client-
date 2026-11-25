@@ -73,7 +73,7 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         if (entry.hasCompleteCallback) {
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            _verifyNative(entry.token!);
+            _verifyNative(entry.token!, applicationId: entry.applicationId);
           });
         } else {
           _notice = 'Open the complete Testagram verification link from your email, or request another one.';
@@ -437,8 +437,18 @@ class _AuthScreenState extends State<AuthScreen> {
     });
   }
 
-  Future<void> _verifyNative(String token) async => _run(() async {
-    await widget.authClient.verifyEmail(token);
+  Future<void> _verifyNative(String token, {String? applicationId}) async => _run(() async {
+    if (applicationId != null && applicationId.isNotEmpty) {
+      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
+      try {
+        await api.verifyEmail(applicationId: applicationId, token: token);
+      } finally {
+        api.close();
+      }
+    } else {
+      // Preserve the legacy verification callback only for legacy links.
+      await widget.authClient.verifyEmail(token);
+    }
     if (mounted) {
       setState(() {
         _page = _Page.signIn;
