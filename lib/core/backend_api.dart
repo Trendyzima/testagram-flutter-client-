@@ -1383,20 +1383,6 @@ class BackendApi {
         body: {'key': key.trim()});
   }
 
-  Future<Map<String, dynamic>> getPostInteractionSummary(String postId) {
-    if (postId.trim().isEmpty || postId.length > 64) throw ArgumentError.value(postId, 'postId');
-    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/interaction-summary'));
-  }
-
-  Future<Map<String, dynamic>> listPostInteractions(String postId, String kind, {int limit = 50}) {
-    if (postId.trim().isEmpty || postId.length > 64 ||
-        !const {'likes', 'reposts', 'quotes', 'quote-likes'}.contains(kind) || limit < 1 || limit > 100) {
-      throw ArgumentError('Post interaction query is invalid');
-    }
-    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/interactions/$kind')
-        .replace(queryParameters: {'limit': '$limit'}));
-  }
-
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
   Future<Map<String, dynamic>> callCapability(
