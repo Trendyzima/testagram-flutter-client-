@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -54,6 +55,8 @@ class _FeedScreenState extends State<FeedScreen> {
   final Set<String> _busy = {};
   bool _loading = false, _hasMore = true, _publishing = false;
   String _feedMode = 'for_you';
+  String? _selectedListId;
+  List<Map<String, dynamic>> _pinnedLists = [];
   int _loadGeneration = 0;
   int _activeLoads = 0;
   String? _cursor, _error, _rankingMode;
@@ -62,7 +65,9 @@ class _FeedScreenState extends State<FeedScreen> {
   void initState() {
     super.initState();
     _scroll.addListener(_onScroll);
+    _selectedListId = widget.listId;
     _load(reset: true);
+    if (widget.listId == null) unawaited(_loadPinnedLists());
   }
 
   @override
@@ -80,6 +85,30 @@ class _FeedScreenState extends State<FeedScreen> {
   Map<String, dynamic> _data(Map<String, dynamic> payload) {
     final value = payload['data'];
     return value is Map ? Map<String, dynamic>.from(value) : payload;
+  }
+
+  Future<void> _loadPinnedLists() async {
+    try {
+      final payload = _data(await widget.api.getSocialLists());
+      final raw = payload['items'];
+      final lists = raw is List
+          ? raw
+              .whereType<Map>()
+              .map((item) => Map<String, dynamic>.from(item))
+              .where((item) => item['pinned'] == true)
+              .toList()
+          : <Map<String, dynamic>>[];
+      if (mounted) setState(() => _pinnedLists = lists);
+    } catch (_) {
+      // Pinned feed shortcuts are optional; the main timeline remains usable
+      // when the list endpoint is unavailable or older servers lack the route.
+    }
+  }
+
+  void _selectList(String? listId) {
+    if (_selectedListId == listId) return;
+    setState(() => _selectedListId = listId);
+    _load(reset: true);
   }
 
   Future<void> _load({bool reset = false}) async {
@@ -113,7 +142,7 @@ class _FeedScreenState extends State<FeedScreen> {
         cursor: pageCursor,
         feed: requestedFeed,
         followingOnly: requestedFeed == 'following',
-        listId: widget.listId,
+        listId: _selectedListId,
       );
       final data = _data(payload);
       final raw = data['posts'];
@@ -467,6 +496,33 @@ class _FeedScreenState extends State<FeedScreen> {
           ),
         ),
       ),
+      if (_pinnedLists.isNotEmpty)
+        SizedBox(
+          height: 48,
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('All posts'),
+                  selected: _selectedListId == null,
+                  onSelected: (_) => _selectList(null),
+                ),
+                const SizedBox(width: 8),
+                for (final list in _pinnedLists) ...[
+                  ChoiceChip(
+                    avatar: const Icon(Icons.push_pin_rounded, size: 15),
+                    label: Text((list['name'] ?? 'List').toString()),
+                    selected: _selectedListId == (list['id'] ?? '').toString(),
+                    onSelected: (_) => _selectList((list['id'] ?? '').toString()),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ],
+            ),
+          ),
+        ),
       _FeedOrderingStatus(
         feedMode: _feedMode,
         rankingMode: _rankingMode,
