@@ -23,7 +23,7 @@ class TestagramDeepLink {
 
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'messages', 'inbox',
-    'lists', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
+    'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
     'polls', 'calls', 'creator', 'hashtags', 'federation', 'profile',
   };
 
@@ -71,6 +71,14 @@ class TestagramDeepLink {
       return TestagramDeepLink._(
         kind: TestagramDeepLinkKind.destination,
         destination: segments.single.toLowerCase(),
+      );
+    }
+    if (segments.length == 2 &&
+        segments.first.toLowerCase() == 'i' &&
+        segments[1].toLowerCase() == 'bookmarks') {
+      return const TestagramDeepLink._(
+        kind: TestagramDeepLinkKind.destination,
+        destination: 'bookmarks',
       );
     }
     if (segments.length == 2 &&
