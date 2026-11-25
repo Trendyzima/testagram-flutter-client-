@@ -59,10 +59,27 @@ void main() {
           request.url.path == '/api/social/profiles/$userId/posts'),
       isTrue,
     );
+    // The profile header is taller than a phone viewport; scroll the lazy
+    // ListView before asserting that its post card has been built.
+    await tester.scrollUntilVisible(
+      find.text('A public image post'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('A public image post'), findsOneWidget);
 
+    await tester.scrollUntilVisible(
+      find.text('Media'),
+      300,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Media'));
     await tester.pumpAndSettle();
+    await tester.scrollUntilVisible(
+      find.text('A public image post'),
+      400,
+      scrollable: find.byType(Scrollable).first,
+    );
     expect(find.text('A public image post'), findsOneWidget);
     expect(find.byIcon(Icons.image_outlined), findsOneWidget);
     api.close();
