@@ -37,6 +37,7 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
         _hasMore = false;
       }
     });
+    final previousCursor = reset ? null : _cursor;
     try {
       final response = await widget.api.getBookmarkedPosts(
         limit: 20,
@@ -56,7 +57,8 @@ class _SavedPostsScreenState extends State<SavedPostsScreen> {
           return id.isNotEmpty && seen.add(id);
         }));
         _cursor = (data['next_cursor'] ?? '').toString();
-        _hasMore = data['has_more'] == true && _cursor!.isNotEmpty;
+        _hasMore = data['has_more'] == true &&
+            _cursor!.isNotEmpty && _cursor != previousCursor;
         _loading = false;
       });
     } catch (error) {
