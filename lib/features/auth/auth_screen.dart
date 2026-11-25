@@ -404,6 +404,12 @@ class _AuthScreenState extends State<AuthScreen> {
         final status = await api.getStatus(application);
         if (!mounted) return;
         setState(() {
+          // Restore the applicant's visible identity fields as well as the
+          // secure capability. Resend and status screens must use the same
+          // email/application pair after an app restart.
+          _name.text = currentDraft.displayName;
+          _email.text = currentDraft.email;
+          _username.text = currentDraft.username;
           _identityDraft = currentDraft;
           _identityApplication = application;
           _identityStatus = status;
