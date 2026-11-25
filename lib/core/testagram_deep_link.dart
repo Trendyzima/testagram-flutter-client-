@@ -26,7 +26,7 @@ class TestagramDeepLink {
   static const Set<String> _destinations = {
     'home', 'explore', 'search', 'notifications', 'communities', 'messages', 'inbox',
     'lists', 'bookmarks', 'settings', 'knowledge', 'ask', 'video', 'shorts', 'threads',
-    'polls', 'calls', 'creator', 'hashtags', 'topics', 'compose',
+    'polls', 'calls', 'spaces', 'audio-spaces', 'creator', 'hashtags', 'topics', 'compose',
     'following', 'for-you', 'for_you', 'latest', 'media', 'discover', 'questions', 'videos', 'watch', 'live', 'federated', 'federation', 'profile',
   };
 
@@ -92,7 +92,7 @@ class TestagramDeepLink {
         'messages': 'messages',
         'search': 'search',
         'explore': 'explore',
-        'spaces': 'calls',
+        'spaces': 'spaces',
         'shorts': 'shorts',
       };
       final destination = aliases[segments[1].toLowerCase()];
