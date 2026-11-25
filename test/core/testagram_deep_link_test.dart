@@ -100,6 +100,7 @@ void main() {
         '/spaces': 'spaces',
         '/audio-spaces': 'audio-spaces',
         '/follow-requests': 'follow-requests',
+        '/history': 'history',
         '/federated': 'federated',
         '/search': 'search',
         '/notifications': 'notifications',
