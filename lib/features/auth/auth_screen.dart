@@ -373,7 +373,12 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _restoreIdentityDraft() async {
-    final draft = await _identityStore.load();
+    IdentityApplicationDraft? draft;
+    try {
+      draft = await _identityStore.load();
+    } catch (_) {
+      return;
+    }
     if (!mounted || draft == null) return;
     await _run(() async {
       final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
@@ -404,24 +409,6 @@ class _AuthScreenState extends State<AuthScreen> {
       } finally {
         api.close();
       }
-    });
-  }
-
-  Future<void> _signUp() async {
-    if (!_form.currentState!.validate()) return;
-    await _run(() async {
-      await widget.authClient.signUp(
-        email: _email.text.trim().toLowerCase(),
-        username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-        password: _password.text,
-      );
-      if (!mounted) return;
-      setState(() {
-        _page = _Page.verify;
-        _notice = 'Your account has been created. Check your email for a six-digit verification code or use the secure verification link to activate it.';
-        _password.clear();
-        _confirm.clear();
-      });
     });
   }
 
