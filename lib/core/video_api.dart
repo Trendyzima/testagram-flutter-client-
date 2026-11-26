@@ -1,6 +1,4 @@
 import 'dart:convert';
-
-import 'package:path/path.dart' as p;
 import 'package:http/http.dart' as http;
 
 /// Explicit client for the separately hosted Testagram video service.
@@ -160,7 +158,8 @@ class VideoApiException implements Exception {
         !const {'private', 'unlisted', 'public'}.contains(visibility)) {
       throw const VideoApiException('Video upload details are invalid.');
     }
-    final extension = p.extension(filePath).toLowerCase();
+    final filename = filePath.split(RegExp(r'[/\\\\]')).last;
+    final extension = filename.contains('.') ? filename.substring(filename.lastIndexOf('.')).toLowerCase() : '';
     if (!const {'.mp4', '.mov', '.mkv', '.webm'}.contains(extension)) {
       throw const VideoApiException('Choose an MP4, MOV, MKV or WebM video.');
     }
