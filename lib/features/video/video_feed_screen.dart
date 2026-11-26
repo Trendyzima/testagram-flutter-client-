@@ -6,6 +6,7 @@ import 'package:video_player/video_player.dart';
 
 import '../../core/backend_api.dart';
 import '../../core/video_api.dart';
+import 'creator_video_screen.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   const VideoFeedScreen({super.key, required this.api, required this.videoApiBaseUri, this.isActive = true});
@@ -250,6 +251,20 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       foregroundColor: Colors.white,
       title: const Text('Testagram TV', style: TextStyle(fontWeight: FontWeight.w900)),
       actions: [
+        if (_videoApi != null)
+          IconButton(
+            tooltip: 'Create video',
+            onPressed: () async {
+              await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => CreatorVideoScreen(api: _videoApi!),
+              ));
+              if (mounted) {
+                setState(() { _loading = true; _videos = []; _error = null; });
+                await _load();
+              }
+            },
+            icon: const Icon(Icons.add_box_outlined),
+          ),
         IconButton(
           tooltip: 'Refresh videos',
           onPressed: _loading ? null : () async {
