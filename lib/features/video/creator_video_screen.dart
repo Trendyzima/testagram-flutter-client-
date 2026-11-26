@@ -68,7 +68,12 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
         _creatingChannel = channels.isEmpty;
       });
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          if (_channels.isEmpty) _creatingChannel = true;
+        });
+      }
     } finally {
       if (mounted) setState(() => _loadingChannels = false);
     }
@@ -86,9 +91,15 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
         name: _channelName.text,
         description: _channelDescription.text,
       );
+      final displayChannel = {
+        ...channel,
+        'handle': _handle.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
+        'name': _channelName.text.trim(),
+        'description': _channelDescription.text.trim(),
+      };
       if (!mounted) return;
       setState(() {
-        _channels = [channel, ..._channels];
+        _channels = [displayChannel, ..._channels];
         _channelId = channel['id'].toString();
         _creatingChannel = false;
         _handle.clear();
@@ -268,6 +279,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                   TextField(
                     controller: _handle,
                     enabled: !_busy,
+                    maxLength: 40,
                     decoration: const InputDecoration(
                       labelText: 'Channel handle',
                       prefixText: '@',
@@ -277,6 +289,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                   TextField(
                     controller: _channelName,
                     enabled: !_busy,
+                    maxLength: 120,
                     decoration: const InputDecoration(labelText: 'Channel name'),
                   ),
                   const SizedBox(height: 10),
@@ -393,6 +406,12 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                 if (_error != null) ...[
                   const SizedBox(height: 12),
                   Text(_error!, style: TextStyle(color: theme.colorScheme.error)),
+                  if (_channels.isEmpty)
+                    TextButton.icon(
+                      onPressed: _busy ? null : _loadChannels,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Retry loading channels'),
+                    ),
                 ],
               ],
             ),
