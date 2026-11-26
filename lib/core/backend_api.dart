@@ -1520,25 +1520,24 @@ class BackendApi {
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
     return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
   }
-  Future<List<Map<String, dynamic>>> getVideoFeed() async {
-    final response = await _client.get(
-      baseUri.resolve('/api/video/feed'),
-      headers: const {'Accept': 'application/json'},
-    ).timeout(const Duration(seconds: 20));
-    return _decodeList(response);
-  }
+  Future<List<Map<String, dynamic>>> getVideoFeed() =>
+      _requestList(baseUri.resolve('/api/video/feed'));
 
   Uri videoManifestUri(String videoId) =>
       baseUri.resolve('/api/video/uploads/$videoId/manifest');
 
+  Future<Map<String, String>> videoPlaybackHeaders() => _headers();
+
   Future<void> recordVideoView(String videoId, String session) async {
-    final response = await _client.post(
-      baseUri.resolve('/api/video/uploads/$videoId/view'),
-      headers: {'Accept': 'application/json', 'X-Playback-Session': session},
-    ).timeout(const Duration(seconds: 20));
+    Future<http.Response> send({bool forceRefresh = false}) async =>
+        _client.post(
+          baseUri.resolve('/api/video/uploads/$videoId/view'),
+          headers: {...await _headers(forceRefresh: forceRefresh), 'X-Playback-Session': session},
+        ).timeout(const Duration(seconds: 20));
+    var response = await send();
+    if (response.statusCode == 401) response = await send(forceRefresh: true);
     _decodeObject(response);
   }
-
   Future<bool> likeVideo(String videoId) async {
     final result = await _request('POST', baseUri.resolve('/api/video/uploads/$videoId/like'));
     return result['liked'] == true;
