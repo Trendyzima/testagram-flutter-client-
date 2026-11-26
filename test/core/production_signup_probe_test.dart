@@ -15,6 +15,11 @@ void main() {
     expect(end, greaterThan(start));
 
     final probe = workflow.substring(start, end);
+    expect(
+      workflow,
+      contains("github.event_name == 'workflow_dispatch' && inputs.confirm_production_pages_deploy == true"),
+    );
+    expect(workflow, isNot(contains("github.event_name == 'push' ||")));
     expect(probe, contains('bodyless POST'));
     expect(probe, contains('-X POST'));
     expect(probe, contains('IDENTITY_REVIEW_REQUIRED'));

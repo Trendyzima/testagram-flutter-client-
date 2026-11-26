@@ -30,7 +30,7 @@ permissions:
 
 jobs:
   deploy:
-    if: github.repository == 'Trendyzima/testagram-flutter-client-' && github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.confirm_production_pages_deploy == true)
+    if: github.repository == 'Trendyzima/testagram-flutter-client-' && github.ref == 'refs/heads/main' && github.event_name == 'workflow_dispatch' && inputs.confirm_production_pages_deploy == true
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     environment: production
