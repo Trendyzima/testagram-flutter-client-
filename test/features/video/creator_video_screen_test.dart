@@ -90,6 +90,7 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(home: CreatorVideoScreen(api: api)));
+    await tester.pump(const Duration(seconds: 1));
     await tester.pumpAndSettle();
 
     expect(find.text('My videos'), findsOneWidget);
