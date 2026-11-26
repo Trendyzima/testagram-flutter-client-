@@ -267,7 +267,7 @@ class VideoApi {
       final message = decoded is Map
           ? (decoded['error'] ?? decoded['message'] ?? 'Video request failed')
               .toString()
-          : 'Video request failed (' + response.statusCode.toString() + ').';
+          : 'Video request failed (${response.statusCode}).';
       throw VideoApiException(message, statusCode: response.statusCode);
     }
     return decoded;
