@@ -1576,7 +1576,7 @@ class BackendApi {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       final message = decoded is Map
           ? (decoded['message'] ?? decoded['error'] ?? 'Video request failed').toString()
-          : 'Video request failed (' + response.statusCode.toString() + ').';
+          : 'Video request failed (${response.statusCode}).';
       throw BackendApiException(message, statusCode: response.statusCode);
     }
     if (decoded is! List) {
