@@ -1031,10 +1031,20 @@ class BackendApi {
     required String idempotencyKey,
   }) {
     final normalizedAmount = amount.trim();
+    final amountParts = normalizedAmount.split('.');
+    final validAmount = amountParts.length <= 2 &&
+        amountParts.first.isNotEmpty &&
+        RegExp(r'^[0-9]+$').hasMatch(amountParts.first) &&
+        (amountParts.length == 1 ||
+            (amountParts[1].isNotEmpty &&
+                amountParts[1].length <= 2 &&
+                RegExp(r'^[0-9]+$').hasMatch(amountParts[1])));
+    final parsedAmount = double.tryParse(normalizedAmount);
     if (recipientId.trim().isEmpty ||
-        !RegExp(r'^[0-9]+(?:\.[0-9]{1,2})?
-        (double.tryParse(normalizedAmount) ?? 0) <= 0 ||
-        (double.tryParse(normalizedAmount) ?? 10001) > 10000 ||
+        !validAmount ||
+        parsedAmount == null ||
+        parsedAmount <= 0 ||
+        parsedAmount > 10000 ||
         idempotencyKey.trim().length < 8 ||
         idempotencyKey.trim().length > 128 ||
         note.length > 280) {
