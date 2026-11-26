@@ -221,4 +221,53 @@ void main() {
     api.close();
   });
 
+
+  test('video feed, playback manifest, views, likes and comments stay on Backend routes', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-video-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/api/video/feed') {
+          return http.Response(jsonEncode([{'id': 'video-1', 'status': 'ready', 'visibility': 'public'}]), 200);
+        }
+        if (request.url.path.endsWith('/view')) {
+          return http.Response(jsonEncode({'counted': true}), 202);
+        }
+        if (request.url.path.endsWith('/like')) {
+          return http.Response(jsonEncode({'liked': true}), 200);
+        }
+        if (request.url.path.endsWith('/comments') && request.method == 'GET') {
+          return http.Response(jsonEncode([{'id': 'comment-1', 'body': 'Nice'}]), 200);
+        }
+        if (request.url.path.endsWith('/comments') && request.method == 'POST') {
+          return http.Response(jsonEncode({'id': 'comment-2'}), 201);
+        }
+        return http.Response('{}', 404);
+      }),
+    );
+
+    expect((await api.getVideoFeed()).single['id'], 'video-1');
+    expect(api.videoManifestUri('video-1').path, '/api/video/uploads/video-1/manifest');
+    await api.recordVideoView('video-1', 'session-123');
+    expect(await api.likeVideo('video-1'), isTrue);
+    expect((await api.getVideoComments('video-1')).single['body'], 'Nice');
+    await api.addVideoComment('video-1', 'Hello');
+    expect(requests.map((request) => request.url.path), [
+      '/api/video/feed',
+      '/api/video/uploads/video-1/view',
+      '/api/video/uploads/video-1/like',
+      '/api/video/uploads/video-1/comments',
+      '/api/video/uploads/video-1/comments',
+    ]);
+    expect(requests[0].headers.containsKey('authorization'), isFalse);
+    expect(requests[1].headers['x-playback-session'], 'session-123');
+    expect(requests[2].headers['authorization'], 'Bearer native-video-token');
+    expect(requests[3].headers['authorization'], 'Bearer native-video-token');
+    expect(jsonDecode(requests[4].body)['body'], 'Hello');
+    api.close();
+  });
+
+
 }
