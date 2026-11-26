@@ -153,7 +153,6 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
         channelId: _channelId!,
         title: _title.text,
         description: _description.text,
-        visibility: 'private',
       );
       if (!mounted) return;
       setState(() {
