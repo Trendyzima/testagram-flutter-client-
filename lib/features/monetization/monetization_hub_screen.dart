@@ -2,6 +2,7 @@ import 'package:material_ui/material_ui.dart';
 
 import '../../core/backend_api.dart';
 import '../wallet/wallet_screen.dart';
+import 'creator_tip_screen.dart';
 
 class MonetizationHubScreen extends StatelessWidget {
   const MonetizationHubScreen({super.key, required this.api});
@@ -53,7 +54,7 @@ class MonetizationHubScreen extends StatelessWidget {
     ),
     _MonetizationFeature(
       title: 'Gifts and tips',
-      subtitle: 'Send and receive creator support',
+      subtitle: 'Send one-time KES tips to creators from your wallet',
       icon: Icons.card_giftcard_outlined,
       detail:
           'Gifts and tips need recipient consent, idempotent transfers, fee disclosure, refund handling and ledger-backed receipts.',
@@ -69,6 +70,14 @@ class MonetizationHubScreen extends StatelessWidget {
   }
 
   void _openFeature(BuildContext context, _MonetizationFeature feature) {
+    if (feature.title == 'Gifts and tips') {
+      Navigator.of(context).push(
+        MaterialPageRoute<void>(
+          builder: (_) => CreatorTipScreen(api: api),
+        ),
+      );
+      return;
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => _MonetizationFeatureScreen(feature: feature),

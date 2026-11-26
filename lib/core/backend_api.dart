@@ -1022,6 +1022,42 @@ class BackendApi {
     });
   }
 
+  /// Sends a creator tip from the authenticated user's KES wallet.
+  /// The Backend records it as a distinct, idempotent ledger transfer.
+  Future<Map<String, dynamic>> tipWalletCreator({
+    required String recipientId,
+    required String amount,
+    String note = '',
+    required String idempotencyKey,
+  }) {
+    final normalizedAmount = amount.trim();
+    final amountParts = normalizedAmount.split('.');
+    final validAmount = amountParts.length <= 2 &&
+        amountParts.first.isNotEmpty &&
+        RegExp(r'^[0-9]+$').hasMatch(amountParts.first) &&
+        (amountParts.length == 1 ||
+            (amountParts[1].isNotEmpty &&
+                amountParts[1].length <= 2 &&
+                RegExp(r'^[0-9]+$').hasMatch(amountParts[1])));
+    final parsedAmount = double.tryParse(normalizedAmount);
+    if (recipientId.trim().isEmpty ||
+        !validAmount ||
+        parsedAmount == null ||
+        parsedAmount <= 0 ||
+        parsedAmount > 10000 ||
+        idempotencyKey.trim().length < 8 ||
+        idempotencyKey.trim().length > 128 ||
+        note.length > 280) {
+      throw ArgumentError('Recipient, amount, note or idempotency key is invalid');
+    }
+    return callCapability('testagram.wallet.tip', input: {
+      'recipient_id': recipientId.trim(),
+      'amount': normalizedAmount,
+      'note': note.trim(),
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
   /// Starts a KES-only M-Pesa STK Push. Settlement is confirmed asynchronously
   /// by the signed provider callback; a successful request is not a credit.
   Future<Map<String, dynamic>> requestMpesaTopUp({
