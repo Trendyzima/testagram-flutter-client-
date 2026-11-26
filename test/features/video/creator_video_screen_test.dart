@@ -32,7 +32,11 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(home: CreatorVideoScreen(api: api)));
-    await tester.pumpAndSettle();
+    for (var attempt = 0;
+        attempt < 20 && find.text('Create your channel').evaluate().isEmpty;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.text('Create your channel'), findsOneWidget);
     await tester.enterText(find.byType(TextField).at(0), 'mychannel');
@@ -90,8 +94,11 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(home: CreatorVideoScreen(api: api)));
-    await tester.pump(const Duration(seconds: 1));
-    await tester.pumpAndSettle();
+    for (var attempt = 0;
+        attempt < 20 && find.text('Existing upload').evaluate().isEmpty;
+        attempt++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
 
     expect(find.text('My videos'), findsOneWidget);
     expect(find.text('Existing upload'), findsOneWidget);
