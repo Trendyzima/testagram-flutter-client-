@@ -2,12 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../core/video_api.dart';
+import '../../core/backend_api.dart';
 
 class CreatorVideoScreen extends StatefulWidget {
   const CreatorVideoScreen({super.key, required this.api});
 
-  final VideoApi api;
+  final BackendApi api;
 
   @override
   State<CreatorVideoScreen> createState() => _CreatorVideoScreenState();
@@ -54,7 +54,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _error = null;
     });
     try {
-      final channels = await widget.api.channels();
+      final channels = await widget.api.getCreatorVideoChannels();
       if (!mounted) return;
       setState(() {
         _channels = channels;
@@ -80,7 +80,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _error = null;
     });
     try {
-      final channel = await widget.api.createChannel(
+      final channel = await widget.api.createCreatorVideoChannel(
         handle: _handle.text,
         name: _channelName.text,
         description: _channelDescription.text,
@@ -145,7 +145,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _status = 'uploading';
     });
     try {
-      final result = await widget.api.uploadVideo(
+      final result = await widget.api.uploadCreatorVideo(
         filePath: video.path,
         channelId: _channelId!,
         title: _title.text,
@@ -175,7 +175,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _error = null;
     });
     try {
-      final result = await widget.api.videoStatus(id);
+      final result = await widget.api.getCreatorVideoStatus(id);
       if (!mounted) return;
       setState(() {
         _status = (result['status'] ?? 'unknown').toString();
@@ -196,7 +196,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _error = null;
     });
     try {
-      await widget.api.publishVideo(id);
+      await widget.api.publishCreatorVideo(id);
       if (!mounted) return;
       setState(() => _visibility = 'public');
       ScaffoldMessenger.of(context).showSnackBar(
