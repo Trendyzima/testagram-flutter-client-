@@ -270,4 +270,27 @@ void main() {
   });
 
 
+  test('video feed and playback requests use the authenticated Backend proxy', () async {
+    final requests = <http.Request>[];
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      client: MockClient((request) async {
+        requests.add(request);
+        if (request.url.path == '/api/video/feed') return http.Response('[]', 200);
+        if (request.url.path.endsWith('/view')) return http.Response(jsonEncode({'counted': true}), 202);
+        return http.Response('not found', 404);
+      }),
+    );
+    expect(await api.getVideoFeed(), isEmpty);
+    expect(api.videoManifestUri('video-1').path, '/api/video/uploads/video-1/manifest');
+    expect((await api.videoPlaybackHeaders())['Authorization'], 'Bearer native-session-token');
+    await api.recordVideoView('video-1', 'playback-session-123');
+    expect(requests.map((r) => r.url.path), ['/api/video/feed', '/api/video/uploads/video-1/view']);
+    for (final request in requests) {
+      expect(request.headers['authorization'], 'Bearer native-session-token');
+    }
+    expect(requests.last.headers['x-playback-session'], 'playback-session-123');
+    api.close();
+  });
 }
