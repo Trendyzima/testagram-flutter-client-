@@ -134,7 +134,7 @@ void main() {
 
   test('creator video upload streams multipart through the Backend', () async {
     final directory = await Directory.systemTemp.createTemp('testagram-backend-video-');
-    final file = File(directory.path + '/clip.mp4');
+    final file = File('${directory.path}/clip.mp4');
     await file.writeAsBytes([0, 1, 2, 3, 4]);
     try {
       final api = BackendApi(
@@ -169,7 +169,7 @@ void main() {
 
   test('creator video upload refreshes a rejected native token once', () async {
     final directory = await Directory.systemTemp.createTemp('testagram-video-refresh-');
-    final file = File(directory.path + '/clip.mp4');
+    final file = File('${directory.path}/clip.mp4');
     await file.writeAsBytes([1, 2, 3]);
     var refreshCalls = 0;
     var requestCalls = 0;
