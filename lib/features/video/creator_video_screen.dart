@@ -30,6 +30,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
   bool _loadingChannels = true;
   bool _creatingChannel = false;
   bool _busy = false;
+  bool _uploadOutcomeUnknown = false;
   String? _error;
 
   @override
@@ -121,6 +122,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
         _videoId = null;
         _status = '';
         _visibility = 'private';
+        _uploadOutcomeUnknown = false;
         _error = null;
       });
     } catch (error) {
@@ -142,6 +144,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       _busy = true;
       _error = null;
       _videoId = null;
+      _uploadOutcomeUnknown = false;
       _status = 'uploading';
     });
     try {
@@ -161,7 +164,14 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
         const SnackBar(content: Text('Upload received. Testagram is processing your video.')),
       );
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString());
+      if (mounted) {
+        setState(() {
+          _error = error.toString();
+          _uploadOutcomeUnknown = _error!.contains('status is unknown') ||
+              _error!.contains('final status is unknown');
+          if (_uploadOutcomeUnknown) _status = 'unknown';
+        });
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -317,9 +327,11 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                 ),
                 const SizedBox(height: 8),
                 const Text('Supported formats: MP4, MOV, MKV and WebM.'),
+                if (_uploadOutcomeUnknown)
+                  const Text('The upload may have reached Testagram. Do not retry this same file; choose a different file or contact support to check the original upload.'),
                 const SizedBox(height: 16),
                 FilledButton.icon(
-                  onPressed: _busy || _video == null || _channelId == null
+                  onPressed: _busy || _uploadOutcomeUnknown || _video == null || _channelId == null
                       ? null
                       : _upload,
                   icon: const Icon(Icons.cloud_upload_outlined),
