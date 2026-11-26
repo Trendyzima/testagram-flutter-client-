@@ -347,4 +347,31 @@ void main() {
     expect(requestCount, 0);
     api.close();
   });
+
+  test('creator video library uses the authenticated Backend list route', () async {
+    http.Request? captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response(jsonEncode({
+          'items': [
+            {'id': 'video-1', 'title': 'My upload', 'status': 'ready'}
+          ],
+        }), 200);
+      }),
+    );
+
+    final videos = await api.getCreatorVideos();
+
+    expect(videos, hasLength(1));
+    expect(videos.single['title'], 'My upload');
+    expect(captured?.method, 'GET');
+    expect(captured?.url.path, '/api/video/uploads');
+    expect(captured?.headers['authorization'], 'Bearer native-session-token');
+    api.close();
+  });
+
+
 }
