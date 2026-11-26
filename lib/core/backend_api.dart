@@ -1520,6 +1520,23 @@ class BackendApi {
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
     return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
   }
+
+  Future<void> deleteCreatorVideo(String videoId) async {
+    final id = videoId.trim();
+    final parts = id.split('-');
+    final validId = parts.length == 5 &&
+        parts[0].length == 8 &&
+        parts[1].length == 4 &&
+        parts[2].length == 4 &&
+        parts[3].length == 4 &&
+        parts[4].length == 12 &&
+        RegExp(r'^[0-9a-fA-F]+$').hasMatch(parts.join());
+    if (!validId) {
+      throw ArgumentError.value(videoId, 'videoId', 'A valid video ID is required.');
+    }
+    await _request('DELETE', baseUri.resolve('/api/video/uploads/$id'));
+  }
+
   Future<List<Map<String, dynamic>>> getVideoFeed() async {
     // The TV feed is public. Do not make anonymous viewing depend on a
     // native account token; the Backend enforces visibility on the feed.
@@ -1713,6 +1730,12 @@ class BackendApi {
   }
 
   Map<String, dynamic> _decodeObject(http.Response response) {
+    // HTTP 204 is a successful response with no representation. Treat it as
+    // an empty object so DELETE endpoints do not fail JSON decoding.
+    if (response.statusCode == 204 ||
+        (response.statusCode >= 200 && response.statusCode < 300 && response.body.trim().isEmpty)) {
+      return <String, dynamic>{};
+    }
     dynamic decoded;
     try {
       decoded = jsonDecode(response.body);

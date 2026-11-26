@@ -229,6 +229,60 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
     }
   }
 
+  Future<void> _deleteVideo() async {
+    final id = _videoId;
+    if (_busy || id == null || id.isEmpty ||
+        !const {'ready', 'failed', 'blocked'}.contains(_status)) {
+      return;
+    }
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Delete this video?'),
+        content: const Text(
+          'This removes the video from Testagram TV and schedules its original, HLS and poster files for cleanup. This cannot be undone.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: const Text('Keep video'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(dialogContext).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            child: const Text('Delete video'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted || confirmed != true) return;
+
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      await widget.api.deleteCreatorVideo(id);
+      if (!mounted) return;
+      setState(() {
+        _videoId = null;
+        _video = null;
+        _status = '';
+        _visibility = 'private';
+        _uploadOutcomeUnknown = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Video deleted. Media cleanup is queued securely.')),
+      );
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -398,6 +452,20 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                               leading: Icon(Icons.check_circle_outline),
                               title: Text('Published on Testagram TV'),
                             ),
+                          if (const {'ready', 'failed', 'blocked'}.contains(_status)) ...[
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: Alignment.centerLeft,
+                              child: TextButton.icon(
+                                onPressed: _busy ? null : _deleteVideo,
+                                icon: const Icon(Icons.delete_outline),
+                                label: const Text('Delete video'),
+                                style: TextButton.styleFrom(
+                                  foregroundColor: theme.colorScheme.error,
+                                ),
+                              ),
+                            ),
+                          ],
                         ],
                       ),
                     ),
