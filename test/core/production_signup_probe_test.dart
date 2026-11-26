@@ -18,8 +18,8 @@ void main() {
     expect(probe, contains('bodyless POST'));
     expect(probe, contains('-X POST'));
     expect(probe, contains('IDENTITY_REVIEW_REQUIRED'));
-    expect(probe, contains('"$status" != "403"'));
-    expect(probe, contains('"$code" != "IDENTITY_REVIEW_REQUIRED"'));
+    expect(probe, contains(r'"$status" != "403"'));
+    expect(probe, contains(r'"$code" != "IDENTITY_REVIEW_REQUIRED"'));
     expect(probe, isNot(contains('--data-binary')));
     expect(probe, isNot(contains('INVALID_PASSWORD')));
     expect(probe, isNot(contains('"password"')));
