@@ -261,7 +261,8 @@ void main() {
       '/api/video/uploads/video-1/comments',
       '/api/video/uploads/video-1/comments',
     ]);
-    expect(requests[0].headers.containsKey('authorization'), isFalse);
+    expect(requests[0].headers['authorization'], 'Bearer native-video-token');
+    expect(requests[1].headers['authorization'], 'Bearer native-video-token');
     expect(requests[1].headers['x-playback-session'], 'session-123');
     expect(requests[2].headers['authorization'], 'Bearer native-video-token');
     expect(requests[3].headers['authorization'], 'Bearer native-video-token');
