@@ -11,7 +11,7 @@ void main() {
   testWidgets('creator screen loads owned channels and creates a channel', (tester) async {
     final requests = <http.Request>[];
     final api = BackendApi(
-      baseUri: Uri.parse('https://video.example.test'),
+      baseUri: Uri.parse('https://api.example.test'),
       getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
       client: MockClient((request) async {
         requests.add(request);
@@ -39,8 +39,8 @@ void main() {
 
     expect(find.text('Create another channel'), findsOneWidget);
     expect(requests.map((request) => request.url.path), [
-      '/v1/channels',
-      '/v1/channels',
+      '/api/video/channels',
+      '/api/video/channels',
     ]);
     for (final request in requests) {
       expect(request.headers['authorization'], 'Bearer native-session-token');
