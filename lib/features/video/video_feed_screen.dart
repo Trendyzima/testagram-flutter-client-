@@ -251,12 +251,11 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       foregroundColor: Colors.white,
       title: const Text('Testagram TV', style: TextStyle(fontWeight: FontWeight.w900)),
       actions: [
-        if (_videoApi != null)
-          IconButton(
+        IconButton(
             tooltip: 'Create video',
             onPressed: () async {
               await Navigator.of(context).push(MaterialPageRoute<void>(
-                builder: (_) => CreatorVideoScreen(api: _videoApi!),
+                builder: (_) => CreatorVideoScreen(api: widget.api),
               ));
               if (mounted) {
                 setState(() { _loading = true; _videos = []; _error = null; });
