@@ -1514,11 +1514,11 @@ class BackendApi {
   }
 
   Future<Map<String, dynamic>> getCreatorVideoStatus(String videoId) {
-    return _request('GET', baseUri.resolve('/api/video/uploads/' + videoId));
+    return _request('GET', baseUri.resolve('/api/video/uploads/$videoId'));
   }
 
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
-    return _request('POST', baseUri.resolve('/api/video/uploads/' + videoId + '/publish'));
+    return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
   }
   Future<Map<String, dynamic>> callCapability(
     String capability, {
