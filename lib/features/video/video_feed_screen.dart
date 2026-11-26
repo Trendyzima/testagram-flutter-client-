@@ -89,7 +89,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     if (!mounted) return;
 
     final id = (_videos[index]['id'] ?? '').toString();
-    final player = VideoPlayerController.networkUrl(widget.api.videoManifestUri(id));
+    final headers = await widget.api.videoPlaybackHeaders();
+    if (!mounted) return;
+    final player = VideoPlayerController.networkUrl(
+      widget.api.videoManifestUri(id),
+      httpHeaders: headers,
+    );
     _player = player;
     setState(() => _active = index);
     try {
