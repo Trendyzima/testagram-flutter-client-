@@ -261,8 +261,8 @@ void main() {
       '/api/video/uploads/video-1/comments',
       '/api/video/uploads/video-1/comments',
     ]);
-    expect(requests[0].headers['authorization'], 'Bearer native-video-token');
-    expect(requests[1].headers['authorization'], 'Bearer native-video-token');
+    expect(requests[0].headers.containsKey('authorization'), isFalse);
+    expect(requests[1].headers.containsKey('authorization'), isFalse);
     expect(requests[1].headers['x-playback-session'], 'session-123');
     expect(requests[2].headers['authorization'], 'Bearer native-video-token');
     expect(requests[3].headers['authorization'], 'Bearer native-video-token');
@@ -271,11 +271,11 @@ void main() {
   });
 
 
-  test('video feed and playback requests use the authenticated Backend proxy', () async {
+  test('public TV feed, manifest and views work without a native account session', () async {
     final requests = <http.Request>[];
     final api = BackendApi(
       baseUri: Uri.parse('https://api.example.test'),
-      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      getAccessToken: ({bool forceRefresh = false}) async => null,
       client: MockClient((request) async {
         requests.add(request);
         if (request.url.path == '/api/video/feed') return http.Response('[]', 200);
@@ -285,13 +285,31 @@ void main() {
     );
     expect(await api.getVideoFeed(), isEmpty);
     expect(api.videoManifestUri('video-1').path, '/api/video/uploads/video-1/manifest');
-    expect((await api.videoPlaybackHeaders())['Authorization'], 'Bearer native-session-token');
+    expect(await api.videoPlaybackHeaders(), isEmpty);
     await api.recordVideoView('video-1', 'playback-session-123');
     expect(requests.map((r) => r.url.path), ['/api/video/feed', '/api/video/uploads/video-1/view']);
     for (final request in requests) {
-      expect(request.headers['authorization'], 'Bearer native-session-token');
+      expect(request.headers.containsKey('authorization'), isFalse);
     }
     expect(requests.last.headers['x-playback-session'], 'playback-session-123');
+    api.close();
+  });
+
+  test('public playback session identifiers are validated before requests', () async {
+    var requests = 0;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => null,
+      client: MockClient((request) async {
+        requests++;
+        return http.Response(jsonEncode({'counted': true}), 202);
+      }),
+    );
+    await expectLater(
+      api.recordVideoView('video-1', 'bad session'),
+      throwsArgumentError,
+    );
+    expect(requests, 0);
     api.close();
   });
 }
