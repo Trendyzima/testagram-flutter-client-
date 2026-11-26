@@ -79,17 +79,14 @@ void main() {
         capabilities.add({'capability': capability, 'input': input});
         if (capability == 'testagram.wallet.recipient.resolve') {
           return http.Response(jsonEncode({
-            'ok': true,
-            'data': {
-              'user_id': '550e8400-e29b-41d4-a716-446655440000',
-              'username': 'creator',
-            },
+            'user_id': '550e8400-e29b-41d4-a716-446655440000',
+            'username': 'creator',
           }), 200);
         }
         if (capability == 'testagram.wallet.tip') {
           return http.Response(jsonEncode({
-            'ok': true,
-            'data': {'transfer_id': 'tip-1', 'status': 'completed'},
+            'transfer_id': 'tip-1',
+            'status': 'completed',
           }), 200);
         }
         return http.Response(jsonEncode({
