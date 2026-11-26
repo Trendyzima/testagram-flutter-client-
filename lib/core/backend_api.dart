@@ -1520,22 +1520,36 @@ class BackendApi {
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
     return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
   }
-  Future<List<Map<String, dynamic>>> getVideoFeed() =>
-      _requestList(baseUri.resolve('/api/video/feed'));
+  Future<List<Map<String, dynamic>>> getVideoFeed() async {
+    // The TV feed is public. Do not make anonymous viewing depend on a
+    // native account token; the Backend enforces visibility on the feed.
+    final response = await _client.get(
+      baseUri.resolve('/api/video/feed'),
+      headers: const {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 20));
+    return _decodeList(response);
+  }
 
   Uri videoManifestUri(String videoId) =>
       baseUri.resolve('/api/video/uploads/$videoId/manifest');
 
-  Future<Map<String, String>> videoPlaybackHeaders() => _headers();
+  // Manifest and HLS segment access is authorized by the short-lived,
+  // video-scoped playback token in the Backend redirect, not account identity.
+  Future<Map<String, String>> videoPlaybackHeaders() async => const {};
 
   Future<void> recordVideoView(String videoId, String session) async {
-    Future<http.Response> send({bool forceRefresh = false}) async =>
-        _client.post(
-          baseUri.resolve('/api/video/uploads/$videoId/view'),
-          headers: {...await _headers(forceRefresh: forceRefresh), 'X-Playback-Session': session},
-        ).timeout(const Duration(seconds: 20));
-    var response = await send();
-    if (response.statusCode == 401) response = await send(forceRefresh: true);
+    if (session.length < 8 ||
+        session.length > 128 ||
+        !RegExp(r'^[A-Za-z0-9_-]+$').hasMatch(session)) {
+      throw ArgumentError.value(session, 'session', 'Invalid playback session identifier');
+    }
+    final response = await _client.post(
+      baseUri.resolve('/api/video/uploads/$videoId/view'),
+      headers: {
+        'Accept': 'application/json',
+        'X-Playback-Session': session,
+      },
+    ).timeout(const Duration(seconds: 20));
     _decodeObject(response);
   }
   Future<bool> likeVideo(String videoId) async {
