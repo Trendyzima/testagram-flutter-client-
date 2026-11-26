@@ -100,7 +100,11 @@ void main() {
     );
 
     await tester.pumpWidget(MaterialApp(home: MonetizationHubScreen(api: api)));
-    await tester.ensureVisible(find.text('Gifts and tips'));
+    await tester.scrollUntilVisible(
+      find.text('Gifts and tips'),
+      320,
+      scrollable: find.byType(Scrollable).first,
+    );
     await tester.tap(find.text('Gifts and tips'));
     await tester.pumpAndSettle();
 
