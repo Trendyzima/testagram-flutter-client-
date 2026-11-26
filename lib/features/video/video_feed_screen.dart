@@ -5,7 +5,7 @@ import 'package:material_ui/material_ui.dart';
 import 'package:video_player/video_player.dart';
 
 import '../../core/backend_api.dart';
-import '../../core/video_api.dart';
+import 'creator_video_screen.dart';
 
 class VideoFeedScreen extends StatefulWidget {
   const VideoFeedScreen({super.key, required this.api, required this.videoApiBaseUri, this.isActive = true});
@@ -20,7 +20,6 @@ class VideoFeedScreen extends StatefulWidget {
 class _VideoFeedScreenState extends State<VideoFeedScreen> {
   final _pages = PageController();
   final _session = List.generate(32, (_) => Random.secure().nextInt(16).toRadixString(16)).join();
-  VideoApi? _videoApi;
   VideoPlayerController? _player;
   List<Map<String, dynamic>> _videos = [];
   final Set<String> _liked = {};
@@ -34,13 +33,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   @override
   void initState() {
     super.initState();
-    final origin = widget.videoApiBaseUri;
-    final nativeProvider = widget.api.getAccessToken;
-    if (origin != null) {
-      _videoApi = VideoApi(baseUri: origin, getAccessToken: nativeProvider);
-    } else {
-      _error = 'Video is not connected yet. Set TESTAGRAM_VIDEO_API_URL after the video service has an approved HTTPS deployment.';
-    }
     if (widget.isActive) _load();
   }
 
@@ -49,7 +41,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isActive != widget.isActive) {
       if (widget.isActive) {
-        if (_videoApi != null && _videos.isEmpty && !_hasLoadedOnce) {
+        if (_videos.isEmpty && !_hasLoadedOnce) {
           _load();
         } else {
           final player = _player;
@@ -67,28 +59,20 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   void dispose() {
     _pages.dispose();
     _player?.dispose();
-    _videoApi?.close();
     super.dispose();
   }
 
   Future<void> _load() async {
     _hasLoadedOnce = true;
-    if (_videoApi == null) {
-      setState(() {
-        _loading = false;
-        _error = 'Video is not connected yet. Set TESTAGRAM_VIDEO_API_URL after the video service has an approved HTTPS deployment.';
-      });
-      return;
-    }
     if (kIsWeb) {
       setState(() {
         _loading = false;
-        _error = 'Browser playback is not enabled yet. Native mobile playback uses the Testagram video service; web needs a browser-compatible HLS player.';
+        _error = 'Browser playback is not enabled yet. Native mobile playback is routed through the Testagram Backend; web needs a browser-compatible HLS player.';
       });
       return;
     }
     try {
-      final items = await _videoApi!.feed();
+      final items = await widget.api.getVideoFeed();
       if (!mounted) return;
       setState(() { _videos = items; _loading = false; _error = null; });
       if (items.isNotEmpty) await _activate(0);
@@ -98,14 +82,19 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _activate(int index) async {
-    if (_videoApi == null || index < 0 || index >= _videos.length) return;
+    if (index < 0 || index >= _videos.length) return;
     final old = _player;
     _player = null;
     await old?.dispose();
     if (!mounted) return;
 
     final id = (_videos[index]['id'] ?? '').toString();
-    final player = VideoPlayerController.networkUrl(_videoApi!.manifestUri(id));
+    final headers = await widget.api.videoPlaybackHeaders();
+    if (!mounted) return;
+    final player = VideoPlayerController.networkUrl(
+      widget.api.videoManifestUri(id),
+      httpHeaders: headers,
+    );
     _player = player;
     setState(() => _active = index);
     try {
@@ -136,12 +125,12 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _recordActiveView() async {
-    if (!widget.isActive || _videoApi == null || _active >= _videos.length) return;
+    if (!widget.isActive || _active >= _videos.length) return;
     final id = (_videos[_active]['id'] ?? '').toString();
     if (id.isEmpty || !_viewedThisSession.add(id)) return;
     try {
       // Count only after the active controller has actually started playback.
-      await _videoApi!.recordView(id, _session);
+      await widget.api.recordVideoView(id, _session);
       try {
         await widget.api.recordBrowsingHistory(
           entityType: 'video',
@@ -156,10 +145,10 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
 
   Future<void> _like(Map<String, dynamic> video) async {
     final id = (video['id'] ?? '').toString();
-    if (_videoApi == null || id.isEmpty || _liked.contains(id) || !_busy.add(id)) return;
+    if (id.isEmpty || _liked.contains(id) || !_busy.add(id)) return;
     setState(() {});
     try {
-      if (await _videoApi!.like(id) && mounted) {
+      if (await widget.api.likeVideo(id) && mounted) {
         setState(() {
           _liked.add(id);
           video['likes'] = ((video['likes'] as num?)?.toInt() ?? 0) + 1;
@@ -174,7 +163,6 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
   }
 
   Future<void> _comments(Map<String, dynamic> video) async {
-    if (_videoApi == null) return;
     final id = (video['id'] ?? '').toString();
     final input = TextEditingController();
     var rows = <Map<String, dynamic>>[];
@@ -188,14 +176,14 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       builder: (sheet) => StatefulBuilder(builder: (context, setSheet) {
         Future<void> refresh() async {
           setSheet(() { loading = true; error = null; });
-          try { rows = await _videoApi!.comments(id); } catch (e) { error = e.toString(); }
+          try { rows = await widget.api.getVideoComments(id); } catch (e) { error = e.toString(); }
           setSheet(() => loading = false);
         }
         Future<void> send() async {
           if (sending || input.text.trim().isEmpty) return;
           setSheet(() => sending = true);
           try {
-            await _videoApi!.addComment(id, input.text);
+            await widget.api.addVideoComment(id, input.text);
             input.clear();
             await refresh();
           } catch (e) { setSheet(() => error = e.toString()); }
@@ -251,6 +239,19 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
       title: const Text('Testagram TV', style: TextStyle(fontWeight: FontWeight.w900)),
       actions: [
         IconButton(
+            tooltip: 'Create video',
+            onPressed: () async {
+              await Navigator.of(context).push(MaterialPageRoute<void>(
+                builder: (_) => CreatorVideoScreen(api: widget.api),
+              ));
+              if (mounted) {
+                setState(() { _loading = true; _videos = []; _error = null; });
+                await _load();
+              }
+            },
+            icon: const Icon(Icons.add_box_outlined),
+          ),
+        IconButton(
           tooltip: 'Refresh videos',
           onPressed: _loading ? null : () async {
             await _player?.pause();
@@ -264,7 +265,7 @@ class _VideoFeedScreenState extends State<VideoFeedScreen> {
     body: _loading
       ? const Center(child: CircularProgressIndicator(color: Colors.white))
       : _error != null && _videos.isEmpty
-        ? _empty(_error!, retry: _videoApi != null)
+        ? _empty(_error!, retry: true)
         : _videos.isEmpty
           ? _empty('No public videos are ready yet. Be the first creator to publish.')
           : PageView.builder(

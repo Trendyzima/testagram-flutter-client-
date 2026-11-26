@@ -1440,6 +1440,151 @@ class BackendApi {
 
   /// Calls a first-party Backend capability. Product data never bypasses
   /// the Backend and the Testagram native access token is attached by the shared request path.
+  Future<List<Map<String, dynamic>>> getCreatorVideoChannels() async {
+    final result = await _request('GET', baseUri.resolve('/api/video/channels'));
+    final raw = result['items'];
+    if (raw is! List) {
+      throw const BackendApiException('The Backend returned an invalid creator channel list.');
+    }
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .where((item) => (item['id'] ?? '').toString().isNotEmpty)
+        .toList();
+  }
+
+  Future<Map<String, dynamic>> createCreatorVideoChannel({
+    required String handle,
+    required String name,
+    String description = '',
+  }) {
+    final normalizedHandle = handle.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
+    final normalizedName = name.trim();
+    final validHandle = normalizedHandle.length >= 3 && normalizedHandle.length <= 40 &&
+        normalizedHandle.split('').every((character) => RegExp(r'[a-z0-9._-]').hasMatch(character));
+    if (!validHandle || normalizedName.isEmpty || normalizedName.length > 120 || description.length > 2000) {
+      throw ArgumentError('Enter a valid channel handle, name and description.');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/video/channels'),
+      body: {
+        'handle': normalizedHandle,
+        'name': normalizedName,
+        'description': description.trim(),
+      },
+    );
+  }
+
+  Future<Map<String, dynamic>> uploadCreatorVideo({
+    required String filePath,
+    required String channelId,
+    required String title,
+    String description = '',
+  }) async {
+    final normalizedTitle = title.trim();
+    final filename = filePath.split('/').last;
+    final extension = filename.contains('.') ? filename.substring(filename.lastIndexOf('.')).toLowerCase() : '';
+    if (filePath.trim().isEmpty || channelId.trim().isEmpty || normalizedTitle.isEmpty ||
+        normalizedTitle.length > 200 || description.length > 4000 ||
+        !const {'.mp4', '.mov', '.mkv', '.webm'}.contains(extension)) {
+      throw ArgumentError('Choose a valid MP4, MOV, MKV or WebM video and enter its title.');
+    }
+    Future<http.Response> send({bool forceRefresh = false}) async {
+      final request = http.MultipartRequest('POST', baseUri.resolve('/api/video/uploads'))
+        ..headers.addAll(await _headers(forceRefresh: forceRefresh))
+        ..fields['channel_id'] = channelId
+        ..fields['title'] = normalizedTitle
+        ..fields['description'] = description.trim()
+        ..fields['visibility'] = 'private'
+        ..files.add(await http.MultipartFile.fromPath('video', filePath));
+      final streamed = await _client.send(request).timeout(const Duration(hours: 2));
+      return http.Response.fromStream(streamed);
+    }
+    http.Response response;
+    try {
+      response = await send();
+      if (response.statusCode == 401) response = await send(forceRefresh: true);
+    } on TimeoutException {
+      throw const BackendApiException('Upload status is unknown after the connection timed out. Do not retry the same file until the upload has been checked.');
+    } on http.ClientException {
+      throw const BackendApiException('The upload connection was interrupted. Its final status is unknown; do not retry the same file until it has been checked.');
+    }
+    return _decodeObject(response);
+  }
+
+  Future<Map<String, dynamic>> getCreatorVideoStatus(String videoId) {
+    return _request('GET', baseUri.resolve('/api/video/uploads/$videoId'));
+  }
+
+  Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
+    return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
+  }
+  Future<List<Map<String, dynamic>>> getVideoFeed() =>
+      _requestList(baseUri.resolve('/api/video/feed'));
+
+  Uri videoManifestUri(String videoId) =>
+      baseUri.resolve('/api/video/uploads/$videoId/manifest');
+
+  Future<Map<String, String>> videoPlaybackHeaders() => _headers();
+
+  Future<void> recordVideoView(String videoId, String session) async {
+    Future<http.Response> send({bool forceRefresh = false}) async =>
+        _client.post(
+          baseUri.resolve('/api/video/uploads/$videoId/view'),
+          headers: {...await _headers(forceRefresh: forceRefresh), 'X-Playback-Session': session},
+        ).timeout(const Duration(seconds: 20));
+    var response = await send();
+    if (response.statusCode == 401) response = await send(forceRefresh: true);
+    _decodeObject(response);
+  }
+  Future<bool> likeVideo(String videoId) async {
+    final result = await _request('POST', baseUri.resolve('/api/video/uploads/$videoId/like'));
+    return result['liked'] == true;
+  }
+
+  Future<List<Map<String, dynamic>>> getVideoComments(String videoId) =>
+      _requestList(baseUri.resolve('/api/video/uploads/$videoId/comments'));
+
+  Future<void> addVideoComment(String videoId, String body) async {
+    final value = body.trim();
+    if (value.isEmpty || value.length > 4000) {
+      throw const BackendApiException('Comments must contain 1–4000 characters.');
+    }
+    await _request('POST', baseUri.resolve('/api/video/uploads/$videoId/comments'),
+        body: {'body': value});
+  }
+
+  Future<List<Map<String, dynamic>>> _requestList(Uri uri) async {
+    Future<http.Response> send({bool forceRefresh = false}) async =>
+        _client.get(uri, headers: await _headers(forceRefresh: forceRefresh))
+            .timeout(const Duration(seconds: 20));
+    var response = await send();
+    if (response.statusCode == 401) response = await send(forceRefresh: true);
+    return _decodeList(response);
+  }
+
+  List<Map<String, dynamic>> _decodeList(http.Response response) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw BackendApiException('The server returned an invalid list response.',
+          statusCode: response.statusCode);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map
+          ? (decoded['message'] ?? decoded['error'] ?? 'Video request failed').toString()
+          : ['Video request failed (', response.statusCode, ').'].join();
+      throw BackendApiException(message, statusCode: response.statusCode);
+    }
+    if (decoded is! List) {
+      throw const BackendApiException('The server returned an invalid list response.');
+    }
+    return decoded.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
   Future<Map<String, dynamic>> callCapability(
     String capability, {
     Map<String, dynamic> input = const {},
