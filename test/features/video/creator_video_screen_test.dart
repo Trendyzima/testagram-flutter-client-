@@ -18,6 +18,9 @@ void main() {
         if (request.method == 'GET' && request.url.path == '/api/video/channels') {
           return http.Response(jsonEncode({'items': []}), 200);
         }
+        if (request.method == 'GET' && request.url.path == '/api/video/uploads') {
+          return http.Response(jsonEncode({'items': []}), 200);
+        }
         if (request.method == 'POST' && request.url.path == '/api/video/channels') {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['handle'], 'mychannel');
@@ -40,6 +43,7 @@ void main() {
     expect(find.text('Create another channel'), findsOneWidget);
     expect(requests.map((request) => request.url.path), [
       '/api/video/channels',
+      '/api/video/uploads',
       '/api/video/channels',
     ]);
     for (final request in requests) {
