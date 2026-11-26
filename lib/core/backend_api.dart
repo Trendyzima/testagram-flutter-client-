@@ -1523,7 +1523,21 @@ class BackendApi {
 
   Future<void> deleteCreatorVideo(String videoId) async {
     final id = videoId.trim();
-    if (!RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}  Future<List<Map<String, dynamic>>> getVideoFeed() async {
+    final parts = id.split('-');
+    final validId = parts.length == 5 &&
+        parts[0].length == 8 &&
+        parts[1].length == 4 &&
+        parts[2].length == 4 &&
+        parts[3].length == 4 &&
+        parts[4].length == 12 &&
+        RegExp(r'^[0-9a-fA-F]+$').hasMatch(parts.join());
+    if (!validId) {
+      throw ArgumentError.value(videoId, 'videoId', 'A valid video ID is required.');
+    }
+    await _request('DELETE', baseUri.resolve('/api/video/uploads/' + id));
+  }
+
+  Future<List<Map<String, dynamic>>> getVideoFeed() async {
     // The TV feed is public. Do not make anonymous viewing depend on a
     // native account token; the Backend enforces visibility on the feed.
     final response = await _client.get(
