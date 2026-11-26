@@ -455,12 +455,11 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                       ? 'Uploading…'
                       : 'Upload video privately'),
                 ),
-                if (_loadingVideos)
-                  const LinearProgressIndicator(),
+                const SizedBox(height: 24),
+                Text('My videos', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 8),
+                if (_loadingVideos) const LinearProgressIndicator(),
                 if (managedVideos.isNotEmpty) ...[
-                  const SizedBox(height: 24),
-                  Text('My videos', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
                   ...managedVideos.map((video) {
                     final id = video['id'].toString();
                     final status = (video['status'] ?? 'unknown').toString();
@@ -501,9 +500,6 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                     );
                   }),
                 ] else if (!_loadingVideos) ...[
-                  const SizedBox(height: 24),
-                  Text('My videos', style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
                   const Text('Your uploaded videos will appear here.'),
                 ],
                 if (_videoId != null) ...[
