@@ -312,7 +312,6 @@ void main() {
     expect(requests, 0);
     api.close();
   });
-}
 
   test('creator video deletion accepts a 204 response and uses the authenticated route', () async {
     http.Request? captured;
@@ -348,3 +347,4 @@ void main() {
     expect(requestCount, 0);
     api.close();
   });
+}
