@@ -43,10 +43,14 @@ void main() {
 
       final titleFinder = find.text(expectedVideoTitle);
       final playerFinder = find.byType(VideoPlayer);
+      VideoPlayerController? activeController;
       for (var attempt = 0; attempt < 90; attempt++) {
         await tester.pump(const Duration(seconds: 1));
         if (titleFinder.evaluate().isNotEmpty && playerFinder.evaluate().isNotEmpty) {
-          break;
+          activeController = tester.widget<VideoPlayer>(playerFinder.first).controller;
+          if (activeController.value.isInitialized && activeController.value.isPlaying) {
+            break;
+          }
         }
       }
 
@@ -54,9 +58,9 @@ void main() {
           reason: 'The exact staging video must be the active item in the Flutter feed');
       expect(playerFinder, findsOneWidget,
           reason: 'The native Flutter feed must render its initialized VideoPlayer');
-
-      final playerWidget = tester.widget<VideoPlayer>(playerFinder);
-      final controller = playerWidget.controller;
+      expect(activeController, isNotNull,
+          reason: 'The feed must create a native video controller');
+      final controller = activeController!;
       expect(controller.value.isInitialized, isTrue,
           reason: 'Android must initialize the Backend-proxied HLS manifest');
       expect(controller.value.isPlaying, isTrue,
