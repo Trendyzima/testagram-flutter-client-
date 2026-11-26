@@ -158,7 +158,7 @@ class VideoApiException implements Exception {
         !const {'private', 'unlisted', 'public'}.contains(visibility)) {
       throw const VideoApiException('Video upload details are invalid.');
     }
-    final filename = filePath.split(RegExp(r'[/\\\\]')).last;
+    final filename = filePath.split('/').last;
     final extension = filename.contains('.') ? filename.substring(filename.lastIndexOf('.')).toLowerCase() : '';
     if (!const {'.mp4', '.mov', '.mkv', '.webm'}.contains(extension)) {
       throw const VideoApiException('Choose an MP4, MOV, MKV or WebM video.');
