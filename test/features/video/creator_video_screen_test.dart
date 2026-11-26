@@ -4,21 +4,21 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 import 'package:material_ui/material_ui.dart';
-import 'package:testagram/core/video_api.dart';
+import 'package:testagram/core/backend_api.dart';
 import 'package:testagram/features/video/creator_video_screen.dart';
 
 void main() {
   testWidgets('creator screen loads owned channels and creates a channel', (tester) async {
     final requests = <http.Request>[];
-    final api = VideoApi(
+    final api = BackendApi(
       baseUri: Uri.parse('https://video.example.test'),
       getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
       client: MockClient((request) async {
         requests.add(request);
-        if (request.method == 'GET' && request.url.path == '/v1/channels') {
+        if (request.method == 'GET' && request.url.path == '/api/video/channels') {
           return http.Response(jsonEncode({'items': []}), 200);
         }
-        if (request.method == 'POST' && request.url.path == '/v1/channels') {
+        if (request.method == 'POST' && request.url.path == '/api/video/channels') {
           final body = jsonDecode(request.body) as Map<String, dynamic>;
           expect(body['handle'], 'mychannel');
           expect(body['name'], 'My Channel');
