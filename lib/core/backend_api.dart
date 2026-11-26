@@ -1032,7 +1032,570 @@ class BackendApi {
   }) {
     final normalizedAmount = amount.trim();
     if (recipientId.trim().isEmpty ||
-        !RegExp(r'^[0-9]+(?:\\.[0-9]{1,2})?$').hasMatch(normalizedAmount) ||
+        !RegExp(r'^[0-9]+(?:\.[0-9]{1,2})?.hasMatch(normalizedAmount) ||
+        (double.tryParse(normalizedAmount) ?? 0) <= 0 ||
+        (double.tryParse(normalizedAmount) ?? 10001) > 10000 ||
+        idempotencyKey.trim().length < 8 ||
+        idempotencyKey.trim().length > 128 ||
+        note.length > 280) {
+      throw ArgumentError('Recipient, amount, note or idempotency key is invalid');
+    }
+    return callCapability('testagram.wallet.tip', input: {
+      'recipient_id': recipientId.trim(),
+      'amount': normalizedAmount,
+      'note': note.trim(),
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  /// Starts a KES-only M-Pesa STK Push. Settlement is confirmed asynchronously
+  /// by the signed provider callback; a successful request is not a credit.
+  Future<Map<String, dynamic>> requestMpesaTopUp({
+    required String phone,
+    required int amountKes,
+    required String idempotencyKey,
+  }) {
+    if (amountKes < 10 || amountKes > 150000 ||
+        idempotencyKey.trim().length < 8 || idempotencyKey.trim().length > 128) {
+      throw ArgumentError('Amount or idempotency key is invalid');
+    }
+    return callCapability('testagram.wallet.mpesa.stk_push', input: {
+      'phone': phone.trim(),
+      'amount_kes': amountKes,
+      'currency': 'KES',
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  /// Reads the server-side settlement state for an M-Pesa checkout request.
+  Future<Map<String, dynamic>> getMpesaTopUpStatus(String checkoutRequestId) {
+    if (checkoutRequestId.trim().isEmpty || checkoutRequestId.length > 128) {
+      throw ArgumentError.value(checkoutRequestId, 'checkoutRequestId');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {
+      'checkout_request_id': checkoutRequestId.trim(),
+    });
+  }
+
+  /// Recovers an ambiguous M-Pesa attempt by its owner-scoped idempotency key.
+  Future<Map<String, dynamic>> getMpesaTopUpAttemptStatus(String idempotencyKey) {
+    final key = idempotencyKey.trim();
+    if (key.length < 8 || key.length > 128) {
+      throw ArgumentError.value(idempotencyKey, 'idempotencyKey');
+    }
+    return callCapability('testagram.wallet.mpesa.status', input: {'idempotency_key': key});
+  }
+  /// Native Backend conversation list. Only active memberships are returned.
+  Future<Map<String, dynamic>> listConversations({int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return callCapability('testagram.conversations.list', input: {'limit': limit});
+  }
+
+  /// Creates or reuses a one-to-one conversation. Group creation remains
+  /// disabled until the Backend exposes explicit invitation acceptance.
+  Future<Map<String, dynamic>> createConversation(List<String> memberIds, {String title = ''}) {
+    if (memberIds.length != 1) {
+      throw ArgumentError.value(memberIds, 'memberIds', 'Provide exactly one recipient');
+    }
+    return callCapability('testagram.conversations.create', input: {
+      'member_ids': memberIds,
+      if (title.trim().isNotEmpty) 'title': title.trim(),
+    });
+  }
+
+  /// Lists encrypted message envelopes for an active conversation membership.
+  Future<Map<String, dynamic>> listMessages(String conversationId, {int limit = 50, String? cursor}) {
+    if (conversationId.trim().isEmpty || limit < 1 || limit > 100) {
+      throw ArgumentError('Conversation ID or message limit is invalid');
+    }
+    return callCapability('testagram.messages.list', input: {
+      'conversation_id': conversationId.trim(),
+      'limit': limit,
+      if (cursor != null && cursor.isNotEmpty) 'cursor': cursor,
+    });
+  }
+
+  /// Writes a message only after the caller has encrypted it locally.
+  /// This method accepts ciphertext and never accepts plaintext body text.
+  Future<Map<String, dynamic>> sendEncryptedMessage({
+    required String conversationId,
+    required String ciphertext,
+    required String nonce,
+    required String clientMessageId,
+    required int epoch,
+    String aad = '',
+  }) {
+    if (conversationId.trim().isEmpty || ciphertext.isEmpty || nonce.isEmpty ||
+        clientMessageId.trim().isEmpty || epoch < 1) {
+      throw ArgumentError('Encrypted message envelope is incomplete');
+    }
+    return callCapability('testagram.messages.send_encrypted', input: {
+      'conversation_id': conversationId.trim(),
+      'ciphertext': ciphertext,
+      'nonce': nonce,
+      'client_message_id': clientMessageId.trim(),
+      'e2ee_epoch': epoch,
+      'aad': aad,
+    });
+  }
+
+  Future<Map<String, dynamic>> deleteMessage(String messageId) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.delete', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> reactToMessage({
+    required String messageId,
+    String reaction = '❤️',
+    bool remove = false,
+  }) {
+    if (!_isCanonicalAccountId(messageId)) throw ArgumentError.value(messageId, 'messageId');
+    final emoji = reaction.trim();
+    if (emoji.isEmpty || emoji.length > 32) throw ArgumentError.value(reaction, 'reaction');
+    return callCapability('testagram.messages.react', input: {
+      'message_id': messageId.trim(),
+      'reaction': emoji,
+      'remove': remove,
+    });
+  }
+  Future<Map<String, dynamic>> markMessageRead(String messageId) {
+    if (messageId.trim().isEmpty) throw ArgumentError.value(messageId, 'messageId');
+    return callCapability('testagram.messages.mark_read', input: {'message_id': messageId.trim()});
+  }
+
+  Future<Map<String, dynamic>> listConversationCalls(String conversationId) {
+    if (conversationId.trim().isEmpty) throw ArgumentError.value(conversationId, 'conversationId');
+    return callCapability('testagram.calls.list', input: {'conversation_id': conversationId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.get', input: {'call_id': callId.trim()});
+  }
+
+  /// Session creation is intentionally separate from media transport setup.
+  /// A created session does not mean an audio/video connection exists.
+  Future<Map<String, dynamic>> createCallSession(String conversationId, {String kind = 'video'}) {
+    if (conversationId.trim().isEmpty || !const {'voice', 'video', 'screen'}.contains(kind)) {
+      throw ArgumentError('Call session parameters are invalid');
+    }
+    return callCapability('testagram.calls.create', input: {
+      'conversation_id': conversationId.trim(),
+      'kind': kind,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.join', input: {'call_id': callId.trim()});
+  }
+
+  Future<Map<String, dynamic>> endCallSession(String callId) {
+    if (callId.trim().isEmpty) throw ArgumentError.value(callId, 'callId');
+    return callCapability('testagram.calls.end', input: {'call_id': callId.trim()});
+  }
+
+  /// Lists live Audio Spaces using the canonical Backend authorization boundary.
+  Future<Map<String, dynamic>> listLiveAudioSpaces() =>
+      callCapability('testagram.audio_spaces.list_live');
+
+  Future<Map<String, dynamic>> getAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.get', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> getMyAudioSpaceStatus(String spaceId) =>
+      callCapability('testagram.audio_spaces.my_status', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> createAudioSpace({
+    required String title,
+    String description = '',
+    int maxAudience = 1000,
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000 ||
+        maxAudience < 2 || maxAudience > 10000) {
+      throw ArgumentError('Audio Space title, description or audience limit is invalid');
+    }
+    return callCapability('testagram.audio_spaces.create', input: {
+      'title': name,
+      'description': description.trim(),
+      'max_audience': maxAudience,
+    });
+  }
+
+  Future<Map<String, dynamic>> joinAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.join', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> leaveAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.leave', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> requestAudioSpaceSpeaker(String spaceId) =>
+      callCapability('testagram.audio_spaces.request_speaker', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> listAudioSpaceSpeakerRequests(String spaceId) =>
+      callCapability('testagram.audio_spaces.pending_speaker_requests', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> decideAudioSpaceSpeaker({
+    required String spaceId,
+    required String userId,
+    required bool approve,
+  }) {
+    if (userId.trim().isEmpty || userId.length > 64) {
+      throw ArgumentError.value(userId, 'userId');
+    }
+    return callCapability('testagram.audio_spaces.decide_speaker', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'user_id': userId.trim(),
+      'decision': approve ? 'approved' : 'denied',
+    });
+  }
+
+  Future<Map<String, dynamic>> updateAudioSpace({
+    required String spaceId,
+    required String title,
+    String description = '',
+  }) {
+    final name = title.trim();
+    if (name.isEmpty || name.length > 120 || description.length > 2000) {
+      throw ArgumentError('Audio Space update is invalid');
+    }
+    return callCapability('testagram.audio_spaces.update', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'title': name,
+      'description': description.trim(),
+    });
+  }
+
+  Future<Map<String, dynamic>> endAudioSpace(String spaceId) =>
+      callCapability('testagram.audio_spaces.end', input: {'space_id': _requiredSpaceId(spaceId)});
+
+  Future<Map<String, dynamic>> sendAudioSpaceSuperchat({
+    required String spaceId,
+    required String message,
+    required String amount,
+    required String idempotencyKey,
+  }) {
+    if (message.trim().isEmpty || message.trim().length > 280 ||
+        amount.trim().isEmpty || idempotencyKey.trim().length < 8 ||
+        idempotencyKey.trim().length > 128) {
+      throw ArgumentError('Audio Space Super Chat details are invalid');
+    }
+    return callCapability('testagram.audio_spaces.superchat', input: {
+      'space_id': _requiredSpaceId(spaceId),
+      'message': message.trim(),
+      'amount': amount.trim(),
+      'idempotency_key': idempotencyKey.trim(),
+    });
+  }
+
+  String _requiredSpaceId(String value) {
+    final id = value.trim();
+    if (id.isEmpty || id.length > 64) throw ArgumentError.value(value, 'spaceId');
+    return id;
+  }
+
+  /// Follow-request moderation uses the same Backend handlers as native social routes.
+  Future<Map<String, dynamic>> listFollowRequests() =>
+      callCapability('testagram.follow_requests.list');
+
+  Future<Map<String, dynamic>> acceptFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.accept',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> rejectFollowRequest(String followerId) {
+    if (followerId.trim().isEmpty || followerId.length > 64) {
+      throw ArgumentError.value(followerId, 'followerId');
+    }
+    return callCapability('testagram.follow_requests.reject',
+        input: {'target_user_id': followerId.trim()});
+  }
+
+  Future<Map<String, dynamic>> getPostPoll(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/poll'));
+  }
+
+  Future<Map<String, dynamic>> getPostReactionState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reaction'));
+  }
+
+  Future<Map<String, dynamic>> getPostRepostState(String postId) {
+    if (postId.trim().isEmpty || postId.length > 64) {
+      throw ArgumentError.value(postId, 'postId');
+    }
+    return _request('GET', baseUri.resolve('/api/social/posts/${Uri.encodeComponent(postId.trim())}/reposts'));
+  }
+
+  Future<Map<String, dynamic>> getPublicFeed({int limit = 20, String? before}) {
+    if (limit < 1 || limit > 50) throw ArgumentError.value(limit, 'limit');
+    final query = <String, String>{'limit': '$limit'};
+    if (before != null && before.trim().isNotEmpty) query['before'] = before.trim();
+    return _request('GET', baseUri.resolve('/api/feed/public').replace(queryParameters: query));
+  }
+
+  String _requiredThreadId(String value) {
+    final id = value.trim();
+    if (!_isCanonicalAccountId(id.toLowerCase())) {
+      throw ArgumentError.value(value, 'threadId', 'Invalid Testagram thread UUID');
+    }
+    return id.toLowerCase();
+  }
+
+  Future<Map<String, dynamic>> getThread(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> deleteThread(String threadId) =>
+      _request('DELETE', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}'));
+
+  Future<Map<String, dynamic>> listThreadLikes(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadLikeState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/likes/state'));
+
+  Future<Map<String, dynamic>> listThreadReposts(String threadId, {int limit = 50}) {
+    if (limit < 1 || limit > 100) throw ArgumentError.value(limit, 'limit');
+    return _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts')
+        .replace(queryParameters: {'limit': '$limit'}));
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostState(String threadId) =>
+      _request('GET', baseUri.resolve('/api/threads/${_requiredThreadId(threadId)}/reposts/state'));
+
+  Future<Map<String, dynamic>> getThreadLikeStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/likes/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getThreadRepostStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/reposts/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getThreadBookmarkStates(List<String> threadIds) {
+    final ids = threadIds.map((id) => id.trim().toLowerCase()).toList();
+    if (ids.length > 100 || ids.any((id) => !_isCanonicalAccountId(id))) {
+      throw ArgumentError('Provide up to 100 valid thread IDs');
+    }
+    return _request('POST', baseUri.resolve('/api/threads/bookmarks/states'), body: {'thread_ids': ids});
+  }
+
+  Future<Map<String, dynamic>> getBrowsingHistory() =>
+      _request('GET', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> recordBrowsingHistory({
+    required String entityType,
+    required String entityId,
+    Map<String, dynamic> metadata = const {},
+  }) {
+    if (!const {'post', 'thread', 'video'}.contains(entityType.trim().toLowerCase()) ||
+        entityId.trim().isEmpty || entityId.length > 64) {
+      throw ArgumentError('Browsing history item is invalid');
+    }
+    return _request('POST', baseUri.resolve('/api/social/history'), body: {
+      'entity_type': entityType.trim().toLowerCase(),
+      'entity_id': entityId.trim(),
+      'metadata': metadata,
+    });
+  }
+
+  Future<Map<String, dynamic>> clearBrowsingHistory() =>
+      _request('DELETE', baseUri.resolve('/api/social/history'));
+
+  Future<Map<String, dynamic>> listOwnedMedia() =>
+      _request('POST', baseUri.resolve('/api/media/list'), body: const {});
+
+  Future<Map<String, dynamic>> getPrivateMediaDownloadUrl(String key) {
+    if (key.trim().isEmpty || key.length > 1024) throw ArgumentError.value(key, 'key');
+    return _request('POST', baseUri.resolve('/api/media/private-download-url'),
+        body: {'key': key.trim()});
+  }
+
+  /// Calls a first-party Backend capability. Product data never bypasses
+  /// the Backend and the Testagram native access token is attached by the shared request path.
+  Future<Map<String, dynamic>> callCapability(
+    String capability, {
+    Map<String, dynamic> input = const {},
+  }) {
+    if (capability.trim().isEmpty || capability.length > 128) {
+      throw ArgumentError.value(capability, 'capability', 'Invalid capability name');
+    }
+    return _request(
+      'POST',
+      baseUri.resolve('/api/capability'),
+      body: {'capability': capability, 'input': input},
+    );
+  }
+
+  Future<Map<String, dynamic>> _request(
+    String method,
+    Uri uri, {
+    Map<String, dynamic>? body,
+    Map<String, String> extraHeaders = const {},
+  }) async {
+    Future<http.Response> send(Map<String, String> headers) async {
+      try {
+        switch (method) {
+          case 'GET':
+            return await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
+          case 'POST':
+            return await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
+                .timeout(const Duration(seconds: 20));
+          case 'PUT':
+            return await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
+                .timeout(const Duration(seconds: 20));
+          case 'DELETE':
+            return await _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
+          default:
+            throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
+        }
+      } on TimeoutException {
+        throw const BackendApiException(
+          'The request timed out. Check your connection and try again.',
+        );
+      } on http.ClientException {
+        throw const BackendApiException(
+          'Could not connect to Testagram. Check your connection.',
+        );
+      }
+    }
+
+    Map<String, String> headers = {
+      ...await _headers(),
+      ...extraHeaders,
+      if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
+    };
+    var response = await send(headers);
+
+    // Native access tokens are short-lived. Retry exactly once after the
+    // shared session manager rotates the refresh token. Backend auth rejects
+    // before executing protected handlers, so this retry cannot duplicate a
+    // successfully applied product mutation.
+    if (response.statusCode == 401) {
+      headers = {
+        ...await _headers(forceRefresh: true),
+        ...extraHeaders,
+        if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
+      };
+      response = await send(headers);
+    }
+
+    // An idle InstaBox machine is woken by the real request through the
+    // Cloudflare gateway. The gateway marks recovery responses explicitly and
+    // supplies Retry-After. Retry once only for safe reads or requests carrying
+    // an endpoint-supported Idempotency-Key; never duplicate an arbitrary POST.
+    final hasIdempotencyKey = headers.entries.any((entry) =>
+        entry.key.toLowerCase() == 'idempotency-key' && entry.value.trim().isNotEmpty);
+    // Today, post creation is the only mutation endpoint whose backend contract
+    // guarantees idempotent replay. Do not let a future caller accidentally
+    // make an unrelated mutation replayable merely by adding this header.
+    final idempotentPostCreate = method == 'POST' &&
+        uri.path == '/api/social/posts' &&
+        hasIdempotencyKey;
+    final replaySafe =
+        const {'GET', 'HEAD', 'OPTIONS'}.contains(method) || idempotentPostCreate;
+    if (response.statusCode == 503 &&
+        response.headers['x-testagram-recovery'] == 'attempted' &&
+        replaySafe) {
+      final retryAfterSeconds = _retryAfterSeconds(response) ?? 5;
+      // Long max-run cooldowns should be shown to the caller, not hold an
+      // interactive request open for minutes.
+      if (retryAfterSeconds <= 30) {
+        if (retryAfterSeconds > 0) {
+          await Future<void>.delayed(Duration(seconds: retryAfterSeconds));
+        }
+        response = await send(headers);
+      }
+    }
+    return _decodeObject(response);
+  }
+
+  Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
+    final token = await getAccessToken(forceRefresh: forceRefresh);
+    if (token == null || token.trim().isEmpty) {
+      throw const BackendApiException('Your session has expired. Sign in again.', statusCode: 401);
+    }
+    return {
+      'Accept': 'application/json',
+      'Authorization': 'Bearer $token',
+    };
+  }
+
+  int? _retryAfterSeconds(http.Response response) {
+    final value = int.tryParse(response.headers['retry-after']?.trim() ?? '');
+    return value != null && value >= 0 ? value : null;
+  }
+
+  Map<String, dynamic> _decodeObject(http.Response response) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw BackendApiException('The server returned an invalid response.',
+          statusCode: response.statusCode);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final error = decoded is Map ? decoded['error'] : null;
+      final message = decoded is Map
+          ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
+          : null;
+      final retryAfterSeconds = _retryAfterSeconds(response);
+      final isMachineRecovery = response.statusCode == 503 &&
+          response.headers['x-testagram-recovery'] == 'attempted';
+      final errorCode = error is Map
+          ? error['code']?.toString()
+          : isMachineRecovery && error is String
+              ? error
+              : null;
+      final readableMessage = isMachineRecovery
+          ? (retryAfterSeconds != null && retryAfterSeconds > 30
+              ? 'Testagram is temporarily unavailable. Please try again in $retryAfterSeconds seconds.'
+              : 'Testagram is waking up. Please try again shortly.')
+          : (message?.isNotEmpty == true ? message! : 'Request failed. Please try again.');
+      throw BackendApiException(
+        readableMessage,
+        statusCode: response.statusCode,
+        code: errorCode,
+        retryAfter: retryAfterSeconds == null ? null : Duration(seconds: retryAfterSeconds),
+      );
+    }
+    if (decoded is Map<String, dynamic>) return decoded;
+    throw const BackendApiException('The server returned an unexpected response.');
+  }
+
+  void close() => _client.close();
+}
+
+class BackendApiException implements Exception {
+  const BackendApiException(this.message, {this.statusCode, this.code, this.retryAfter});
+  final String message;
+  final int? statusCode;
+  /// Stable machine-readable Backend error code, when supplied by the API.
+  final String? code;
+  /// Server-provided wait before retrying a temporarily unavailable service.
+  final Duration? retryAfter;
+
+  @override
+  String toString() => message;
+}
+).hasMatch(normalizedAmount) ||
         (double.tryParse(normalizedAmount) ?? 0) <= 0 ||
         (double.tryParse(normalizedAmount) ?? 10001) > 10000 ||
         idempotencyKey.trim().length < 8 ||
