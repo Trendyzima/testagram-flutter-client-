@@ -165,7 +165,17 @@ class _ExploreScreenState extends State<ExploreScreen> {
     }
     setState(() { _loading = true; _error = null; });
     try {
-      final response = await widget.api.search(query: value, kind: _searchKind);
+      final response = await widget.api.search(
+        query: value,
+        kind: _searchKind,
+        from: _from.text,
+        since: _since.text,
+        until: _until.text,
+        language: _language.text,
+        sort: _searchSort,
+        mediaOnly: _mediaOnly,
+        videoOnly: _videoOnly,
+      );
       final raw = response['data'];
       final data = raw is Map ? raw : response;
       final postRows = data['posts'];
