@@ -1520,6 +1520,72 @@ class BackendApi {
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
     return _request('POST', baseUri.resolve('/api/video/uploads/$videoId/publish'));
   }
+  Future<List<Map<String, dynamic>>> getVideoFeed() async {
+    final response = await _client.get(
+      baseUri.resolve('/api/video/feed'),
+      headers: const {'Accept': 'application/json'},
+    ).timeout(const Duration(seconds: 20));
+    return _decodeList(response);
+  }
+
+  Uri videoManifestUri(String videoId) =>
+      baseUri.resolve('/api/video/uploads/$videoId/manifest');
+
+  Future<void> recordVideoView(String videoId, String session) async {
+    final response = await _client.post(
+      baseUri.resolve('/api/video/uploads/$videoId/view'),
+      headers: {'Accept': 'application/json', 'X-Playback-Session': session},
+    ).timeout(const Duration(seconds: 20));
+    _decodeObject(response);
+  }
+
+  Future<bool> likeVideo(String videoId) async {
+    final result = await _request('POST', baseUri.resolve('/api/video/uploads/$videoId/like'));
+    return result['liked'] == true;
+  }
+
+  Future<List<Map<String, dynamic>>> getVideoComments(String videoId) =>
+      _requestList(baseUri.resolve('/api/video/uploads/$videoId/comments'));
+
+  Future<void> addVideoComment(String videoId, String body) async {
+    final value = body.trim();
+    if (value.isEmpty || value.length > 4000) {
+      throw const BackendApiException('Comments must contain 1–4000 characters.');
+    }
+    await _request('POST', baseUri.resolve('/api/video/uploads/$videoId/comments'),
+        body: {'body': value});
+  }
+
+  Future<List<Map<String, dynamic>>> _requestList(Uri uri) async {
+    Future<http.Response> send({bool forceRefresh = false}) async =>
+        _client.get(uri, headers: await _headers(forceRefresh: forceRefresh))
+            .timeout(const Duration(seconds: 20));
+    var response = await send();
+    if (response.statusCode == 401) response = await send(forceRefresh: true);
+    return _decodeList(response);
+  }
+
+  List<Map<String, dynamic>> _decodeList(http.Response response) {
+    dynamic decoded;
+    try {
+      decoded = jsonDecode(response.body);
+    } on FormatException {
+      throw BackendApiException('The server returned an invalid list response.',
+          statusCode: response.statusCode);
+    }
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      final message = decoded is Map
+          ? (decoded['message'] ?? decoded['error'] ?? 'Video request failed').toString()
+          : 'Video request failed (' + response.statusCode.toString() + ').';
+      throw BackendApiException(message, statusCode: response.statusCode);
+    }
+    if (decoded is! List) {
+      throw const BackendApiException('The server returned an invalid list response.');
+    }
+    return decoded.whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item)).toList();
+  }
+
   Future<Map<String, dynamic>> callCapability(
     String capability, {
     Map<String, dynamic> input = const {},
