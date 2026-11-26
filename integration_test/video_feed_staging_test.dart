@@ -10,6 +10,7 @@ void main() {
 
   const apiOrigin = String.fromEnvironment('TESTAGRAM_STAGING_API_URL');
   const accessToken = String.fromEnvironment('TESTAGRAM_STAGING_ACCESS_TOKEN');
+  const expectedVideoId = String.fromEnvironment('TESTAGRAM_STAGING_VIDEO_ID');
   const expectedVideoTitle = String.fromEnvironment('TESTAGRAM_STAGING_VIDEO_TITLE');
 
   testWidgets(
@@ -17,6 +18,7 @@ void main() {
     (tester) async {
       expect(apiOrigin, isNotEmpty, reason: 'Staging API origin must be supplied');
       expect(accessToken, isNotEmpty, reason: 'Short-lived staging access token must be supplied');
+      expect(expectedVideoId, isNotEmpty, reason: 'Exact disposable video ID must be supplied');
       expect(expectedVideoTitle, isNotEmpty, reason: 'Exact disposable video title must be supplied');
 
       final baseUri = Uri.parse(apiOrigin);
@@ -24,6 +26,11 @@ void main() {
         baseUri: baseUri,
         getAccessToken: ({bool forceRefresh = false}) async => accessToken,
       );
+
+      final initialFeed = await api.getVideoFeed();
+      expect(initialFeed, isNotEmpty, reason: 'Staging video feed must contain the published test video');
+      expect(initialFeed.first['id'], expectedVideoId,
+          reason: 'The disposable acceptance video must be the newest feed item');
 
       await tester.pumpWidget(
         MaterialApp(
