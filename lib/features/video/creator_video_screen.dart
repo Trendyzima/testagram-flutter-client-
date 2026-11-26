@@ -418,43 +418,6 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                     ),
                   const SizedBox(height: 16),
                 ],
-                TextField(
-                  controller: _title,
-                  enabled: !_busy,
-                  maxLength: 200,
-                  decoration: const InputDecoration(labelText: 'Video title'),
-                ),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: _description,
-                  enabled: !_busy,
-                  maxLines: 3,
-                  maxLength: 4000,
-                  decoration:
-                      const InputDecoration(labelText: 'Video description'),
-                ),
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: _busy ? null : _pickVideo,
-                  icon: const Icon(Icons.video_library_outlined),
-                  label: Text(_video == null
-                      ? 'Choose video from device'
-                      : _video!.name),
-                ),
-                const SizedBox(height: 8),
-                const Text('Supported formats: MP4, MOV, MKV and WebM.'),
-                if (_uploadOutcomeUnknown)
-                  const Text('The upload may have reached Testagram. Do not retry this same file; choose a different file or contact support to check the original upload.'),
-                const SizedBox(height: 16),
-                FilledButton.icon(
-                  onPressed: _busy || _uploadOutcomeUnknown || _video == null || _channelId == null
-                      ? null
-                      : _upload,
-                  icon: const Icon(Icons.cloud_upload_outlined),
-                  label: Text(_busy && _status == 'uploading'
-                      ? 'Uploading…'
-                      : 'Upload video privately'),
-                ),
                 const SizedBox(height: 24),
                 Text('My videos', style: theme.textTheme.titleLarge),
                 const SizedBox(height: 8),
@@ -502,6 +465,43 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                 ] else if (!_loadingVideos) ...[
                   const Text('Your uploaded videos will appear here.'),
                 ],
+                TextField(
+                  controller: _title,
+                  enabled: !_busy,
+                  maxLength: 200,
+                  decoration: const InputDecoration(labelText: 'Video title'),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: _description,
+                  enabled: !_busy,
+                  maxLines: 3,
+                  maxLength: 4000,
+                  decoration:
+                      const InputDecoration(labelText: 'Video description'),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _pickVideo,
+                  icon: const Icon(Icons.video_library_outlined),
+                  label: Text(_video == null
+                      ? 'Choose video from device'
+                      : _video!.name),
+                ),
+                const SizedBox(height: 8),
+                const Text('Supported formats: MP4, MOV, MKV and WebM.'),
+                if (_uploadOutcomeUnknown)
+                  const Text('The upload may have reached Testagram. Do not retry this same file; choose a different file or contact support to check the original upload.'),
+                const SizedBox(height: 16),
+                FilledButton.icon(
+                  onPressed: _busy || _uploadOutcomeUnknown || _video == null || _channelId == null
+                      ? null
+                      : _upload,
+                  icon: const Icon(Icons.cloud_upload_outlined),
+                  label: Text(_busy && _status == 'uploading'
+                      ? 'Uploading…'
+                      : 'Upload video privately'),
+                ),
                 if (_videoId != null) ...[
                   const SizedBox(height: 24),
                   Card(
