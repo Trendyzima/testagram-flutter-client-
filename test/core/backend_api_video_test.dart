@@ -313,3 +313,38 @@ void main() {
     api.close();
   });
 }
+
+  test('creator video deletion accepts a 204 response and uses the authenticated route', () async {
+    http.Request? captured;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      client: MockClient((request) async {
+        captured = request;
+        return http.Response('', 204);
+      }),
+    );
+
+    await api.deleteCreatorVideo('2c6e2d3a-61c1-4e8f-8d41-92f1a0d13b62');
+
+    expect(captured?.method, 'DELETE');
+    expect(captured?.url.path, '/api/video/uploads/2c6e2d3a-61c1-4e8f-8d41-92f1a0d13b62');
+    expect(captured?.headers['authorization'], 'Bearer native-session-token');
+    api.close();
+  });
+
+  test('creator video deletion rejects malformed IDs before making a request', () async {
+    var requestCount = 0;
+    final api = BackendApi(
+      baseUri: Uri.parse('https://api.example.test'),
+      getAccessToken: ({bool forceRefresh = false}) async => 'native-session-token',
+      client: MockClient((request) async {
+        requestCount++;
+        return http.Response('', 204);
+      }),
+    );
+
+    await expectLater(api.deleteCreatorVideo('../other-video'), throwsArgumentError);
+    expect(requestCount, 0);
+    api.close();
+  });
