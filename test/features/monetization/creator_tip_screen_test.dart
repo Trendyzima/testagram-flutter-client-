@@ -32,7 +32,7 @@ void main() {
 
     final body = jsonDecode(captured.body) as Map<String, dynamic>;
     expect(captured.method, 'POST');
-    expect(captured.url.path, '/api/capabilities');
+    expect(captured.url.path, '/api/capability');
     expect(body['capability'], 'testagram.wallet.tip');
     expect(body['input'], {
       'recipient_id': '550e8400-e29b-41d4-a716-446655440000',
