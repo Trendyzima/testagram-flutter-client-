@@ -228,15 +228,12 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                 const SizedBox(height: 20),
                 if (_channels.isNotEmpty && !_creatingChannel) ...[
                   DropdownButtonFormField<String>(
-                    value: _channelId,
+                    initialValue: _channelId,
                     decoration: const InputDecoration(labelText: 'Creator channel'),
                     items: _channels
                         .map((channel) => DropdownMenuItem<String>(
                               value: channel['id'].toString(),
-                              child: Text(
-                                (channel['name'] ?? '').toString() +
-                                    '  ·  @' +
-                                    (channel['handle'] ?? '').toString(),
+                              child: Text('${channel['name']}  ·  @${channel['handle']}',
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ))
