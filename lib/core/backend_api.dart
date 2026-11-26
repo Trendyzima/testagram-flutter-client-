@@ -1458,177 +1458,11 @@ class BackendApi {
     required String name,
     String description = '',
   }) {
-    final normalizedHandle =
-        handle.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
+    final normalizedHandle = handle.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase();
     final normalizedName = name.trim();
-    if (!RegExp(r'^[a-z0-9._-]{3,40}    String capability, {
-    Map<String, dynamic> input = const {},
-  }) {
-    if (capability.trim().isEmpty || capability.length > 128) {
-      throw ArgumentError.value(capability, 'capability', 'Invalid capability name');
-    }
-    return _request(
-      'POST',
-      baseUri.resolve('/api/capability'),
-      body: {'capability': capability, 'input': input},
-    );
-  }
-
-  Future<Map<String, dynamic>> _request(
-    String method,
-    Uri uri, {
-    Map<String, dynamic>? body,
-    Map<String, String> extraHeaders = const {},
-  }) async {
-    Future<http.Response> send(Map<String, String> headers) async {
-      try {
-        switch (method) {
-          case 'GET':
-            return await _client.get(uri, headers: headers).timeout(const Duration(seconds: 20));
-          case 'POST':
-            return await _client.post(uri, headers: headers, body: jsonEncode(body ?? {}))
-                .timeout(const Duration(seconds: 20));
-          case 'PUT':
-            return await _client.put(uri, headers: headers, body: jsonEncode(body ?? {}))
-                .timeout(const Duration(seconds: 20));
-          case 'DELETE':
-            return await _client.delete(uri, headers: headers).timeout(const Duration(seconds: 20));
-          default:
-            throw ArgumentError.value(method, 'method', 'Unsupported HTTP method');
-        }
-      } on TimeoutException {
-        throw const BackendApiException(
-          'The request timed out. Check your connection and try again.',
-        );
-      } on http.ClientException {
-        throw const BackendApiException(
-          'Could not connect to Testagram. Check your connection.',
-        );
-      }
-    }
-
-    Map<String, String> headers = {
-      ...await _headers(),
-      ...extraHeaders,
-      if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
-    };
-    var response = await send(headers);
-
-    // Native access tokens are short-lived. Retry exactly once after the
-    // shared session manager rotates the refresh token. Backend auth rejects
-    // before executing protected handlers, so this retry cannot duplicate a
-    // successfully applied product mutation.
-    if (response.statusCode == 401) {
-      headers = {
-        ...await _headers(forceRefresh: true),
-        ...extraHeaders,
-        if (body != null || method == 'POST' || method == 'PUT') 'Content-Type': 'application/json',
-      };
-      response = await send(headers);
-    }
-
-    // An idle InstaBox machine is woken by the real request through the
-    // Cloudflare gateway. The gateway marks recovery responses explicitly and
-    // supplies Retry-After. Retry once only for safe reads or requests carrying
-    // an endpoint-supported Idempotency-Key; never duplicate an arbitrary POST.
-    final hasIdempotencyKey = headers.entries.any((entry) =>
-        entry.key.toLowerCase() == 'idempotency-key' && entry.value.trim().isNotEmpty);
-    // Today, post creation is the only mutation endpoint whose backend contract
-    // guarantees idempotent replay. Do not let a future caller accidentally
-    // make an unrelated mutation replayable merely by adding this header.
-    final idempotentPostCreate = method == 'POST' &&
-        uri.path == '/api/social/posts' &&
-        hasIdempotencyKey;
-    final replaySafe =
-        const {'GET', 'HEAD', 'OPTIONS'}.contains(method) || idempotentPostCreate;
-    if (response.statusCode == 503 &&
-        response.headers['x-testagram-recovery'] == 'attempted' &&
-        replaySafe) {
-      final retryAfterSeconds = _retryAfterSeconds(response) ?? 5;
-      // Long max-run cooldowns should be shown to the caller, not hold an
-      // interactive request open for minutes.
-      if (retryAfterSeconds <= 30) {
-        if (retryAfterSeconds > 0) {
-          await Future<void>.delayed(Duration(seconds: retryAfterSeconds));
-        }
-        response = await send(headers);
-      }
-    }
-    return _decodeObject(response);
-  }
-
-  Future<Map<String, String>> _headers({bool forceRefresh = false}) async {
-    final token = await getAccessToken(forceRefresh: forceRefresh);
-    if (token == null || token.trim().isEmpty) {
-      throw const BackendApiException('Your session has expired. Sign in again.', statusCode: 401);
-    }
-    return {
-      'Accept': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-  }
-
-  int? _retryAfterSeconds(http.Response response) {
-    final value = int.tryParse(response.headers['retry-after']?.trim() ?? '');
-    return value != null && value >= 0 ? value : null;
-  }
-
-  Map<String, dynamic> _decodeObject(http.Response response) {
-    dynamic decoded;
-    try {
-      decoded = jsonDecode(response.body);
-    } on FormatException {
-      throw BackendApiException('The server returned an invalid response.',
-          statusCode: response.statusCode);
-    }
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      final error = decoded is Map ? decoded['error'] : null;
-      final message = decoded is Map
-          ? (decoded['message'] ?? (error is Map ? error['message'] : error))?.toString()
-          : null;
-      final retryAfterSeconds = _retryAfterSeconds(response);
-      final isMachineRecovery = response.statusCode == 503 &&
-          response.headers['x-testagram-recovery'] == 'attempted';
-      final errorCode = error is Map
-          ? error['code']?.toString()
-          : isMachineRecovery && error is String
-              ? error
-              : null;
-      final readableMessage = isMachineRecovery
-          ? (retryAfterSeconds != null && retryAfterSeconds > 30
-              ? 'Testagram is temporarily unavailable. Please try again in $retryAfterSeconds seconds.'
-              : 'Testagram is waking up. Please try again shortly.')
-          : (message?.isNotEmpty == true ? message! : 'Request failed. Please try again.');
-      throw BackendApiException(
-        readableMessage,
-        statusCode: response.statusCode,
-        code: errorCode,
-        retryAfter: retryAfterSeconds == null ? null : Duration(seconds: retryAfterSeconds),
-      );
-    }
-    if (decoded is Map<String, dynamic>) return decoded;
-    throw const BackendApiException('The server returned an unexpected response.');
-  }
-
-  void close() => _client.close();
-}
-
-class BackendApiException implements Exception {
-  const BackendApiException(this.message, {this.statusCode, this.code, this.retryAfter});
-  final String message;
-  final int? statusCode;
-  /// Stable machine-readable Backend error code, when supplied by the API.
-  final String? code;
-  /// Server-provided wait before retrying a temporarily unavailable service.
-  final Duration? retryAfter;
-
-  @override
-  String toString() => message;
-}
-).hasMatch(normalizedHandle) ||
-        normalizedName.isEmpty ||
-        normalizedName.length > 120 ||
-        description.length > 2000) {
+    final validHandle = normalizedHandle.length >= 3 && normalizedHandle.length <= 40 &&
+        normalizedHandle.split('').every((character) => RegExp(r'[a-z0-9._-]').hasMatch(character));
+    if (!validHandle || normalizedName.isEmpty || normalizedName.length > 120 || description.length > 2000) {
       throw ArgumentError('Enter a valid channel handle, name and description.');
     }
     return _request(
@@ -1650,23 +1484,14 @@ class BackendApiException implements Exception {
   }) async {
     final normalizedTitle = title.trim();
     final filename = filePath.split('/').last;
-    final extension = filename.contains('.')
-        ? filename.substring(filename.lastIndexOf('.')).toLowerCase()
-        : '';
-    if (filePath.trim().isEmpty ||
-        channelId.trim().isEmpty ||
-        normalizedTitle.isEmpty ||
-        normalizedTitle.length > 200 ||
-        description.length > 4000 ||
+    final extension = filename.contains('.') ? filename.substring(filename.lastIndexOf('.')).toLowerCase() : '';
+    if (filePath.trim().isEmpty || channelId.trim().isEmpty || normalizedTitle.isEmpty ||
+        normalizedTitle.length > 200 || description.length > 4000 ||
         !const {'.mp4', '.mov', '.mkv', '.webm'}.contains(extension)) {
       throw ArgumentError('Choose a valid MP4, MOV, MKV or WebM video and enter its title.');
     }
-
     Future<http.Response> send({bool forceRefresh = false}) async {
-      final request = http.MultipartRequest(
-        'POST',
-        baseUri.resolve('/api/video/uploads'),
-      )
+      final request = http.MultipartRequest('POST', baseUri.resolve('/api/video/uploads'))
         ..headers.addAll(await _headers(forceRefresh: forceRefresh))
         ..fields['channel_id'] = channelId
         ..fields['title'] = normalizedTitle
@@ -1676,39 +1501,25 @@ class BackendApiException implements Exception {
       final streamed = await _client.send(request).timeout(const Duration(hours: 2));
       return http.Response.fromStream(streamed);
     }
-
     http.Response response;
     try {
       response = await send();
-      if (response.statusCode == 401) {
-        response = await send(forceRefresh: true);
-      }
+      if (response.statusCode == 401) response = await send(forceRefresh: true);
     } on TimeoutException {
-      throw const BackendApiException(
-        'Upload status is unknown after the connection timed out. Do not retry the same file until the upload has been checked.',
-      );
+      throw const BackendApiException('Upload status is unknown after the connection timed out. Do not retry the same file until the upload has been checked.');
     } on http.ClientException {
-      throw const BackendApiException(
-        'The upload connection was interrupted. Its final status is unknown; do not retry the same file until it has been checked.',
-      );
+      throw const BackendApiException('The upload connection was interrupted. Its final status is unknown; do not retry the same file until it has been checked.');
     }
     return _decodeObject(response);
   }
 
   Future<Map<String, dynamic>> getCreatorVideoStatus(String videoId) {
-    return _request(
-      'GET',
-      baseUri.resolve('/api/video/uploads/$videoId'),
-    );
+    return _request('GET', baseUri.resolve('/api/video/uploads/' + videoId));
   }
 
   Future<Map<String, dynamic>> publishCreatorVideo(String videoId) {
-    return _request(
-      'POST',
-      baseUri.resolve('/api/video/uploads/$videoId/publish'),
-    );
+    return _request('POST', baseUri.resolve('/api/video/uploads/' + videoId + '/publish'));
   }
-
   Future<Map<String, dynamic>> callCapability(
     String capability, {
     Map<String, dynamic> input = const {},
