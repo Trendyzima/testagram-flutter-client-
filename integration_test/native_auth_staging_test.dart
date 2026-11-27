@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:integration_test/integration_test.dart';
@@ -78,9 +79,11 @@ void main() {
         expect(fields, findsNWidgets(2));
         await tester.enterText(fields.at(0), email);
         await tester.enterText(fields.at(1), password);
-        await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+        final signInButton = find.widgetWithText(FilledButton, 'Sign in');
+        await tester.ensureVisible(signInButton);
+        await tester.tap(signInButton);
 
-        for (var attempt = 0; attempt < 120 && !signedIn.value; attempt++) {
+        for (var attempt = 0; attempt < 180 && !signedIn.value; attempt++) {
           await tester.pump(const Duration(milliseconds: 500));
         }
         expect(
