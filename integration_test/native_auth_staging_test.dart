@@ -39,9 +39,13 @@ void main() {
       final baseUri = AppConfig.backendOrigin;
       expect(baseUri.scheme, 'https');
       expect(baseUri.host, isNotEmpty);
+      final rawApiHost = baseUri.host.toLowerCase();
+      final apiHost = rawApiHost.endsWith('.')
+          ? rawApiHost.substring(0, rawApiHost.length - 1)
+          : rawApiHost;
       expect(
         {'api.testagram.site', 'testagram.site', 'www.testagram.site', 'media.testagram.site', 'cdn.testagram.site'}
-            .contains(baseUri.host.toLowerCase().replaceFirst(RegExp(r'\\.
+            .contains(apiHost),
         isFalse,
         reason: 'Android native auth staging test must never target a canonical production host',
       );
