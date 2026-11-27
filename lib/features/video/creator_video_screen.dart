@@ -22,12 +22,14 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
   final _description = TextEditingController();
 
   List<Map<String, dynamic>> _channels = [];
+  List<Map<String, dynamic>> _videos = [];
   String? _channelId;
   XFile? _video;
   String? _videoId;
   String _status = '';
   String _visibility = 'private';
   bool _loadingChannels = true;
+  bool _loadingVideos = true;
   bool _creatingChannel = false;
   bool _busy = false;
   bool _uploadOutcomeUnknown = false;
@@ -37,6 +39,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
   void initState() {
     super.initState();
     _loadChannels();
+    _loadVideos();
   }
 
   @override
@@ -79,6 +82,43 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
     }
   }
 
+  Future<void> _loadVideos() async {
+    setState(() => _loadingVideos = true);
+    try {
+      final videos = await widget.api.getCreatorVideos();
+      if (!mounted) return;
+      setState(() => _videos = videos);
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _loadingVideos = false);
+    }
+  }
+
+  Future<void> _refreshOwnedVideo(String id) async {
+    if (_busy || id.isEmpty) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final result = await widget.api.getCreatorVideoStatus(id);
+      if (!mounted) return;
+      setState(() {
+        _videos = _videos.map((video) => video['id'].toString() == id
+            ? {...video, ...result}
+            : video).toList();
+        if (_videoId == id) {
+          _status = (result['status'] ?? _status).toString();
+          _visibility = (result['visibility'] ?? _visibility).toString();
+        }
+      });
+    } catch (error) {
+      if (mounted) setState(() => _error = error.toString());
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
   Future<void> _createChannel() async {
     if (_busy) return;
     setState(() {
@@ -173,6 +213,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Upload received. Testagram is processing your video.')),
       );
+      await _loadVideos();
     } catch (error) {
       if (mounted) {
         setState(() {
@@ -208,9 +249,8 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
     }
   }
 
-  Future<void> _publish() async {
-    final id = _videoId;
-    if (_busy || id == null || _status != 'ready') return;
+  Future<void> _publishVideo(String id) async {
+    if (_busy || id.isEmpty) return;
     setState(() {
       _busy = true;
       _error = null;
@@ -218,7 +258,12 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
     try {
       await widget.api.publishCreatorVideo(id);
       if (!mounted) return;
-      setState(() => _visibility = 'public');
+      setState(() {
+        _videos = _videos.map((video) => video['id'].toString() == id
+            ? {...video, 'visibility': 'public'}
+            : video).toList();
+        if (_videoId == id) _visibility = 'public';
+      });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Your video is now public on Testagram TV.')),
       );
@@ -229,10 +274,9 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
     }
   }
 
-  Future<void> _deleteVideo() async {
-    final id = _videoId;
-    if (_busy || id == null || id.isEmpty ||
-        !const {'ready', 'failed', 'blocked'}.contains(_status)) {
+  Future<void> _deleteVideo(String id, String status) async {
+    if (_busy || id.isEmpty ||
+        !const {'ready', 'failed', 'blocked'}.contains(status)) {
       return;
     }
     final confirmed = await showDialog<bool>(
@@ -267,11 +311,14 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
       await widget.api.deleteCreatorVideo(id);
       if (!mounted) return;
       setState(() {
-        _videoId = null;
-        _video = null;
-        _status = '';
-        _visibility = 'private';
-        _uploadOutcomeUnknown = false;
+        _videos.removeWhere((video) => video['id'].toString() == id);
+        if (_videoId == id) {
+          _videoId = null;
+          _video = null;
+          _status = '';
+          _visibility = 'private';
+          _uploadOutcomeUnknown = false;
+        }
       });
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Video deleted. Media cleanup is queued securely.')),
@@ -286,6 +333,9 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final managedVideos = _videos
+        .where((video) => video['id'].toString() != _videoId)
+        .toList();
     return Scaffold(
       appBar: AppBar(title: const Text('Create video')),
       body: _loadingChannels
@@ -368,6 +418,53 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                     ),
                   const SizedBox(height: 16),
                 ],
+                const SizedBox(height: 24),
+                Text('My videos', style: theme.textTheme.titleLarge),
+                const SizedBox(height: 8),
+                if (_loadingVideos) const LinearProgressIndicator(),
+                if (managedVideos.isNotEmpty) ...[
+                  ...managedVideos.map((video) {
+                    final id = video['id'].toString();
+                    final status = (video['status'] ?? 'unknown').toString();
+                    final visibility = (video['visibility'] ?? 'private').toString();
+                    final canDelete = const {'ready', 'failed', 'blocked'}.contains(status);
+                    final canPublish = status == 'ready' && visibility != 'public';
+                    return Card(
+                      child: ListTile(
+                        leading: const Icon(Icons.video_library_outlined),
+                        title: Text((video['title'] ?? 'Untitled video').toString(),
+                          maxLines: 2, overflow: TextOverflow.ellipsis),
+                        subtitle: Text(
+                          '${(video['channel_name'] ?? 'Creator channel')} · ${status.toUpperCase()} · $visibility',
+                        ),
+                        trailing: Wrap(
+                          spacing: 0,
+                          children: [
+                            IconButton(
+                              tooltip: 'Refresh video status',
+                              onPressed: _busy ? null : () => _refreshOwnedVideo(id),
+                              icon: const Icon(Icons.refresh),
+                            ),
+                            if (canPublish)
+                              IconButton(
+                                tooltip: 'Publish video',
+                                onPressed: _busy ? null : () => _publishVideo(id),
+                                icon: const Icon(Icons.public),
+                              ),
+                            if (canDelete)
+                              IconButton(
+                                tooltip: 'Delete video',
+                                onPressed: _busy ? null : () => _deleteVideo(id, status),
+                                icon: Icon(Icons.delete_outline, color: theme.colorScheme.error),
+                              ),
+                          ],
+                        ),
+                      ),
+                    );
+                  }),
+                ] else if (!_loadingVideos) ...[
+                  const Text('Your uploaded videos will appear here.'),
+                ],
                 TextField(
                   controller: _title,
                   enabled: !_busy,
@@ -441,7 +538,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                           if (_status == 'ready' && _visibility != 'public') ...[
                             const SizedBox(height: 12),
                             FilledButton.icon(
-                              onPressed: _busy ? null : _publish,
+                              onPressed: _busy ? null : () => _publishVideo(_videoId!),
                               icon: const Icon(Icons.public),
                               label: const Text('Publish video publicly'),
                             ),
@@ -457,7 +554,7 @@ class _CreatorVideoScreenState extends State<CreatorVideoScreen> {
                             Align(
                               alignment: Alignment.centerLeft,
                               child: TextButton.icon(
-                                onPressed: _busy ? null : _deleteVideo,
+                                onPressed: _busy ? null : () => _deleteVideo(_videoId!, _status),
                                 icon: const Icon(Icons.delete_outline),
                                 label: const Text('Delete video'),
                                 style: TextButton.styleFrom(

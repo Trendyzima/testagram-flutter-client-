@@ -1453,6 +1453,19 @@ class BackendApi {
         .toList();
   }
 
+  Future<List<Map<String, dynamic>>> getCreatorVideos() async {
+    final result = await _request('GET', baseUri.resolve('/api/video/uploads'));
+    final raw = result['items'];
+    if (raw is! List) {
+      throw const BackendApiException('The Backend returned an invalid creator video list.');
+    }
+    return raw
+        .whereType<Map>()
+        .map((item) => Map<String, dynamic>.from(item))
+        .where((item) => (item['id'] ?? '').toString().isNotEmpty)
+        .toList();
+  }
+
   Future<Map<String, dynamic>> createCreatorVideoChannel({
     required String handle,
     required String name,
