@@ -8,6 +8,7 @@ This checklist distinguishes source-level tests from live staging acceptance.
 - Refresh-token storage and access-token memory handling.
 - Refresh rotation and 401 retry through the shared Backend client.
 - Session restoration and profile validation before the authenticated shell.
+- Real Android AuthScreen login, encrypted refresh-token persistence, new-client session restoration, refresh rotation and logout revocation via `integration_test/native_auth_staging_test.dart`.
 - Logout/logout-all success, already-revoked responses and retry behavior when the Backend cannot confirm revocation.
 - Anti-enumerating password-recovery response and single-use reset-token handling.
 - Identity application idempotency, applicant-scoped status/evidence tokens, email verification and resend contract behavior.
@@ -16,7 +17,7 @@ This checklist distinguishes source-level tests from live staging acceptance.
 
 ## Required live staging acceptance
 
-1. Sign in with a real, approved, email-verified native test account.
+1. Sign in through the actual Flutter AuthScreen on an Android emulator with a real, approved, email-verified native test account; confirm encrypted refresh-token persistence and app/client restart restoration.
 2. Restart the app and confirm session restoration succeeds without prompting for a password.
 3. Expire the access token and confirm refresh rotates the opaque refresh token.
 4. Replay the old refresh token and confirm the Backend revokes the session family.
@@ -29,4 +30,4 @@ This checklist distinguishes source-level tests from live staging acceptance.
 
 ## Not yet a production claim
 
-The mainline Flutter code uses native auth, but production provider cutover, deployed Backend revision, existing-account reconciliation and full device acceptance must be evidenced separately. Registration stays fail-closed until the storage, email, policy, approval and provisioning gates pass. Do not treat a preview build, mock HTTP test or green unit suite as production authentication acceptance.
+The Android integration test is staging-only and requires `TESTAGRAM_API_URL`, `TESTAGRAM_STAGING_AUTH_EMAIL` and `TESTAGRAM_STAGING_AUTH_PASSWORD` dart defines. It tests an already verified account; it does not simulate email delivery or reviewer approval. Production provider cutover, deployed Backend revision, existing-account reconciliation and full device acceptance must be evidenced separately. Registration stays fail-closed until the storage, email, policy, approval and provisioning gates pass. Do not treat a preview build, mock HTTP test or green unit suite as production authentication acceptance.
