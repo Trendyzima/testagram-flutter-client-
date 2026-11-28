@@ -326,12 +326,13 @@ void main() {
     expect(find.text('Create account'), findsOneWidget);
   });
 
-  testWidgets('identity-review entry opens the evidence-backed application form', (tester) async {
+  testWidgets('legacy identity-review route cannot make basic signup require evidence', (tester) async {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
     expect(find.text('Create your Testagram account'), findsOneWidget);
     expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am at least 18 years old.'), findsOneWidget);
