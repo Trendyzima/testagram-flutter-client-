@@ -13,7 +13,7 @@
 
 ## Registration and email verification
 
-Registration is not a direct sign-up call. Flutter creates an idempotent identity application, uploads evidence through the Backend's bounded private proxy, checks application status, and uses the applicant-scoped verification and resend endpoints. Backend requires two distinct identity reviewers and two distinct account approvers before provisioning. Email verification activates the native account. A visible registration entry does not mean the Backend registration gate is enabled.
+Ordinary registration is a direct Testagram-native signup call. Flutter validates email, username, password, age declaration and legal consent, then calls Backend `POST /api/auth/signup`. Backend creates an unverified basic identity and queues a single-use email OTP and link in the same PostgreSQL transaction. The account cannot sign in until the OTP or link is consumed; successful verification initializes the local profile. Identity applications, evidence uploads, independent reviewers and two-person approval are separate optional assurance workflows and never gate ordinary signup.
 
 ## Private-service boundaries
 
@@ -26,4 +26,4 @@ Registration is not a direct sign-up call. Flutter creates an idempotent identit
 
 ## Acceptance boundary
 
-Unit/widget tests and mocked HTTP contract tests do not prove live end-to-end behavior. Complete staging acceptance must use a real Backend, PostgreSQL, email transport and Data Centre/CDN paths, then verify Android and web session restore, refresh, logout, recovery, private-media denial and account-state rejection. Production cutover and public registration activation require separate explicit approval.
+Unit/widget tests and mocked HTTP contract tests do not prove live end-to-end behavior. Complete staging acceptance must use a real Backend, isolated PostgreSQL, a controlled mailbox and real Flutter signup. Verify initial sign-in denial, real OTP/link delivery and consumption, replay rejection, profile initialization, sign-in, session restore, refresh, logout and password recovery. Continue to verify Data Centre/CDN authorization and account-state rejection. Identity-evidence intake remains independently gated and is not part of the ordinary signup acceptance. Production deployment requires separate explicit approval.
