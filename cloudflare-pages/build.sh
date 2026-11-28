@@ -40,10 +40,15 @@ flutter analyze
 flutter test --reporter expanded
 
 TESTAGRAM_API_URL="${TESTAGRAM_API_URL:-https://api.testagram.site}"
-TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-true}"
+# Public identity-review enrollment is source-disabled for all builds.
+# Refuse legacy environment overrides instead of silently re-enabling the old gate.
+if [[ -n "${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-}" ]]; then
+  echo "::error::TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED is retired. Public identity enrollment cannot be enabled through build variables."
+  exit 1
+fi
+bash tool/identity-registration-build-guard.sh
 flutter build web --release --base-href / \
-  --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-  --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
+  --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
 
 install -D cloudflare-pages/_headers build/web/_headers
 version="${CF_PAGES_COMMIT_SHA:-$(git rev-parse --short HEAD)}"
