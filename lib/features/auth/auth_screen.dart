@@ -1046,12 +1046,6 @@ class _AuthScreenState extends State<AuthScreen> {
                   label: const Text('Create account'),
                   style: OutlinedButton.styleFrom(foregroundColor: blue, side: const BorderSide(color: Color(0xFFB9D2FA)), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
                 )),
-                if (_hasSavedIdentityDraft)
-                  TextButton.icon(
-                    onPressed: _busy ? null : _restoreIdentityDraft,
-                    icon: const Icon(Icons.restore_rounded),
-                    label: const Text('Resume saved identity application'),
-                  ),
               ],
             ] else
               Align(
