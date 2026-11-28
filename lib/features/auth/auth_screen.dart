@@ -133,12 +133,12 @@ class _AuthScreenState extends State<AuthScreen> {
     if (e is BackendApiException) {
       if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
           e.code == 'IDENTITY_APPROVAL_REQUIRED') {
-        return 'Identity evidence review and two-person account approval are required before your Testagram account can be created.';
+        return 'This feature requires identity review and two independent approvals. Basic Testagram account registration does not.';
       }
       if (e.code == 'IDENTITY_REVIEW_MFA_UNAVAILABLE' ||
           e.code == 'IDENTITY_SERVICE_UNAVAILABLE' ||
           e.code == 'REGISTRATION_DISABLED') {
-        return 'Identity review is not ready yet. No Testagram account has been created; please try again later.';
+        return 'Identity review is temporarily unavailable. You can still create and verify a basic Testagram account; try this identity-dependent feature later.';
       }
       if (e.code == 'EMAIL_VERIFICATION_REQUIRED') {
         return 'Verify your email address before accessing Testagram.';
