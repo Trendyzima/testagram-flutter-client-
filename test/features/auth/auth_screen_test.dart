@@ -153,10 +153,10 @@ void main() {
     expect(find.text('NEW HERE?'), findsOneWidget);
     expect(find.text('Create account'), findsOneWidget);
     await tapVisible(tester, find.text('Sign up'));
-    expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
-    expect(find.text('Apply for Testagram'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
     expect(find.byType(CheckboxListTile), findsNWidgets(3));
-    expect(find.textContaining('two independent approvals'), findsWidgets);
+    expect(find.textContaining('Identity verification is separate'), findsWidgets);
   });
 
   testWidgets('native signup does not restore an old identity application',
@@ -185,8 +185,8 @@ void main() {
     expect(find.text('Create account'), findsOneWidget);
     await tapVisible(tester, find.text('Create account'));
     await tester.pumpAndSettle();
-    expect(find.text('Apply for Testagram'), findsOneWidget);
-    expect(find.text('Submit application'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('saved-applicant@example.test'), findsNothing);
     // Preserve the user's encrypted draft for a future, deliberate reopening.
     expect((await identityStore.load())?.email, 'saved-applicant@example.test');
@@ -208,8 +208,8 @@ void main() {
 
     await tapVisible(tester, find.text('Sign up'));
     await tester.pumpAndSettle();
-    expect(find.text('Apply for Testagram'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Submit application'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Create account'), findsOneWidget);
 
     await tapVisible(tester, find.text('Reset password'));
     await tester.pumpAndSettle();
@@ -228,7 +228,7 @@ void main() {
     ));
 
     await tapVisible(tester, find.text('Sign up'));
-    expect(find.text('Apply for Testagram'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('Email address'), findsOneWidget);
@@ -244,7 +244,7 @@ void main() {
     expect(nativeAuth.signUpCalls, 0);
     expect(find.textContaining('Confirm the age declaration'), findsOneWidget);
     expect(find.text('Verify your email'), findsNothing);
-    expect(find.text('Submit application'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
   });
 
   testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
@@ -319,12 +319,12 @@ void main() {
     await tester.pumpWidget(MaterialApp(
       home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-    expect(find.text('Apply for Testagram'), findsOneWidget);
-    expect(find.text('Submit application'), findsOneWidget);
+    expect(find.text('Create your Testagram account'), findsOneWidget);
+    expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Full name'), findsOneWidget);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am at least 18 years old.'), findsOneWidget);
-    expect(find.textContaining('two independent approvals'), findsWidgets);
+    expect(find.textContaining('Identity verification is separate'), findsWidgets);
   });
 
   testWidgets('application links let applicants inspect Terms and Privacy before consent', (tester) async {
