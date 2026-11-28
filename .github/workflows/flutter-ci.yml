@@ -45,19 +45,19 @@ jobs:
       - name: Build Android debug APK
         run: |
           flutter build apk --debug \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Android release-mode QA APK (not production signed)
         run: |
           flutter build apk --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Android release-mode QA App Bundle (not production signed)
         run: |
           flutter build appbundle --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
         run: |
           flutter build web --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
           install -D cloudflare-pages/_headers build/web/_headers
       - name: Verify versioned Flutter entry points
         shell: bash
