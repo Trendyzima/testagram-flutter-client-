@@ -16,6 +16,10 @@ if ! grep -Fq '}) : enableIdentityRegistration = false;' "$screen"; then
   echo "::error::AuthScreen must ignore caller-supplied identity-enrollment flags."
   exit 1
 fi
+if grep -Eq 'Resume saved identity application|Submit application|_restoreIdentityDraft|_beginIdentityApplication' "$screen"; then
+  echo "::error::A public identity-application entry point has been reintroduced."
+  exit 1
+fi
 if grep -Eq 'TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true|TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED.*true' .github/workflows cloudflare-pages; then
   echo "::error::A CI or deployment configuration attempts to re-enable public identity enrollment."
   exit 1
