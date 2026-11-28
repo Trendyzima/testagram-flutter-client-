@@ -282,7 +282,6 @@ class _AuthScreenState extends State<AuthScreen> {
     await _identityStore.clear();
     if (mounted) {
       setState(() {
-        _hasSavedIdentityDraft = false;
         _identityDraft = null;
         _identityApplication = null;
         _identityStatus = null;
