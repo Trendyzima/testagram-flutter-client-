@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('production Pages signup probe is bodyless and requires identity review', () {
+  test('production Pages signup probe reaches password validation without identity review', () {
     final workflow = File(
       '.github/workflows/deploy-cloudflare-pages-production.yml',
     ).readAsStringSync();
@@ -20,13 +20,13 @@ void main() {
       contains("github.event_name == 'workflow_dispatch' && inputs.confirm_production_pages_deploy == true"),
     );
     expect(workflow, isNot(contains("github.event_name == 'push' ||")));
-    expect(probe, contains('bodyless POST'));
+    expect(probe, contains('intentionally invalid password'));
     expect(probe, contains('-X POST'));
-    expect(probe, contains('IDENTITY_REVIEW_REQUIRED'));
-    expect(probe, contains(r'"$status" != "403"'));
-    expect(probe, contains(r'"$code" != "IDENTITY_REVIEW_REQUIRED"'));
-    expect(probe, isNot(contains('--data-binary')));
-    expect(probe, isNot(contains('INVALID_PASSWORD')));
-    expect(probe, isNot(contains('"password"')));
+    expect(probe, contains('INVALID_PASSWORD'));
+    expect(probe, contains(r'"$status" != "400"'));
+    expect(probe, contains(r'"$code" != "INVALID_PASSWORD"'));
+    expect(probe, contains('--data'));
+    expect(probe, contains('signup-readiness@example.invalid'));
+    expect(probe, contains('"password":"short"'));
   });
 }
