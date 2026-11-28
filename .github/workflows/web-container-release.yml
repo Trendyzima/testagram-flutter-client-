@@ -41,9 +41,6 @@ jobs:
     timeout-minutes: 40
     env:
       TESTAGRAM_API_URL: https://api.testagram.site
-      # Keep ordinary native signup visible. Sensitive identity-evidence review
-      # remains a separate workflow and is not a prerequisite for account creation.
-      TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED: 'true'
       IMAGE: ghcr.io/trendyzima/testagram-web
     steps:
       - name: Check out Flutter client
