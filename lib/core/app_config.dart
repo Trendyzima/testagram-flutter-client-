@@ -18,10 +18,10 @@ class AppConfig {
     defaultValue: 'https://testagram.site',
   );
 
-  static const enableIdentityRegistrationUi = bool.fromEnvironment(
-    'TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED',
-    defaultValue: true,
-  );
+  // Public identity-review enrollment is deliberately disabled in every build.
+  // Re-enabling it requires an explicit reviewed source change and CI policy update;
+  // no --dart-define or deployment environment variable can turn it back on.
+  static const enableIdentityRegistrationUi = false;
 
   static const enableTvCatalogue = bool.fromEnvironment(
     'TESTAGRAM_TV_ENABLED',

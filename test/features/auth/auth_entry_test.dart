@@ -29,13 +29,14 @@ void main() {
     });
 
 
-    test('rejects native verification links without an application reference', () {
+    test('accepts native self-service verification links without an application reference', () {
       final entry = AuthEntry.fromUri(Uri.parse(
         'https://testagram.site/verify-email?token=one-time',
       ));
       expect(entry.mode, AuthEntryMode.verifyEmail);
       expect(entry.isNativeVerification, isTrue);
-      expect(entry.hasCompleteCallback, isFalse);
+      expect(entry.applicationId, isNull);
+      expect(entry.hasCompleteCallback, isTrue);
     });
 
     test('keeps legacy verification callbacks on the legacy contract', () {

@@ -34,6 +34,8 @@ jobs:
         run: python3 -m unittest tool/test_android_gradle_repositories.py
       - name: Resolve dependencies
         run: flutter pub get
+      - name: Enforce public identity-enrollment build lock
+        run: bash tool/identity-registration-build-guard.sh
       - name: Enforce backend-only dependency boundary
         run: dart run tool/check_dependency_boundary.dart
       - name: Analyze
@@ -43,23 +45,19 @@ jobs:
       - name: Build Android debug APK
         run: |
           flutter build apk --debug \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Android release-mode QA APK (not production signed)
         run: |
           flutter build apk --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Android release-mode QA App Bundle (not production signed)
         run: |
           flutter build appbundle --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
       - name: Build Flutter web
         run: |
           flutter build web --release \
-            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-            --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=true"
+            --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
           install -D cloudflare-pages/_headers build/web/_headers
       - name: Verify versioned Flutter entry points
         shell: bash
@@ -74,7 +72,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create account' 'Identity verification'; do
+          for marker in 'Sign up' 'Reset password' 'Create account' 'Identity verification is optional'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1

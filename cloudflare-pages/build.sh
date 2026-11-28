@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
+
 export CI=true
 export FLUTTER_SUPPRESS_ANALYTICS=true
 export PUB_ENVIRONMENT=cloudflare_pages
@@ -40,10 +44,15 @@ flutter analyze
 flutter test --reporter expanded
 
 TESTAGRAM_API_URL="${TESTAGRAM_API_URL:-https://api.testagram.site}"
-TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED="${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-true}"
+# Public identity-review enrollment is source-disabled for all builds.
+# Refuse legacy environment overrides instead of silently re-enabling the old gate.
+if [[ -n "${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-}" ]]; then
+  echo "::error::TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED is retired. Public identity enrollment cannot be enabled through build variables."
+  exit 1
+fi
+bash tool/identity-registration-build-guard.sh
 flutter build web --release --base-href / \
-  --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL" \
-  --dart-define="TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED=$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED"
+  --dart-define="TESTAGRAM_API_URL=$TESTAGRAM_API_URL"
 
 install -D cloudflare-pages/_headers build/web/_headers
 version="${CF_PAGES_COMMIT_SHA:-$(git rev-parse --short HEAD)}"
@@ -63,10 +72,4 @@ for marker in 'Sign in' 'Reset password' 'Create account'; do
     exit 1
   }
 done
-if [[ "$TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED" == "true" ]]; then
-  grep -aFq 'Create account' build/web/main.dart.js || {
-    echo "::error::Flutter production bundle is missing Create account UI marker."
-    exit 1
-  }
-fi
 echo "Flutter web output validated at build/web"

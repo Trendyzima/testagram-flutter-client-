@@ -17,8 +17,10 @@ class AuthEntry {
 
   bool get hasCompleteCallback {
     if (mode == AuthEntryMode.verifyEmail) {
-      return token != null && token!.isNotEmpty &&
-          (!isNativeVerification || (applicationId != null && applicationId!.isNotEmpty));
+      // Native self-service signup links contain only the one-time token.
+      // Approved identity-provisioning links may additionally carry an
+      // application ID, but that reference is not required for native signup.
+      return token != null && token!.isNotEmpty;
     }
     if (mode == AuthEntryMode.resetPassword) {
       return token != null && token!.isNotEmpty;
