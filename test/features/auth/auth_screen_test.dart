@@ -230,6 +230,34 @@ void main() {
     expect(find.textContaining('Identity verification is separate'), findsOneWidget);
   });
 
+  testWidgets('basic signup uses native signup and sends user to email verification', (tester) async {
+    final nativeAuth = _FakeNativeAuthSession();
+    await tester.pumpWidget(MaterialApp(
+      home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, identityApplicationStore: identityStore),
+    ));
+    await tapVisible(tester, find.text('Sign up'));
+    final fields = find.byType(TextFormField);
+    expect(fields, findsNWidgets(5));
+    await tester.enterText(fields.at(0), 'Basic Member');
+    await tester.enterText(fields.at(1), 'basic_member');
+    await tester.enterText(fields.at(2), 'basic@example.test');
+    await tester.enterText(fields.at(3), 'a-strong-password-123');
+    await tester.enterText(fields.at(4), 'a-strong-password-123');
+    for (final label in [
+      'I confirm that I am at least 18 years old.',
+      'I have read and accept the Testagram Terms of Service.',
+      'I have read and accept the Testagram Privacy Notice.',
+    ]) {
+      await tapVisible(tester, find.text(label));
+    }
+    await tapVisible(tester, find.widgetWithText(FilledButton, 'Create account'));
+    expect(nativeAuth.signUpCalls, 1);
+    expect(nativeAuth.signedUpEmail, 'basic@example.test');
+    expect(nativeAuth.signedUpUsername, 'basic_member');
+    expect(nativeAuth.signedUpPassword, 'a-strong-password-123');
+    expect(find.text('Verify your email'), findsOneWidget);
+  });
+
   testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
     final nativeAuth = _FakeNativeAuthSession();
     await tester.pumpWidget(MaterialApp(
