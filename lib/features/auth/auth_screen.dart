@@ -90,16 +90,13 @@ class _AuthScreenState extends State<AuthScreen> {
         }
         break;
     }
-    // Public account creation is not a direct email/password signup. The
-    // application screen submits explicit consent and identity-review evidence;
-    // only the Backend may provision an account after two independent approvals.
-    // Preserve email-verification and password-recovery callbacks above.
+    // Public account creation uses native email/password signup and email
+    // verification. Identity assurance is a separate optional workflow and
+    // cannot be made compulsory by the legacy route hint.
     if (widget.requireIdentityReview &&
         entry.mode == AuthEntryMode.signIn &&
         !widget.requireVerification) {
       _page = _Page.signUp;
-    }
-    if (entry.mode == AuthEntryMode.signIn && !widget.requireVerification) {
     }
   }
 
