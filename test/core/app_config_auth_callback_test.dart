@@ -10,8 +10,8 @@ void main() {
       expect(AppConfig.isConfigured, isTrue);
     });
 
-    test('keeps the account creation entry point visible by default', () {
-      expect(AppConfig.enableIdentityRegistrationUi, isTrue);
+    test('keeps public identity enrollment disabled by default', () {
+      expect(AppConfig.enableIdentityRegistrationUi, isFalse);
     });
 
     test('routes all video API traffic through the canonical Backend origin', () {
