@@ -131,6 +131,9 @@ class _AuthScreenState extends State<AuthScreen> {
   String _friendly(Object e) {
     if (e is IdentityVerificationException) return e.message;
     if (e is BackendApiException) {
+      if (e.code == 'USERNAME_TAKEN') {
+        return 'That username is already in use. Choose another username.';
+      }
       if (e.code == 'IDENTITY_REVIEW_REQUIRED' ||
           e.code == 'IDENTITY_APPROVAL_REQUIRED') {
         return 'This feature requires identity review and two independent approvals. Basic Testagram account registration does not.';
@@ -152,6 +155,9 @@ class _AuthScreenState extends State<AuthScreen> {
       return e.message;
     }
     if (e is NativeAuthException) {
+      if (e.code == 'USERNAME_TAKEN') {
+        return 'That username is already in use. Choose another username.';
+      }
       if (e.code == 'API_ORIGIN_RETRY_READY') {
         return 'Testagram is awake and the application database is ready. Your sign-in details are still here; tap Sign in again to continue.';
       }
