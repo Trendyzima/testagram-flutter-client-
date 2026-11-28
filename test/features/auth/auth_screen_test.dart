@@ -221,30 +221,13 @@ void main() {
     expect(find.text('Welcome back'), findsOneWidget);
   });
 
-  testWidgets('identity application requires explicit age, Terms and Privacy consent and never uses public signup', (tester) async {
-    final nativeAuth = _FakeNativeAuthSession();
+  testWidgets('legacy identity entry cannot force the public identity application', (tester) async {
     await tester.pumpWidget(MaterialApp(
-      home: AuthScreen(authClient: nativeAuth, onSignedIn: () {}, enableIdentityRegistration: true, identityApplicationStore: identityStore),
+      home: AuthScreen(authClient: authClient, onSignedIn: () {}, requireIdentityReview: true, enableIdentityRegistration: true, identityApplicationStore: identityStore),
     ));
-
-    await tapVisible(tester, find.text('Sign up'));
     expect(find.text('Create your Testagram account'), findsOneWidget);
-    expect(find.text('Full name'), findsOneWidget);
-    expect(find.text('Username'), findsOneWidget);
-    expect(find.text('Email address'), findsOneWidget);
-    expect(find.byType(CheckboxListTile), findsNWidgets(3));
-
-    final fields = find.byType(TextFormField);
-    expect(fields, findsNWidgets(3));
-    await tester.enterText(fields.at(0), 'Native Applicant');
-    await tester.enterText(fields.at(1), 'native_user');
-    await tester.enterText(fields.at(2), 'native@example.test');
-    await tapVisible(tester, find.widgetWithText(FilledButton, 'Submit application'));
-
-    expect(nativeAuth.signUpCalls, 0);
-    expect(find.textContaining('Confirm the age declaration'), findsOneWidget);
-    expect(find.text('Verify your email'), findsNothing);
-    expect(find.text('Create account'), findsOneWidget);
+    expect(find.text('Submit application'), findsNothing);
+    expect(find.textContaining('Identity verification is separate'), findsOneWidget);
   });
 
   testWidgets('verification screen lets users enter an email and resend safely', (tester) async {
