@@ -79,7 +79,8 @@ jobs:
           # Public signup must not be blocked by the optional identity workflow.
           status="$(curl --silent --show-error --max-time 20 -o "$response" -w '%{http_code}' -X POST \
             "$TESTAGRAM_API_URL/api/auth/signup" \
-            -H 'Content-Type: application/json')"
+            -H 'Content-Type: application/json' \
+            --data '{"email":"signup-readiness@example.invalid","username":"signup_readiness_probe","password":"short"}')"
           code="$(jq -r '.error.code // empty' "$response" 2>/dev/null || true)"
           if [[ "$status" != "400" || "$code" != "INVALID_PASSWORD" ]]; then
             echo "::error::Production native signup did not reach ordinary password validation (HTTP $status, code=$code). Refusing to publish the web frontend."
