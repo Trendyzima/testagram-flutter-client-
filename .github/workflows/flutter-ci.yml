@@ -34,6 +34,8 @@ jobs:
         run: python3 -m unittest tool/test_android_gradle_repositories.py
       - name: Resolve dependencies
         run: flutter pub get
+      - name: Enforce public identity-enrollment build lock
+        run: bash tool/identity-registration-build-guard.sh
       - name: Enforce backend-only dependency boundary
         run: dart run tool/check_dependency_boundary.dart
       - name: Analyze
@@ -74,7 +76,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for marker in 'Sign up' 'Reset password' 'Create account' 'Identity verification'; do
+          for marker in 'Sign up' 'Reset password' 'Create account' 'Identity verification is optional'; do
             if ! grep -aFq "$marker" build/web/main.dart.js; then
               echo "::error::Compiled Flutter web bundle is missing auth UI marker: $marker"
               exit 1
