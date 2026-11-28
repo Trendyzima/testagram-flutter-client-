@@ -325,49 +325,26 @@ class _AuthScreenState extends State<AuthScreen> {
     );
   }
 
-  Future<void> _beginIdentityApplication() async {
+  Future<void> _signUp() async {
     if (!_form.currentState!.validate()) return;
     if (!_adultConfirmed || !_termsAccepted || !_privacyAccepted) {
-      setState(() => _error = 'Confirm the age declaration and accept the current Terms and Privacy Notice before submitting.');
+      setState(() => _error =
+          'Confirm that you are at least 18 and accept the Terms and Privacy Notice before creating your account.');
       return;
     }
     await _run(() async {
-      final random = Random.secure();
-      final idempotencyKey = base64Url
-          .encode(List<int>.generate(32, (_) => random.nextInt(256)))
-          .replaceAll('=', '');
-      final draft = IdentityApplicationDraft(
+      await widget.authClient.signUp(
         email: _email.text.trim().toLowerCase(),
         username: _username.text.trim().replaceFirst(RegExp(r'^@'), '').toLowerCase(),
-        displayName: _name.text.trim(),
-        idempotencyKey: idempotencyKey,
-        createdAt: DateTime.now().toUtc(),
+        password: _password.text,
       );
-      // Save only the recoverable application draft before the network call.
-      // It contains no password, raw evidence, access token or refresh token.
-      await _identityStore.save(draft);
-      _identityDraft = draft;
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        final application = await _submitIdentityDraft(api, draft);
-        if (application == null) return;
-        final saved = draft.copyWith(application: application);
-        await _identityStore.save(saved);
-        final status = await api.getStatus(application);
-        if (!mounted) return;
-        setState(() {
-          _identityDraft = saved;
-          _identityApplication = application;
-          _identityStatus = status;
-          _identityProvisioningAuthorization = null;
-          _page = _Page.identity;
-          _notice = 'Your application has been received. Submit the requested evidence and follow its review status. Your account will not be created until two independent approvals are complete.';
-          _password.clear();
-          _confirm.clear();
-        });
-      } finally {
-        api.close();
-      }
+      if (!mounted) return;
+      _password.clear();
+      _confirm.clear();
+      setState(() {
+        _page = _Page.verify;
+        _notice = 'Your Testagram account registration has been received. Verify your email using the code or link sent to your inbox before signing in.';
+      });
     });
   }
 
@@ -742,7 +719,7 @@ class _AuthScreenState extends State<AuthScreen> {
   Widget build(BuildContext context) {
     final title = switch (_page) {
       _Page.signIn => 'Welcome back',
-      _Page.signUp => 'Apply for Testagram',
+      _Page.signUp => 'Create your Testagram account',
       _Page.forgot => 'Reset your password',
       _Page.verify => 'Verify your email',
       _Page.reset => 'Choose a new password',
@@ -750,7 +727,7 @@ class _AuthScreenState extends State<AuthScreen> {
     };
     final subtitle = switch (_page) {
       _Page.signIn => 'Sign in to catch up with your people.',
-      _Page.signUp => 'Apply for access. Testagram creates an account only after identity evidence review and two independent approvals.',
+      _Page.signUp => 'Join Testagram with your email address. Verify your email to activate your account. Identity verification is separate and is not required for ordinary account creation.',
       _Page.forgot => 'We’ll send a secure link if an account matches that email.',
       _Page.verify => 'One quick step to secure your Testagram account.',
       _Page.reset => 'Choose a strong password you haven’t used before.',
@@ -938,56 +915,14 @@ class _AuthScreenState extends State<AuthScreen> {
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
-              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (value) { final name = (value ?? '').trim(); return name.length < 2 || name.length > 80 ? 'Enter your name (2–80 characters).' : null; }),
-              const SizedBox(height: 14),
-              field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', autocorrect: false, action: TextInputAction.next, validator: _usernameValid),
-              const SizedBox(height: 14),
-            ],
-            if ({_Page.signIn, _Page.signUp, _Page.forgot, _Page.verify}.contains(_page)) ...[
-              field(controller: _email, label: 'Email address', icon: Icons.mail_outline_rounded, keyboardType: TextInputType.emailAddress, autofillHints: const [AutofillHints.email], autocorrect: false, action: TextInputAction.next, validator: _emailValid),
-              const SizedBox(height: 14),
-            ],
-            if (_page == _Page.verify && _identityApplication != null) ...[
-              Container(
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: pale.withValues(alpha: isDark ? 0.12 : 1),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: blue.withValues(alpha: 0.18)),
-                ),
-                child: const Text(
-                  'Your approved account is waiting for email verification. Open the single-use verification link sent to your email. This step does not use a six-digit code.',
-                  style: TextStyle(height: 1.45),
-                ),
-              ),
-              const SizedBox(height: 14),
-            ],
-            if (_page == _Page.verify && _identityApplication == null) ...[
-              field(
-                controller: _otp,
-                label: 'Six-digit email code',
-                icon: Icons.password_rounded,
-                keyboardType: TextInputType.number,
-                autocorrect: false,
-                action: TextInputAction.done,
-                validator: (value) {
-                  final code = (value ?? '').trim();
-                  final valid = code.length == 6 && code.codeUnits.every((unit) => unit >= 48 && unit <= 57);
-                  return valid ? null : 'Enter the six-digit code from your email.';
-                },
-              ),
-              const SizedBox(height: 14),
-            ],
-            if ({_Page.signIn, _Page.reset}.contains(_page)) ...[
               field(
                 controller: _password,
-                label: _page == _Page.reset ? 'New password' : 'Password',
+                label: 'Create password',
                 icon: Icons.lock_outline_rounded,
                 obscure: _obscure,
-                autofillHints: _page == _Page.signIn ? const [AutofillHints.password] : const [AutofillHints.newPassword],
+                autofillHints: const [AutofillHints.newPassword],
                 validator: _passwordValid,
-                action: _page == _Page.signIn ? TextInputAction.done : TextInputAction.next,
-                onSubmitted: (_) { if (_page == _Page.signIn) _signIn(); },
+                action: TextInputAction.next,
                 suffix: IconButton(
                   tooltip: _obscure ? 'Show password' : 'Hide password',
                   onPressed: () => setState(() => _obscure = !_obscure),
@@ -995,19 +930,21 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
               ),
               const SizedBox(height: 14),
-            ],
-            if (_page == _Page.reset) ...[
-              field(controller: _confirm, label: 'Confirm new password', icon: Icons.lock_reset_rounded, obscure: _obscure, validator: (v) => v != _password.text ? 'Passwords do not match.' : null),
+              field(
+                controller: _confirm,
+                label: 'Confirm password',
+                icon: Icons.lock_reset_rounded,
+                obscure: _obscure,
+                validator: (value) => value != _password.text ? 'Passwords do not match.' : null,
+              ),
               const SizedBox(height: 14),
-            ],
-            if (_page == _Page.signUp) ...[
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(color: pale.withValues(alpha: isDark ? 0.12 : 1), borderRadius: BorderRadius.circular(16), border: Border.all(color: blue.withValues(alpha: 0.18))),
                 child: const Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Icon(Icons.verified_user_outlined, color: blue, size: 21),
+                  Icon(Icons.shield_outlined, color: blue, size: 21),
                   SizedBox(width: 11),
-                  Expanded(child: Text('This is an application, not instant account creation. Testagram reviews identity evidence, requires two independent approvals, then asks you to verify your email before first sign-in.', style: TextStyle(height: 1.45, fontSize: 13))),
+                  Expanded(child: Text('Email verification is required. Identity verification is optional and may be completed separately if you later need features that require it.', style: TextStyle(height: 1.45, fontSize: 13))),
                 ]),
               ),
               const SizedBox(height: 10),
@@ -1079,7 +1016,7 @@ class _AuthScreenState extends State<AuthScreen> {
             const SizedBox(height: 20),
             if (_page == _Page.signIn) primaryAction('Sign in', _signIn),
             if (_page == _Page.signUp)
-              primaryAction('Submit application', _beginIdentityApplication),
+              primaryAction('Create account', _signUp),
             if (_page == _Page.forgot) primaryAction('Send reset link', _forgot),
             if (_page == _Page.reset) primaryAction('Update password', _reset),
             if (_page == _Page.verify) ...[
