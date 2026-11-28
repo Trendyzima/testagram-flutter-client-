@@ -24,9 +24,9 @@ class AuthScreen extends StatefulWidget {
     this.requireVerification = false,
     this.requireIdentityReview = false,
     this.initialEmail,
-    this.enableIdentityRegistration = AppConfig.enableIdentityRegistrationUi,
+    bool enableIdentityRegistration = false,
     this.identityApplicationStore,
-  });
+  }) : enableIdentityRegistration = false;
   final NativeAuthSession authClient;
   final VoidCallback onSignedIn;
   final bool requireVerification;
