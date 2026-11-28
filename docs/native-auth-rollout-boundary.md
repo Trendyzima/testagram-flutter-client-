@@ -14,7 +14,7 @@ The current Flutter mainline uses the Testagram-native `NativeAuthClient` and ac
 
 ## Registration boundary
 
-The Create your account entry can be visible while public registration remains fail-closed. New accounts must complete the Testagram-owned application, private evidence, two independent identity reviews, two independent account approvals, native provisioning and email verification flow. The Flutter client must not create an account directly or bypass the approval ledger.
+Ordinary self-service registration uses the Testagram-native email/password flow: Flutter calls Backend `POST /api/auth/signup`, Backend creates a basic unverified account and queues a one-time OTP plus verification link, and the user must verify email before sign-in. Identity evidence, staff review and two-person approval are not prerequisites for a basic account. They remain separate, optional assurance controls for capabilities that explicitly require them. The public signup screen must never redirect ordinary users into identity evidence intake or require an identity-application record.
 
 ## External identity-provider exclusion
 
@@ -22,4 +22,4 @@ The Flutter runtime has no external identity-provider SDK, login screen, token e
 
 ## Release boundary
 
-Source code and CI passing do not prove that the deployed Flutter build and Backend are using the same native auth revision. Production API routing, provider cutover, registration activation and real-user account migration remain separate gates. No production deployment or registration enablement is authorized by this document.
+Source code and CI passing do not prove that the deployed Flutter build and Backend are using matching native-auth revisions or that a real verification email reaches a mailbox. Require the matching frontend/backend changes, a successful signup readiness probe, and real staging signup-to-verification-to-login acceptance before production activation. Identity-evidence intake remains disabled unless separately authorized after its own WebAuthn and dual-control acceptance. No production deployment or identity-intake activation is authorized by this document.
