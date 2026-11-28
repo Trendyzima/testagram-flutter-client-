@@ -237,12 +237,11 @@ void main() {
     ));
     await tapVisible(tester, find.text('Sign up'));
     final fields = find.byType(TextFormField);
-    expect(fields, findsNWidgets(5));
-    await tester.enterText(fields.at(0), 'Basic Member');
-    await tester.enterText(fields.at(1), 'basic_member');
-    await tester.enterText(fields.at(2), 'basic@example.test');
+    expect(fields, findsNWidgets(4));
+    await tester.enterText(fields.at(0), 'basic_member');
+    await tester.enterText(fields.at(1), 'basic@example.test');
+    await tester.enterText(fields.at(2), 'a-strong-password-123');
     await tester.enterText(fields.at(3), 'a-strong-password-123');
-    await tester.enterText(fields.at(4), 'a-strong-password-123');
     for (final label in [
       'I confirm that I am at least 18 years old.',
       'I have read and accept the Testagram Terms of Service.',
@@ -333,7 +332,7 @@ void main() {
     expect(find.text('Create your Testagram account'), findsOneWidget);
     expect(find.text('Create account'), findsOneWidget);
     expect(find.text('Submit application'), findsNothing);
-    expect(find.text('Full name'), findsOneWidget);
+    expect(find.text('Full name'), findsNothing);
     expect(find.text('Username'), findsOneWidget);
     expect(find.text('I confirm that I am at least 18 years old.'), findsOneWidget);
     expect(find.textContaining('Identity verification is separate'), findsWidgets);
