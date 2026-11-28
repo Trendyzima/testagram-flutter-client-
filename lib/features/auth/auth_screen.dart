@@ -1,6 +1,5 @@
 
 import 'dart:convert';
-import 'dart:math';
 
 import 'package:image_picker/image_picker.dart';
 import 'package:material_ui/material_ui.dart';
@@ -47,7 +46,6 @@ class _AuthScreenState extends State<AuthScreen> {
   _Page _page = _Page.signIn;
   bool _busy = false, _obscure = true;
   bool _adultConfirmed = false, _termsAccepted = false, _privacyAccepted = false;
-  bool _hasSavedIdentityDraft = false;
   late final IdentityApplicationStore _identityStore;
   IdentityApplicationDraft? _identityDraft;
   IdentityApplication? _identityApplication;
@@ -102,7 +100,6 @@ class _AuthScreenState extends State<AuthScreen> {
       _page = _Page.signUp;
     }
     if (entry.mode == AuthEntryMode.signIn && !widget.requireVerification) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _checkSavedIdentityDraft());
     }
   }
 
@@ -217,14 +214,6 @@ class _AuthScreenState extends State<AuthScreen> {
     setState(() { _busy = true; _error = null; _notice = null; });
     try { await fn(); } catch (e) { if (mounted) setState(() => _error = _friendly(e)); }
     finally { if (mounted) setState(() => _busy = false); }
-  }
-
-  String? _usernameValid(String? value) {
-    final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
-    if (!RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(username)) {
-      return 'Use 3–30 letters, numbers or underscores.';
-    }
-    return null;
   }
 
   Future<void> _signIn() async {
@@ -345,61 +334,6 @@ class _AuthScreenState extends State<AuthScreen> {
         _page = _Page.verify;
         _notice = 'Your Testagram account registration has been received. Verify your email using the code or link sent to your inbox before signing in.';
       });
-    });
-  }
-
-  Future<void> _checkSavedIdentityDraft() async {
-    try {
-      final draft = await _identityStore.load();
-      if (mounted) setState(() => _hasSavedIdentityDraft = draft != null);
-    } catch (_) {
-      if (mounted) setState(() => _hasSavedIdentityDraft = false);
-    }
-  }
-
-  Future<void> _restoreIdentityDraft() async {
-    IdentityApplicationDraft? draft;
-    try {
-      draft = await _identityStore.load();
-    } catch (_) {
-      return;
-    }
-    if (!mounted || draft == null) return;
-    final restorableDraft = draft;
-    await _run(() async {
-      final api = IdentityVerificationClient(backendOrigin: AppConfig.backendOrigin);
-      try {
-        var currentDraft = restorableDraft;
-        final existingApplication = currentDraft.application;
-        final application = existingApplication ??
-            await _submitIdentityDraft(api, currentDraft);
-        if (application == null) return;
-        if (existingApplication == null) {
-          currentDraft = currentDraft.copyWith(application: application);
-          await _identityStore.save(currentDraft);
-        }
-        final status = await api.getStatus(application);
-        if (!mounted) return;
-        setState(() {
-          // Restore the applicant's visible identity fields as well as the
-          // secure capability. Resend and status screens must use the same
-          // email/application pair after an app restart.
-          _name.text = currentDraft.displayName;
-          _email.text = currentDraft.email;
-          _username.text = currentDraft.username;
-          _identityDraft = currentDraft;
-          _identityApplication = application;
-          _identityStatus = status;
-          _page = status.provisioningStatus == 'verification_pending'
-              ? _Page.verify
-              : _Page.identity;
-          _notice = status.provisioningStatus == 'verification_pending'
-              ? 'Your approved Testagram account is waiting for email verification.'
-              : 'Your saved identity application has been restored.';
-        });
-      } finally {
-        api.close();
-      }
     });
   }
 
