@@ -4,6 +4,11 @@ set -euo pipefail
 config="lib/core/app_config.dart"
 screen="lib/features/auth/auth_screen.dart"
 
+if [[ -n "${TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED:-}" ]]; then
+  echo "::error::TESTAGRAM_IDENTITY_REGISTRATION_UI_ENABLED is retired; public identity enrollment cannot be enabled through the build environment."
+  exit 1
+fi
+
 if ! grep -Fq 'static const enableIdentityRegistrationUi = false;' "$config"; then
   echo "::error::Public identity-review enrollment must remain hard-disabled in AppConfig."
   exit 1
