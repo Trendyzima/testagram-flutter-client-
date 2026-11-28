@@ -845,11 +845,6 @@ class _AuthScreenState extends State<AuthScreen> {
             Text(subtitle, style: const TextStyle(fontSize: 14, height: 1.5, color: muted)),
             const SizedBox(height: 24),
             if (_page == _Page.signUp) ...[
-              field(controller: _name, label: 'Full name', icon: Icons.person_outline_rounded, capitalization: TextCapitalization.words, action: TextInputAction.next, validator: (value) {
-                final name = (value ?? '').trim();
-                return name.length < 2 || name.length > 80 ? 'Enter your name (2–80 characters).' : null;
-              }),
-              const SizedBox(height: 14),
               field(controller: _username, label: 'Username', icon: Icons.alternate_email_rounded, prefix: '@', autocorrect: false, action: TextInputAction.next, validator: (value) {
                 final username = (value ?? '').trim().replaceFirst(RegExp(r'^@'), '');
                 return RegExp(r'^[a-zA-Z0-9_]{3,30}$').hasMatch(username) ? null : 'Use 3–30 letters, numbers or underscores.';
